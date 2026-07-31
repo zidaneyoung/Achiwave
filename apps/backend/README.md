@@ -25,6 +25,10 @@ Run the API for local development:
 python -m uvicorn achiwave_backend.main:app --reload
 ```
 
+The process-only liveness endpoint is `GET /health/live`. The dependency-aware
+readiness endpoint is `GET /health/ready` and returns HTTP 503 until both
+PostgreSQL and Redis are reachable.
+
 Start the Celery worker after configuring Redis:
 
 ```powershell

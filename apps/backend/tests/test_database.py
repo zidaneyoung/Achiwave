@@ -3,12 +3,15 @@ from unittest.mock import MagicMock, patch
 import pytest
 from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import OperationalError
 
 from achiwave_backend.config import Settings
 from achiwave_backend.database import (
     Base,
+    DatabaseUnavailableError,
     create_database_engine,
     create_session_factory,
+    ping_database,
     session_scope,
 )
 
@@ -64,3 +67,27 @@ def test_metadata_import_does_not_create_domain_tables() -> None:
 
     assert Base.metadata.tables == {}
     engine.begin.assert_not_called()
+
+
+def test_ping_database_returns_true() -> None:
+    connection = MagicMock()
+    connection.scalar.return_value = 1
+    engine = MagicMock(spec=Engine)
+    engine.connect.return_value.__enter__.return_value = connection
+
+    assert ping_database(engine) is True
+
+
+def test_ping_database_raises_controlled_error() -> None:
+    engine = MagicMock(spec=Engine)
+    engine.connect.side_effect = OperationalError(
+        "SELECT 1",
+        {},
+        Exception("private-host:5432"),
+    )
+
+    with pytest.raises(DatabaseUnavailableError) as captured:
+        ping_database(engine)
+
+    assert str(captured.value) == "PostgreSQL is unavailable."
+    assert "private-host" not in str(captured.value)

@@ -1,8 +1,9 @@
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from achiwave_backend.config import Settings
@@ -13,6 +14,10 @@ class Base(DeclarativeBase):
 
 
 SessionFactory = sessionmaker[Session]
+
+
+class DatabaseUnavailableError(RuntimeError):
+    """Controlled dependency error that does not reveal connection details."""
 
 
 def create_database_engine(settings: Settings) -> Engine:
@@ -27,6 +32,14 @@ def create_database_engine(settings: Settings) -> Engine:
         pool_size=settings.database_pool_size,
         pool_timeout=settings.database_pool_timeout_seconds,
     )
+
+
+def ping_database(engine: Engine) -> bool:
+    try:
+        with engine.connect() as connection:
+            return connection.scalar(text("SELECT 1")) == 1
+    except SQLAlchemyError as error:
+        raise DatabaseUnavailableError("PostgreSQL is unavailable.") from error
 
 
 def create_session_factory(engine: Engine) -> SessionFactory:
