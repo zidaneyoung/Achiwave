@@ -31,6 +31,11 @@ def test_database_url_rejects_malformed_value() -> None:
         Settings(_env_file=None, database_url="not-a-database-url")
 
 
+def test_application_environment_rejects_unknown_value() -> None:
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, app_environment="staging")
+
+
 def test_redis_url_has_a_non_secret_local_default() -> None:
     settings = Settings(_env_file=None)
 

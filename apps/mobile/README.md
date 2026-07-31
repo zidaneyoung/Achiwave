@@ -17,6 +17,12 @@ backend running on the host through `http://10.0.2.2:8000`; physical devices
 need a reachable local-network URL instead. Every `EXPO_PUBLIC_*` value is
 embedded in the application bundle and must never contain a secret.
 
+Production configuration must set `EXPO_PUBLIC_API_ENV=production` and supply
+`EXPO_PUBLIC_API_BASE_URL` explicitly as an HTTPS URL. Expo config evaluation
+fails when that production URL is missing, malformed, credential-bearing, or
+non-HTTPS. Production URLs and credentials are never committed to this
+repository.
+
 ## Android identity
 
 Stage 2 development builds use `com.zidaneyoung.achiwave.dev` and the `achiwave`
