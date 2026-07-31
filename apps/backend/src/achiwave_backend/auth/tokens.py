@@ -1,6 +1,6 @@
 import hashlib
 import secrets
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
@@ -11,9 +11,9 @@ from achiwave_backend.config import Settings
 
 @dataclass(frozen=True, slots=True)
 class IssuedCredentials:
-    access_token: str
-    refresh_token: str
-    refresh_token_digest: bytes
+    access_token: str = field(repr=False)
+    refresh_token: str = field(repr=False)
+    refresh_token_digest: bytes = field(repr=False)
     access_expires_at: datetime
     refresh_expires_at: datetime
 

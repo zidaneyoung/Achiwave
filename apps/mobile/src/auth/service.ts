@@ -1,6 +1,7 @@
 import Constants from "expo-constants";
 
 import { getRuntimeEnvironment } from "../config/runtime";
+import { purgeProtectedLocalData } from "../privacy/localDataPurge";
 import {
   secureCredentialStore,
   type AuthenticationCredentials,
@@ -76,9 +77,11 @@ export interface AuthenticationService {
   register(input: AuthenticationInput): Promise<AuthenticatedUserSnapshot>;
   login(input: AuthenticationInput): Promise<AuthenticatedUserSnapshot>;
   restore(): Promise<AuthenticationState>;
-  logout(): Promise<void>;
+  logout(): Promise<"confirmed" | "not_required" | "unconfirmed">;
+  lockProtectedSession(): void;
   request(path: string, init?: RequestInit): Promise<Response>;
   handleCurrentSessionRevoked(): Promise<void>;
+  handleAccountDeactivated(): Promise<void>;
   subscribeSessionRejected(listener: (message: string) => void): () => void;
 }
 
@@ -207,6 +210,7 @@ export function createAuthenticationService({
   timeoutMilliseconds = 10_000,
 }: AuthenticationServiceOptions = {}): AuthenticationService {
   let refreshPromise: Promise<AuthenticationCredentials> | null = null;
+  let authenticationEpoch = 0;
   const sessionRejectedListeners = new Set<(message: string) => void>();
   const appEnvironment =
     apiEnvironment === "test" ? "preview" : apiEnvironment;
@@ -263,6 +267,7 @@ export function createAuthenticationService({
     endpoint: "login" | "register",
     input: AuthenticationInput,
   ): Promise<AuthenticatedUserSnapshot> {
+    const expectedEpoch = authenticationEpoch;
     const response = await fetchApi(`/api/v1/auth/${endpoint}`, {
       body: JSON.stringify({
         email: input.email.trim(),
@@ -280,12 +285,19 @@ export function createAuthenticationService({
     if (!payload) {
       throw userFacingError(null);
     }
+    if (expectedEpoch !== authenticationEpoch) {
+      throw new AuthenticationRequestError(
+        "session_rejected",
+        "Authentication was cancelled safely.",
+      );
+    }
     return storeAuthentication(payload);
   }
 
   async function performRefresh(
     expectedSessionId: string,
   ): Promise<AuthenticationCredentials> {
+    const expectedEpoch = authenticationEpoch;
     const currentResult = await credentialStore.load();
     if (currentResult.status !== "ready") {
       throw new AuthenticationRequestError(
@@ -324,6 +336,12 @@ export function createAuthenticationService({
       ...currentResult.credentials,
       ...refreshed,
     };
+    if (expectedEpoch !== authenticationEpoch) {
+      throw new AuthenticationRequestError(
+        "session_rejected",
+        "Your session is no longer available. Sign in again.",
+      );
+    }
     await credentialStore.save(credentials);
     return credentials;
   }
@@ -340,7 +358,8 @@ export function createAuthenticationService({
   }
 
   async function rejectSession(message: string): Promise<void> {
-    await credentialStore.clearAuthentication();
+    authenticationEpoch += 1;
+    await purgeProtectedLocalData();
     for (const listener of sessionRejectedListeners) {
       listener(message);
     }
@@ -358,6 +377,40 @@ export function createAuthenticationService({
         Authorization: `Bearer ${accessToken}`,
       },
     });
+  }
+
+  async function validateOrRefresh(
+    credentials: AuthenticationCredentials,
+  ): Promise<AuthenticationCredentials> {
+    if (Date.parse(credentials.accessTokenExpiresAt) <= Date.now()) {
+      return refresh(credentials.sessionId);
+    }
+    const response = await requestWithAccessToken(
+      "/api/v1/users/me",
+      { method: "GET" },
+      credentials.accessToken,
+    );
+    if (response.status === 401) {
+      return refresh(credentials.sessionId);
+    }
+    if (!response.ok) {
+      throw new AuthenticationRequestError(
+        "unexpected_response",
+        "Authentication could not be validated safely.",
+      );
+    }
+    const body = await readJson(response);
+    if (
+      !isObject(body) ||
+      readString(body, "id") !== credentials.user.id ||
+      readString(body, "email") !== credentials.user.email
+    ) {
+      throw new AuthenticationRequestError(
+        "unexpected_response",
+        "Authentication could not be validated safely.",
+      );
+    }
+    return credentials;
   }
 
   return {
@@ -382,7 +435,7 @@ export function createAuthenticationService({
         };
       }
       try {
-        const credentials = await refresh(result.credentials.sessionId);
+        const credentials = await validateOrRefresh(result.credentials);
         return { status: "authenticated", user: credentials.user };
       } catch (error) {
         if (
@@ -404,24 +457,32 @@ export function createAuthenticationService({
       }
     },
 
-    async logout(): Promise<void> {
+    async logout(): Promise<"confirmed" | "not_required" | "unconfirmed"> {
       const result = await credentialStore.load();
       try {
-        if (result.status === "ready") {
-          await fetchApi("/api/v1/auth/logout", {
-            body: JSON.stringify({
-              refresh_token: result.credentials.refreshToken,
-            }),
-            headers: {
-              Authorization: `Bearer ${result.credentials.accessToken}`,
-              "Content-Type": "application/json",
-            },
-            method: "POST",
-          });
+        if (result.status !== "ready") {
+          return "not_required";
         }
-      } finally {
-        await credentialStore.clearAuthentication();
+        const response = await fetchApi("/api/v1/auth/logout", {
+          body: JSON.stringify({
+            refresh_token: result.credentials.refreshToken,
+          }),
+          headers: {
+            Authorization: `Bearer ${result.credentials.accessToken}`,
+            "Content-Type": "application/json",
+          },
+          method: "POST",
+        });
+        return response.status === 204 || response.status === 401
+          ? "confirmed"
+          : "unconfirmed";
+      } catch {
+        return "unconfirmed";
       }
+    },
+
+    lockProtectedSession(): void {
+      authenticationEpoch += 1;
     },
 
     async request(path: string, init: RequestInit = {}): Promise<Response> {
@@ -444,6 +505,10 @@ export function createAuthenticationService({
       if (response.status !== 401) {
         return response;
       }
+      const firstError = parseApiError(await readJson(response.clone()));
+      if (firstError?.code === "invalid_credentials") {
+        return response;
+      }
       credentials = await refresh(credentials.sessionId);
       response = await requestWithAccessToken(path, init, credentials.accessToken);
       if (response.status === 401) {
@@ -459,6 +524,12 @@ export function createAuthenticationService({
     handleCurrentSessionRevoked(): Promise<void> {
       return rejectSession(
         "This device or session was revoked. Sign in again.",
+      );
+    },
+
+    handleAccountDeactivated(): Promise<void> {
+      return rejectSession(
+        "Your account was deactivated and local protected data was cleared.",
       );
     },
 

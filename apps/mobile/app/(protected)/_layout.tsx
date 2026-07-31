@@ -1,10 +1,11 @@
-import { Redirect, Stack } from "expo-router";
+import { Redirect, Stack, useSegments } from "expo-router";
 
 import { AuthStateScreen } from "../../src/auth/AuthStateScreen";
 import { useAuthentication } from "../../src/auth/AuthContext";
 
 export default function ProtectedLayout() {
   const { state } = useAuthentication();
+  const segments = useSegments();
   if (state.status === "loading") {
     return (
       <AuthStateScreen
@@ -20,12 +21,19 @@ export default function ProtectedLayout() {
   if (state.status === "failure") {
     return <AuthStateScreen message={state.message} title="Session unavailable" />;
   }
+  if (
+    state.status === "offline_limited" &&
+    segments[segments.length - 1] !== "offline"
+  ) {
+    return <Redirect href="/(protected)/offline" />;
+  }
   return (
     <Stack>
       <Stack.Screen name="index" options={{ title: "Achiwave" }} />
       <Stack.Screen name="offline" options={{ title: "Offline" }} />
       <Stack.Screen name="security" options={{ title: "Devices and sessions" }} />
       <Stack.Screen name="preferences" options={{ title: "Preferences" }} />
+      <Stack.Screen name="account" options={{ title: "Account" }} />
     </Stack>
   );
 }

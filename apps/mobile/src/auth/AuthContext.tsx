@@ -10,6 +10,8 @@ import {
 
 import { bootstrapAuthentication } from "./bootstrap";
 import { authenticationService } from "./service";
+import { purgeProtectedLocalData } from "../privacy/localDataPurge";
+import { accountApi } from "../account/api";
 import type {
   AuthenticatedUserSnapshot,
   AuthenticationState,
@@ -19,6 +21,8 @@ interface AuthenticationContextValue {
   state: AuthenticationState;
   login(email: string, password: string): Promise<void>;
   register(email: string, password: string): Promise<void>;
+  deactivateAccount(password: string): Promise<void>;
+  revalidate(): Promise<void>;
   setOfflineLimited(user: AuthenticatedUserSnapshot): void;
   signOut(): Promise<void>;
 }
@@ -80,15 +84,58 @@ export function AuthenticationProvider({
     [],
   );
   const signOut = useCallback(async () => {
+    setState({ status: "loading" });
+    let serverStatus: "confirmed" | "not_required" | "unconfirmed" =
+      "unconfirmed";
     try {
-      await authenticationService.logout();
+      serverStatus = await authenticationService.logout();
     } finally {
-      setState({ status: "unauthenticated" });
+      authenticationService.lockProtectedSession();
+      const purgeResult = await purgeProtectedLocalData();
+      let message: string | undefined;
+      if (purgeResult.status === "partial") {
+        message =
+          "Protected access is locked, but some local data needs cleanup retry.";
+      } else if (serverStatus === "unconfirmed") {
+        message =
+          "Signed out on this device. Server confirmation was unavailable.";
+      }
+      setState({ status: "unauthenticated", message });
+    }
+  }, []);
+  const deactivateAccount = useCallback(async (password: string) => {
+    await accountApi.deactivate(password);
+  }, []);
+  const revalidate = useCallback(async () => {
+    setState({ status: "loading" });
+    try {
+      setState(await bootstrapAuthentication());
+    } catch {
+      setState({
+        status: "failure",
+        message: "Authentication could not be restored safely.",
+      });
     }
   }, []);
   const value = useMemo(
-    () => ({ state, login, register, setOfflineLimited, signOut }),
-    [state, login, register, setOfflineLimited, signOut],
+    () => ({
+      state,
+      login,
+      register,
+      deactivateAccount,
+      revalidate,
+      setOfflineLimited,
+      signOut,
+    }),
+    [
+      state,
+      login,
+      register,
+      deactivateAccount,
+      revalidate,
+      setOfflineLimited,
+      signOut,
+    ],
   );
 
   return (

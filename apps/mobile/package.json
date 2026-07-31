@@ -6,7 +6,8 @@
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:security": "node --experimental-strip-types --test src/security/safeLogging.test.mjs"
   },
   "dependencies": {
     "expo": "~57.0.9",

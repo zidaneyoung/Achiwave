@@ -1,6 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 
 import { getRuntimeEnvironment } from "../config/runtime";
+import { secureCredentialStore } from "../auth/secureCredentials";
 import type { PreferenceSnapshot } from "./types";
 
 const CACHE_VERSION = 1;
@@ -8,6 +9,12 @@ const cacheKey = `achiwave.${getRuntimeEnvironment().apiEnvironment}.presentatio
 
 interface StoredPreferenceSnapshot extends PreferenceSnapshot {
   cacheVersion: typeof CACHE_VERSION;
+  ownerId: string;
+}
+
+interface ClearedPreferenceCache {
+  cacheVersion: typeof CACHE_VERSION;
+  state: "cleared";
 }
 
 function isStoredSnapshot(value: unknown): value is StoredPreferenceSnapshot {
@@ -17,6 +24,7 @@ function isStoredSnapshot(value: unknown): value is StoredPreferenceSnapshot {
   const candidate = value as Record<string, unknown>;
   return (
     candidate.cacheVersion === CACHE_VERSION &&
+    typeof candidate.ownerId === "string" &&
     typeof candidate.timezoneName === "string" &&
     typeof candidate.timezoneVersion === "number" &&
     typeof candidate.timezoneEffectiveAt === "string" &&
@@ -39,24 +47,48 @@ function isStoredSnapshot(value: unknown): value is StoredPreferenceSnapshot {
 export async function saveCachedPreferences(
   preferences: PreferenceSnapshot,
 ): Promise<void> {
+  const authentication = await secureCredentialStore.load();
+  if (authentication.status !== "ready") {
+    return;
+  }
   const stored: StoredPreferenceSnapshot = {
     cacheVersion: CACHE_VERSION,
+    ownerId: authentication.credentials.user.id,
     ...preferences,
   };
   await SecureStore.setItemAsync(cacheKey, JSON.stringify(stored));
 }
 
 export async function loadCachedPreferences(): Promise<PreferenceSnapshot | null> {
+  const authentication = await secureCredentialStore.load();
+  if (authentication.status !== "ready") {
+    return null;
+  }
   const serialized = await SecureStore.getItemAsync(cacheKey);
   if (serialized === null) {
     return null;
   }
   try {
     const parsed: unknown = JSON.parse(serialized);
-    if (!isStoredSnapshot(parsed)) {
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      (parsed as Record<string, unknown>).cacheVersion === CACHE_VERSION &&
+      (parsed as Record<string, unknown>).state === "cleared"
+    ) {
+      return null;
+    }
+    if (
+      !isStoredSnapshot(parsed) ||
+      parsed.ownerId !== authentication.credentials.user.id
+    ) {
       throw new Error("Invalid preference cache.");
     }
-    const { cacheVersion: _cacheVersion, ...preferences } = parsed;
+    const {
+      cacheVersion: _cacheVersion,
+      ownerId: _ownerId,
+      ...preferences
+    } = parsed;
     return preferences;
   } catch {
     await SecureStore.deleteItemAsync(cacheKey);
@@ -65,5 +97,9 @@ export async function loadCachedPreferences(): Promise<PreferenceSnapshot | null
 }
 
 export async function clearCachedPreferences(): Promise<void> {
-  await SecureStore.deleteItemAsync(cacheKey);
+  const cleared: ClearedPreferenceCache = {
+    cacheVersion: CACHE_VERSION,
+    state: "cleared",
+  };
+  await SecureStore.setItemAsync(cacheKey, JSON.stringify(cleared));
 }

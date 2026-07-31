@@ -128,7 +128,11 @@ class PushToken(Base):
     token_value: Mapped[str] = mapped_column(
         Text, nullable=False, info={"sensitive": True}
     )
-    token_hash: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    token_hash: Mapped[bytes] = mapped_column(
+        LargeBinary,
+        nullable=False,
+        info={"sensitive": True},
+    )
     token_state: Mapped[str] = mapped_column(
         Text, nullable=False, server_default=text("'active'")
     )
@@ -149,3 +153,10 @@ class PushToken(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("CURRENT_TIMESTAMP")
     )
+
+    def __repr__(self) -> str:
+        return (
+            f"PushToken(id={self.id!r}, user_id={self.user_id!r}, "
+            f"device_id={self.device_id!r}, provider={self.provider!r}, "
+            f"token_state={self.token_state!r})"
+        )

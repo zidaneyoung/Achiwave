@@ -83,7 +83,11 @@ class RegisteredDevice(Base):
     )
     user_id: Mapped[UUID] = mapped_column(PostgreSQLUUID(as_uuid=True), nullable=False)
     platform: Mapped[str] = mapped_column(Text, nullable=False)
-    installation_id: Mapped[str] = mapped_column(Text, nullable=False)
+    installation_id: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        info={"sensitive": True},
+    )
     app_environment: Mapped[str] = mapped_column(Text, nullable=False)
     app_version: Mapped[str | None] = mapped_column(Text)
     build_version: Mapped[str | None] = mapped_column(Text)
@@ -106,3 +110,10 @@ class RegisteredDevice(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("CURRENT_TIMESTAMP")
     )
+
+    def __repr__(self) -> str:
+        return (
+            f"RegisteredDevice(id={self.id!r}, user_id={self.user_id!r}, "
+            f"platform={self.platform!r}, app_environment={self.app_environment!r}, "
+            f"device_state={self.device_state!r})"
+        )

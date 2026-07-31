@@ -6,6 +6,8 @@
 - [Stage 2 acceptance audit](testing/stage-2-acceptance.md)
 - [Stage 3 PostgreSQL schema](database/stage-3-schema.md)
 - [Stage 3 acceptance audit](testing/stage-3-acceptance.md)
+- [Stage 4 authentication and account security](security/stage-4-authentication.md)
+- [Stage 4 acceptance audit](testing/stage-4-acceptance.md)
 
 This index is the normative entry point for Stage 1 product rules. If a later
 implementation conflicts with these documents, the implementation is wrong until

@@ -86,7 +86,10 @@ class DeviceSession(Base):
     )
     user_id: Mapped[UUID] = mapped_column(PostgreSQLUUID(as_uuid=True), nullable=False)
     device_id: Mapped[UUID] = mapped_column(PostgreSQLUUID(as_uuid=True), nullable=False)
-    credential_digest: Mapped[bytes | None] = mapped_column(LargeBinary)
+    credential_digest: Mapped[bytes | None] = mapped_column(
+        LargeBinary,
+        info={"sensitive": True},
+    )
     session_state: Mapped[str] = mapped_column(
         Text, nullable=False, server_default=text("'active'")
     )
@@ -107,3 +110,9 @@ class DeviceSession(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("CURRENT_TIMESTAMP")
     )
+
+    def __repr__(self) -> str:
+        return (
+            f"DeviceSession(id={self.id!r}, user_id={self.user_id!r}, "
+            f"device_id={self.device_id!r}, session_state={self.session_state!r})"
+        )
