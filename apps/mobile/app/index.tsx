@@ -1,39 +1,27 @@
-import { StatusBar, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Redirect } from "expo-router";
 
-export default function HomeRoute() {
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <Text accessibilityRole="header" style={styles.title}>
-          Achiwave
-        </Text>
-        <Text style={styles.subtitle}>Mobile foundation ready.</Text>
-        <StatusBar barStyle="dark-content" />
-      </View>
-    </SafeAreaView>
-  );
+import { AuthStateScreen } from "../src/auth/AuthStateScreen";
+import { useAuthentication } from "../src/auth/AuthContext";
+
+export default function EntryRoute() {
+  const { state } = useAuthentication();
+  if (state.status === "loading") {
+    return (
+      <AuthStateScreen
+        loading
+        message="Your protected session is being checked before anything private is shown."
+        title="Checking your session"
+      />
+    );
+  }
+  if (state.status === "failure") {
+    return <AuthStateScreen message={state.message} title="Sign-in unavailable" />;
+  }
+  if (state.status === "authenticated") {
+    return <Redirect href="/(protected)" />;
+  }
+  if (state.status === "offline_limited") {
+    return <Redirect href="/(protected)/offline" />;
+  }
+  return <Redirect href="/(auth)/login" />;
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#f7f5ef",
-  },
-  container: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 24,
-  },
-  title: {
-    color: "#17221d",
-    fontSize: 32,
-    fontWeight: "700",
-  },
-  subtitle: {
-    color: "#46534c",
-    fontSize: 17,
-    marginTop: 8,
-  },
-});
