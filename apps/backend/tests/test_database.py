@@ -19,6 +19,8 @@ from achiwave_backend.models import (
     DeviceSession,
     PushToken,
     Quest,
+    QuestCompletion,
+    QuestCompletionReversal,
     QuestOccurrence,
     QuestRecurrence,
     RegisteredDevice,
@@ -83,6 +85,8 @@ def test_metadata_import_registers_models_without_connecting() -> None:
         "quests",
         "quest_recurrences",
         "quest_occurrences",
+        "quest_completions",
+        "quest_completion_reversals",
         "registered_devices",
         "user_preferences",
         "users",
@@ -91,6 +95,11 @@ def test_metadata_import_registers_models_without_connecting() -> None:
     assert DeviceSession.__table__ is Base.metadata.tables["device_sessions"]
     assert PushToken.__table__ is Base.metadata.tables["push_tokens"]
     assert Quest.__table__ is Base.metadata.tables["quests"]
+    assert QuestCompletion.__table__ is Base.metadata.tables["quest_completions"]
+    assert (
+        QuestCompletionReversal.__table__
+        is Base.metadata.tables["quest_completion_reversals"]
+    )
     assert QuestOccurrence.__table__ is Base.metadata.tables["quest_occurrences"]
     assert QuestRecurrence.__table__ is Base.metadata.tables["quest_recurrences"]
     assert RegisteredDevice.__table__ is Base.metadata.tables["registered_devices"]
