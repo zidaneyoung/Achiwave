@@ -113,7 +113,6 @@ class StreakDay(Base):
             "AND removed_at IS NOT NULL AND removed_at >= credited_at)",
             name="ck_streak_days_state_source_count",
         ),
-        Index("ix_streak_days_user_date_range", "user_id", "effective_local_date"),
     )
 
     id: Mapped[UUID] = mapped_column(
@@ -161,8 +160,12 @@ class StreakDaySource(Base):
             ondelete="RESTRICT",
         ),
         ForeignKeyConstraint(
-            ["reversal_id", "user_id"],
-            ["quest_completion_reversals.id", "quest_completion_reversals.user_id"],
+            ["reversal_id", "user_id", "completion_id"],
+            [
+                "quest_completion_reversals.id",
+                "quest_completion_reversals.user_id",
+                "quest_completion_reversals.completion_id",
+            ],
             name="fk_streak_day_sources_reversal_user",
             ondelete="RESTRICT",
         ),

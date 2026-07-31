@@ -23,6 +23,11 @@ def upgrade() -> None:
         "quest_completions",
         ["id", "user_id", "completion_effective_date"],
     )
+    op.create_unique_constraint(
+        "uq_quest_completion_reversals_id_user_completion",
+        "quest_completion_reversals",
+        ["id", "user_id", "completion_id"],
+    )
     op.create_table(
         "streaks",
         sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False),
@@ -105,12 +110,6 @@ def upgrade() -> None:
             "id", "user_id", "effective_local_date", name="uq_streak_days_id_user_date"
         ),
     )
-    op.create_index(
-        "ix_streak_days_user_date_range",
-        "streak_days",
-        ["user_id", "effective_local_date"],
-        unique=False,
-    )
     op.create_table(
         "streak_day_sources",
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
@@ -153,8 +152,12 @@ def upgrade() -> None:
             ondelete="RESTRICT",
         ),
         sa.ForeignKeyConstraint(
-            ["reversal_id", "user_id"],
-            ["quest_completion_reversals.id", "quest_completion_reversals.user_id"],
+            ["reversal_id", "user_id", "completion_id"],
+            [
+                "quest_completion_reversals.id",
+                "quest_completion_reversals.user_id",
+                "quest_completion_reversals.completion_id",
+            ],
             name="fk_streak_day_sources_reversal_user",
             ondelete="RESTRICT",
         ),
@@ -172,9 +175,13 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_index("ix_streak_day_sources_day_state", table_name="streak_day_sources")
     op.drop_table("streak_day_sources")
-    op.drop_index("ix_streak_days_user_date_range", table_name="streak_days")
     op.drop_table("streak_days")
     op.drop_table("streaks")
+    op.drop_constraint(
+        "uq_quest_completion_reversals_id_user_completion",
+        "quest_completion_reversals",
+        type_="unique",
+    )
     op.drop_constraint(
         "uq_quest_completions_id_user_effective_date",
         "quest_completions",

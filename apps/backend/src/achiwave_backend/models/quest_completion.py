@@ -164,6 +164,12 @@ class QuestCompletionReversal(Base):
             "id", "user_id", name="uq_quest_completion_reversals_id_user"
         ),
         UniqueConstraint(
+            "id",
+            "user_id",
+            "completion_id",
+            name="uq_quest_completion_reversals_id_user_completion",
+        ),
+        UniqueConstraint(
             "completion_id",
             name="uq_quest_completion_reversals_completion_id",
         ),
