@@ -15,6 +15,7 @@ from achiwave_backend.database import (
     session_scope,
 )
 from achiwave_backend.models import (
+    Campaign,
     DeviceSession,
     PushToken,
     RegisteredDevice,
@@ -73,12 +74,14 @@ def test_metadata_import_registers_models_without_connecting() -> None:
     engine = MagicMock(spec=Engine)
 
     assert set(Base.metadata.tables) == {
+        "campaigns",
         "device_sessions",
         "push_tokens",
         "registered_devices",
         "user_preferences",
         "users",
     }
+    assert Campaign.__table__ is Base.metadata.tables["campaigns"]
     assert DeviceSession.__table__ is Base.metadata.tables["device_sessions"]
     assert PushToken.__table__ is Base.metadata.tables["push_tokens"]
     assert RegisteredDevice.__table__ is Base.metadata.tables["registered_devices"]
