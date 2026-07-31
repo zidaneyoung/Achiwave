@@ -23,6 +23,21 @@ fails when that production URL is missing, malformed, credential-bearing, or
 non-HTTPS. Production URLs and credentials are never committed to this
 repository.
 
+## Stage 4 authentication lifecycle
+
+Android credentials and the stable installation ID use environment-scoped Expo
+SecureStore keys. Protected routes are enabled only after the backend validates
+or refreshes a structurally valid saved session. Network loss with a previously
+confirmed session enters a minimal read-only offline screen; it does not create a
+server session or enable offline mutations.
+
+Logout and account deactivation lock in-memory authentication immediately and
+run the centralized protected-data purge for the current authentication envelope
+and owner-bound presentation-preference cache. The public environment config and
+stable installation ID remain. See the
+[Stage 4 authentication design](../../docs/security/stage-4-authentication.md)
+and [acceptance audit](../../docs/testing/stage-4-acceptance.md).
+
 ## Android identity
 
 Stage 2 development builds use `com.zidaneyoung.achiwave.dev` and the `achiwave`
@@ -39,3 +54,13 @@ APK with the Expo development client. Running
 `npx eas-cli build --platform android --profile development` requires an
 authenticated Expo account and project linking. Stage 2 intentionally does not
 invent or commit an EAS project identifier or credentials.
+
+Run local acceptance checks with a configured non-secret development API URL:
+
+```powershell
+npm ci
+npm run typecheck
+npm run test:security
+npx expo-doctor
+npx expo export --platform android
+```

@@ -1,8 +1,9 @@
 # Achiwave backend
 
-The backend is a minimal FastAPI service and shared worker package with the
-Stage 3 SQLAlchemy/Alembic data model. It does not contain authentication,
-domain endpoints, reward services, recurrence workers, or notification delivery.
+The backend is a FastAPI service and shared worker package with the Stage 3 data
+model and Stage 4 authentication, device/session, profile, preference, and
+account-deactivation APIs. It does not contain campaign/quest APIs, reward
+services, recurrence workers, or notification delivery.
 
 Create local settings before starting services:
 
@@ -32,7 +33,9 @@ PostgreSQL and Redis are reachable.
 
 Backend, worker, and scheduler logs are JSON lines on standard output. Set
 `ACHIWAVE_SERVICE_NAME` to `backend`, `worker`, or `scheduler` when starting
-each process outside Compose.
+each process outside Compose. Structured fields, exception text, authentication
+model representations, and HTTP request metadata use the same Stage 4 recursive
+secret-redaction rules in development and production.
 
 Start the Celery worker after configuring Redis:
 
@@ -48,7 +51,7 @@ python -m celery -A achiwave_backend.worker:celery_app beat --loglevel=INFO --sc
 
 Stage 2 intentionally configures no scheduled domain jobs.
 
-Apply the linear Stage 3 migration chain from this directory:
+Apply the linear migration chain through the Stage 4 head from this directory:
 
 ```powershell
 python -m alembic upgrade head
@@ -59,6 +62,14 @@ Inspect it with `python -m alembic heads`, `python -m alembic current`, and
 in [`docs/database/stage-3-schema.md`](../../docs/database/stage-3-schema.md) and
 [`docs/testing/stage-3-acceptance.md`](../../docs/testing/stage-3-acceptance.md).
 
+Stage 4 authentication design and executed evidence are in
+[`docs/security/stage-4-authentication.md`](../../docs/security/stage-4-authentication.md)
+and [`docs/testing/stage-4-acceptance.md`](../../docs/testing/stage-4-acceptance.md).
+Authentication requires `ACHIWAVE_ACCESS_TOKEN_SIGNING_KEY`; production rejects
+a missing or short key. Issuer, audience, access lifetime, refresh lifetime, and
+password length bounds are documented in `.env.example`. Never reuse the local
+Compose placeholder in production.
+
 The destructive migration tests require an explicitly disposable PostgreSQL URL:
 
 ```powershell
@@ -66,4 +77,5 @@ $env:ACHIWAVE_TEST_DATABASE_URL = '<explicit disposable PostgreSQL URL>'
 python -m pytest tests/test_stage3_postgres.py -q
 ```
 
-The tests refuse database names that do not contain `test`, `stage3`, or `ci`.
+The tests refuse database names that do not contain an approved disposable-test
+marker.
