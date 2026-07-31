@@ -25,6 +25,7 @@ from achiwave_backend.models import (
     QuestOccurrence,
     QuestRecurrence,
     RegisteredDevice,
+    SynchronizationOperation,
     User,
     UserPreference,
 )
@@ -90,6 +91,7 @@ def test_metadata_import_registers_models_without_connecting() -> None:
         "quest_completions",
         "quest_completion_reversals",
         "registered_devices",
+        "synchronization_operations",
         "user_preferences",
         "users",
     }
@@ -106,6 +108,10 @@ def test_metadata_import_registers_models_without_connecting() -> None:
     assert QuestOccurrence.__table__ is Base.metadata.tables["quest_occurrences"]
     assert QuestRecurrence.__table__ is Base.metadata.tables["quest_recurrences"]
     assert RegisteredDevice.__table__ is Base.metadata.tables["registered_devices"]
+    assert (
+        SynchronizationOperation.__table__
+        is Base.metadata.tables["synchronization_operations"]
+    )
     assert User.__table__ is Base.metadata.tables["users"]
     assert UserPreference.__table__ is Base.metadata.tables["user_preferences"]
     engine.begin.assert_not_called()

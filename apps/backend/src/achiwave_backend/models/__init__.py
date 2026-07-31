@@ -12,6 +12,7 @@ from achiwave_backend.models.quest_completion import (
 from achiwave_backend.models.quest_occurrence import QuestOccurrence
 from achiwave_backend.models.quest_recurrence import QuestRecurrence
 from achiwave_backend.models.registered_device import RegisteredDevice
+from achiwave_backend.models.synchronization_operation import SynchronizationOperation
 from achiwave_backend.models.user import User
 from achiwave_backend.models.user_preference import UserPreference
 
@@ -26,6 +27,7 @@ __all__ = [
     "QuestOccurrence",
     "QuestRecurrence",
     "RegisteredDevice",
+    "SynchronizationOperation",
     "User",
     "UserPreference",
 ]
