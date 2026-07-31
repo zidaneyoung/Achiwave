@@ -18,3 +18,8 @@ The product turns personal goals into campaigns, quests, streaks, XP, levels, an
 - `docs`: architecture, product rules, release, and testing documentation
 
 No user-facing web application is planned for the initial product direction.
+
+## Product rules
+
+Stage 1 domain rules and acceptance evidence are indexed in
+[`docs/README.md`](docs/README.md).
