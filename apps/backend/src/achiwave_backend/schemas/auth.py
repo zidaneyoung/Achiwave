@@ -58,6 +58,7 @@ class LogoutRequest(BaseModel):
 class SafeUserResponse(BaseModel):
     id: UUID
     email: str
+    display_name: str | None
     account_state: Literal["active"]
     record_version: int
 

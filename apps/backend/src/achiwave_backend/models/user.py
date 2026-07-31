@@ -29,6 +29,13 @@ class User(Base):
             name="ck_users_password_hash_nonblank",
         ),
         CheckConstraint(
+            "display_name IS NULL OR ("
+            "display_name = btrim(display_name) "
+            "AND char_length(display_name) BETWEEN 1 AND 80 "
+            "AND display_name !~ '[[:cntrl:]]')",
+            name="ck_users_display_name_safe_shape",
+        ),
+        CheckConstraint(
             "account_state IN ('active', 'deactivated', 'deletion_pending')",
             name="ck_users_account_state",
         ),
@@ -44,6 +51,7 @@ class User(Base):
     )
     canonical_email: Mapped[str] = mapped_column(Text)
     display_email: Mapped[str] = mapped_column(Text)
+    display_name: Mapped[str | None] = mapped_column(Text)
     password_hash: Mapped[str | None] = mapped_column(
         Text,
         info={"sensitive": True},
