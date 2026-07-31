@@ -21,7 +21,7 @@ critical invalid-record probes passed.
 | B3 | `stage-3/sync-progression-schema-47-52` | [#376](https://github.com/zidaneyoung/Achiwave/pull/376) | `702f127198f0e31c8aaf2eca789b8f0fb66483e8` |
 | B4 | `stage-3/achievement-schema-53-56` | [#377](https://github.com/zidaneyoung/Achiwave/pull/377) | `1ca63f8e7d3ae25cff3f3b947ef70577ae0946b4` |
 | B5 | `stage-3/notification-evidence-schema-57-61` | [#378](https://github.com/zidaneyoung/Achiwave/pull/378) | `ca867aa9588db62a642ab289f01890f4112261db` |
-| B6 | `stage-3/integrity-migration-tests-62-64` | Pending publication; replace with the actual PR before merge | Pending |
+| B6 | `stage-3/integrity-migration-tests-62-64` | [#379](https://github.com/zidaneyoung/Achiwave/pull/379) | Authoritative result in linked PR and final repository audit |
 
 ## Issue traceability
 
