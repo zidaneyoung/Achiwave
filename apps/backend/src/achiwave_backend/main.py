@@ -1,4 +1,7 @@
-from fastapi import FastAPI, status
+import logging
+from time import perf_counter
+
+from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -11,6 +14,7 @@ from achiwave_backend.health import (
     create_redis_health_check,
     evaluate_readiness,
 )
+from achiwave_backend.logging_config import configure_logging
 
 
 class ServiceResponse(BaseModel):
@@ -24,6 +28,7 @@ def create_app(
     *,
     database_check: HealthCheck | None = None,
     redis_check: HealthCheck | None = None,
+    request_logger: logging.Logger | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     resolved_database_check = database_check or create_database_health_check(
@@ -32,8 +37,53 @@ def create_app(
     resolved_redis_check = redis_check or create_redis_health_check(
         resolved_settings
     )
+    resolved_request_logger = request_logger or logging.getLogger(
+        "achiwave.http"
+    )
     application = FastAPI(title="Achiwave API", version="0.1.0")
     application.state.settings = resolved_settings
+
+    @application.middleware("http")
+    async def log_request(request: Request, call_next):
+        started_at = perf_counter()
+        try:
+            response = await call_next(request)
+        except Exception:
+            route = getattr(request.scope.get("route"), "path", "<unmatched>")
+            resolved_request_logger.exception(
+                "http_request_failed",
+                extra={
+                    "method": request.method,
+                    "route": route,
+                    "status_code": 500,
+                    "duration_ms": round(
+                        (perf_counter() - started_at) * 1000,
+                        3,
+                    ),
+                },
+            )
+            raise
+
+        route = getattr(request.scope.get("route"), "path", "<unmatched>")
+        log_level = (
+            logging.DEBUG
+            if route in {"/health/live", "/health/ready"}
+            else logging.INFO
+        )
+        resolved_request_logger.log(
+            log_level,
+            "http_request",
+            extra={
+                "method": request.method,
+                "route": route,
+                "status_code": response.status_code,
+                "duration_ms": round(
+                    (perf_counter() - started_at) * 1000,
+                    3,
+                ),
+            },
+        )
+        return response
 
     @application.get("/", response_model=ServiceResponse)
     def service_metadata() -> ServiceResponse:
@@ -71,4 +121,6 @@ def create_app(
     return application
 
 
-app = create_app()
+runtime_settings = get_settings()
+configure_logging(runtime_settings)
+app = create_app(runtime_settings)

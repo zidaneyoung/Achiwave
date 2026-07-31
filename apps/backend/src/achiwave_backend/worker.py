@@ -1,6 +1,13 @@
 from celery import Celery
+from celery.signals import setup_logging
 
 from achiwave_backend.config import Settings, get_settings
+from achiwave_backend.logging_config import configure_logging
+
+
+@setup_logging.connect
+def configure_celery_logging(**_: object) -> None:
+    configure_logging(get_settings())
 
 
 def create_celery_app(settings: Settings | None = None) -> Celery:
@@ -34,6 +41,7 @@ def create_celery_app(settings: Settings | None = None) -> Celery:
         task_default_queue="achiwave",
         task_serializer="json",
         timezone="UTC",
+        worker_hijack_root_logger=False,
     )
     return application
 

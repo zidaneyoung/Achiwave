@@ -7,6 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ApplicationEnvironment = Literal["development", "test", "production"]
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+ServiceName = Literal["backend", "worker", "scheduler"]
 
 
 class Settings(BaseSettings):
@@ -24,6 +25,7 @@ class Settings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = Field(default=8000, ge=1, le=65535)
     log_level: LogLevel = "INFO"
+    service_name: ServiceName = "backend"
     database_url: PostgresDsn | None = None
     redis_url: RedisDsn = RedisDsn("redis://localhost:6379/0")
     celery_broker_url: RedisDsn | None = None

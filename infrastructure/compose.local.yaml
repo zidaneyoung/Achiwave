@@ -63,6 +63,9 @@ services:
 
   backend:
     <<: *backend-service
+    environment:
+      <<: *backend-environment
+      ACHIWAVE_SERVICE_NAME: backend
     command:
       - python
       - -m
@@ -72,6 +75,7 @@ services:
       - 0.0.0.0
       - --port
       - "8000"
+      - --no-access-log
     ports:
       - "127.0.0.1:${ACHIWAVE_BACKEND_PORT:-8000}:8000"
     healthcheck:
@@ -87,6 +91,9 @@ services:
 
   worker:
     <<: *backend-service
+    environment:
+      <<: *backend-environment
+      ACHIWAVE_SERVICE_NAME: worker
     command:
       - python
       - -m
@@ -98,6 +105,9 @@ services:
 
   scheduler:
     <<: *backend-service
+    environment:
+      <<: *backend-environment
+      ACHIWAVE_SERVICE_NAME: scheduler
     command:
       - python
       - -m
