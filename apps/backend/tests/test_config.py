@@ -29,3 +29,14 @@ def test_database_url_is_required_for_database_operations() -> None:
 def test_database_url_rejects_malformed_value() -> None:
     with pytest.raises(ValidationError):
         Settings(_env_file=None, database_url="not-a-database-url")
+
+
+def test_redis_url_has_a_non_secret_local_default() -> None:
+    settings = Settings(_env_file=None)
+
+    assert settings.require_redis_url() == "redis://localhost:6379/0"
+
+
+def test_redis_url_rejects_malformed_value() -> None:
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, redis_url="not-a-redis-url")

@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, PostgresDsn
+from pydantic import Field, PostgresDsn, RedisDsn
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ApplicationEnvironment = Literal["development", "test", "production"]
@@ -16,6 +16,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         env_prefix="ACHIWAVE_",
         extra="ignore",
+        validate_default=True,
     )
 
     app_environment: ApplicationEnvironment = "development"
@@ -23,6 +24,9 @@ class Settings(BaseSettings):
     port: int = Field(default=8000, ge=1, le=65535)
     log_level: LogLevel = "INFO"
     database_url: PostgresDsn | None = None
+    redis_url: RedisDsn = RedisDsn("redis://localhost:6379/0")
+    redis_connect_timeout_seconds: float = Field(default=1.0, gt=0, le=10)
+    redis_socket_timeout_seconds: float = Field(default=1.0, gt=0, le=10)
 
     def require_database_url(self) -> str:
         if self.database_url is None:
@@ -30,6 +34,9 @@ class Settings(BaseSettings):
                 "ACHIWAVE_DATABASE_URL is required for database operations."
             )
         return str(self.database_url)
+
+    def require_redis_url(self) -> str:
+        return str(self.redis_url)
 
 
 @lru_cache
