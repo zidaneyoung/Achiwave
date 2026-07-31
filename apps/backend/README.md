@@ -3,6 +3,16 @@
 The Stage 2 backend is a minimal FastAPI service and shared worker package. It
 does not contain authentication, domain endpoints, or Stage 3 data models.
 
+Create local settings before starting services:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Replace the example database password with the password used by your disposable
+local PostgreSQL service. `Settings` loads this `.env` file when commands run
+from `apps/backend`. Real `.env` files are ignored and must never be committed.
+
 From this directory, install the package in a Python 3.12 virtual environment:
 
 ```powershell
