@@ -11,6 +11,7 @@ from achiwave_backend.models.evidence_attachment import EvidenceAttachment
 from achiwave_backend.models.level_definition import LevelDefinition
 from achiwave_backend.models.notification import Notification
 from achiwave_backend.models.notification_delivery import NotificationDelivery
+from achiwave_backend.models.outbox_event import OutboxEvent
 from achiwave_backend.models.progress_event import ProgressEvent
 from achiwave_backend.models.push_token import PushToken
 from achiwave_backend.models.quest import Quest
@@ -40,6 +41,7 @@ __all__ = [
     "LevelDefinition",
     "Notification",
     "NotificationDelivery",
+    "OutboxEvent",
     "ProgressEvent",
     "PushToken",
     "Quest",

@@ -23,6 +23,12 @@ class NotificationDelivery(Base):
     __tablename__ = "notification_deliveries"
     __table_args__ = (
         ForeignKeyConstraint(
+            ["outbox_event_id", "user_id"],
+            ["outbox_events.id", "outbox_events.user_id"],
+            name="fk_notification_deliveries_outbox_user",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
             ["notification_id", "user_id"],
             ["notifications.id", "notifications.user_id"],
             name="fk_notification_deliveries_notification_user",

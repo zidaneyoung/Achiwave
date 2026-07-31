@@ -26,6 +26,7 @@ from achiwave_backend.models import (
     LevelDefinition,
     Notification,
     NotificationDelivery,
+    OutboxEvent,
     ProgressEvent,
     PushToken,
     Quest,
@@ -106,6 +107,7 @@ def test_metadata_import_registers_models_without_connecting() -> None:
         "level_definitions",
         "notifications",
         "notification_deliveries",
+        "outbox_events",
         "push_tokens",
         "progress_events",
         "quests",
@@ -134,6 +136,7 @@ def test_metadata_import_registers_models_without_connecting() -> None:
     assert LevelDefinition.__table__ is Base.metadata.tables["level_definitions"]
     assert Notification.__table__ is Base.metadata.tables["notifications"]
     assert NotificationDelivery.__table__ is Base.metadata.tables["notification_deliveries"]
+    assert OutboxEvent.__table__ is Base.metadata.tables["outbox_events"]
     assert PushToken.__table__ is Base.metadata.tables["push_tokens"]
     assert ProgressEvent.__table__ is Base.metadata.tables["progress_events"]
     assert Quest.__table__ is Base.metadata.tables["quests"]
