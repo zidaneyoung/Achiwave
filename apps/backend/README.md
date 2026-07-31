@@ -14,3 +14,9 @@ Run the API for local development:
 ```powershell
 python -m uvicorn achiwave_backend.main:app --reload
 ```
+
+Start the Celery worker after configuring Redis:
+
+```powershell
+python -m celery -A achiwave_backend.worker:celery_app worker --loglevel=INFO
+```

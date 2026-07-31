@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     log_level: LogLevel = "INFO"
     database_url: PostgresDsn | None = None
     redis_url: RedisDsn = RedisDsn("redis://localhost:6379/0")
+    celery_broker_url: RedisDsn | None = None
+    celery_result_backend: RedisDsn | None = None
+    celery_task_always_eager: bool = False
     redis_connect_timeout_seconds: float = Field(default=1.0, gt=0, le=10)
     redis_socket_timeout_seconds: float = Field(default=1.0, gt=0, le=10)
 
@@ -37,6 +40,12 @@ class Settings(BaseSettings):
 
     def require_redis_url(self) -> str:
         return str(self.redis_url)
+
+    def resolved_celery_broker_url(self) -> str:
+        return str(self.celery_broker_url or self.redis_url)
+
+    def resolved_celery_result_backend(self) -> str:
+        return str(self.celery_result_backend or self.redis_url)
 
 
 @lru_cache
