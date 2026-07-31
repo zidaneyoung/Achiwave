@@ -40,6 +40,7 @@ class UpdatePresentationPreferencesRequest(BaseModel):
     sound_enabled: StrictBool | None = None
     haptics_enabled: StrictBool | None = None
     reduced_motion: Literal["system", "reduce", "allow"] | None = None
+    notification_preference: Literal["unspecified", "enabled", "disabled"] | None = None
     record_version: int = Field(ge=1)
 
     @model_validator(mode="after")

@@ -109,6 +109,12 @@ class PreferenceService:
             and preference.reduced_motion != request.reduced_motion
         ):
             changes["reduced_motion"] = request.reduced_motion
+        if (
+            "notification_preference" in request.model_fields_set
+            and preference.notification_preference
+            != request.notification_preference
+        ):
+            changes["notification_preference"] = request.notification_preference
         if changes:
             now = datetime.now(UTC)
             for field, value in changes.items():

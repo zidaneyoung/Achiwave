@@ -93,6 +93,7 @@ interface PresentationPreferenceUpdates {
   soundEnabled?: boolean;
   hapticsEnabled?: boolean;
   reducedMotion?: ReducedMotionPreference;
+  notificationPreference?: "unspecified" | "enabled" | "disabled";
 }
 
 async function updatePresentation(
@@ -113,6 +114,9 @@ async function updatePresentation(
       ...(updates.reducedMotion === undefined
         ? {}
         : { reduced_motion: updates.reducedMotion }),
+      ...(updates.notificationPreference === undefined
+        ? {}
+        : { notification_preference: updates.notificationPreference }),
       record_version: recordVersion,
     }),
     headers: { "Content-Type": "application/json" },
@@ -146,6 +150,13 @@ export const preferenceApi = {
     recordVersion: number,
   ): Promise<PreferenceSnapshot> {
     return updatePresentation({ reducedMotion }, recordVersion);
+  },
+
+  async updateNotification(
+    notificationPreference: "unspecified" | "enabled" | "disabled",
+    recordVersion: number,
+  ): Promise<PreferenceSnapshot> {
+    return updatePresentation({ notificationPreference }, recordVersion);
   },
 
   getCached(): Promise<PreferenceSnapshot | null> {

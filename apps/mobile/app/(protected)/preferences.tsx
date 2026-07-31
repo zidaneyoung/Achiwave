@@ -37,6 +37,15 @@ const MOTION_OPTIONS: Array<{
   { value: "allow", label: "Allow motion" },
 ];
 
+const NOTIFICATION_OPTIONS: Array<{
+  value: "unspecified" | "enabled" | "disabled";
+  label: string;
+}> = [
+  { value: "unspecified", label: "Not chosen" },
+  { value: "enabled", label: "Enabled in Achiwave" },
+  { value: "disabled", label: "Disabled in Achiwave" },
+];
+
 export default function PreferencesRoute() {
   const [preferences, setPreferences] = useState<PreferenceSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
@@ -139,6 +148,34 @@ export default function PreferencesRoute() {
     }
   }
 
+  async function selectNotification(
+    value: "unspecified" | "enabled" | "disabled",
+  ): Promise<void> {
+    if (
+      !preferences ||
+      saving ||
+      preferences.notificationPreference === value
+    ) {
+      return;
+    }
+    setSaving(true);
+    setMessage(null);
+    try {
+      setPreferences(
+        await preferenceApi.updateNotification(value, preferences.recordVersion),
+      );
+      setMessage("Notification preference saved.");
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Notification preference could not be saved.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -231,6 +268,33 @@ export default function PreferencesRoute() {
                   accessibilityState={{ selected, disabled: saving }}
                   disabled={saving}
                   onPress={() => void selectReducedMotion(option.value)}
+                  style={({ pressed }) => [
+                    styles.option,
+                    selected && styles.optionSelected,
+                    pressed && styles.optionPressed,
+                  ]}
+                >
+                  <Text style={styles.optionText}>{option.label}</Text>
+                  <Text style={styles.optionState}>{selected ? "Selected" : ""}</Text>
+                </Pressable>
+              );
+            })}
+            <Text accessibilityRole="header" style={styles.sectionTitle}>
+              Notifications
+            </Text>
+            <Text style={styles.help}>
+              This is your Achiwave preference, not Android permission status.
+            </Text>
+            {NOTIFICATION_OPTIONS.map((option) => {
+              const selected =
+                option.value === preferences.notificationPreference;
+              return (
+                <Pressable
+                  key={option.value}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected, disabled: saving }}
+                  disabled={saving}
+                  onPress={() => void selectNotification(option.value)}
                   style={({ pressed }) => [
                     styles.option,
                     selected && styles.optionSelected,
