@@ -68,6 +68,18 @@ class NotificationDelivery(Base):
             name="ck_notification_deliveries_attempt_number_positive",
         ),
         CheckConstraint(
+            "provider_receipt_id IS NULL OR "
+            "(provider_receipt_id = btrim(provider_receipt_id) "
+            "AND provider_receipt_id <> '')",
+            name="ck_notification_deliveries_receipt_nonblank",
+        ),
+        CheckConstraint(
+            "safe_failure_class IS NULL OR "
+            "(safe_failure_class = btrim(safe_failure_class) "
+            "AND safe_failure_class <> '')",
+            name="ck_notification_deliveries_failure_class_nonblank",
+        ),
+        CheckConstraint(
             "delivery_state IN ('pending', 'attempting', 'accepted', 'delivered', "
             "'failed', 'invalid_token', 'cancelled')",
             name="ck_notification_deliveries_state",

@@ -185,6 +185,23 @@ def test_achievement_rule_model_repr_does_not_expose_private_rule() -> None:
     assert AchievementRule.__table__.c.integrity_hash.info == {"sensitive": True}
 
 
+def test_evidence_and_outbox_repr_do_not_expose_private_payloads() -> None:
+    attachment = EvidenceAttachment(
+        storage_key="private/object/key",
+        attachment_metadata={"private": "evidence-metadata"},
+    )
+    event = OutboxEvent(event_payload={"private": "outbox-payload"})
+
+    assert "private/object/key" not in repr(attachment)
+    assert "evidence-metadata" not in repr(attachment)
+    assert "outbox-payload" not in repr(event)
+    assert EvidenceAttachment.__table__.c.storage_key.info == {"sensitive": True}
+    assert EvidenceAttachment.__table__.c.attachment_metadata.info == {
+        "sensitive": True
+    }
+    assert OutboxEvent.__table__.c.event_payload.info == {"sensitive": True}
+
+
 def test_ping_database_returns_true() -> None:
     connection = MagicMock()
     connection.scalar.return_value = 1

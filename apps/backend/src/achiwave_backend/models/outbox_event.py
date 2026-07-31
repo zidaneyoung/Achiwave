@@ -85,6 +85,12 @@ class OutboxEvent(Base):
             name="ck_outbox_events_failed_classification",
         ),
         CheckConstraint(
+            "safe_failure_class IS NULL OR "
+            "(safe_failure_class = btrim(safe_failure_class) "
+            "AND safe_failure_class <> '')",
+            name="ck_outbox_events_failure_class_nonblank",
+        ),
+        CheckConstraint(
             "available_at >= created_at",
             name="ck_outbox_events_available_after_creation",
         ),

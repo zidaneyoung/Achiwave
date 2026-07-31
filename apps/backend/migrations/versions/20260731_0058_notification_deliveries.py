@@ -47,6 +47,8 @@ def upgrade() -> None:
         sa.CheckConstraint("channel = 'push'", name="ck_notification_deliveries_channel"),
         sa.CheckConstraint("provider IN ('expo', 'fcm', 'apns')", name="ck_notification_deliveries_provider"),
         sa.CheckConstraint("attempt_number >= 1", name="ck_notification_deliveries_attempt_number_positive"),
+        sa.CheckConstraint("provider_receipt_id IS NULL OR (provider_receipt_id = btrim(provider_receipt_id) AND provider_receipt_id <> '')", name="ck_notification_deliveries_receipt_nonblank"),
+        sa.CheckConstraint("safe_failure_class IS NULL OR (safe_failure_class = btrim(safe_failure_class) AND safe_failure_class <> '')", name="ck_notification_deliveries_failure_class_nonblank"),
         sa.CheckConstraint(
             "delivery_state IN ('pending', 'attempting', 'accepted', 'delivered', "
             "'failed', 'invalid_token', 'cancelled')",

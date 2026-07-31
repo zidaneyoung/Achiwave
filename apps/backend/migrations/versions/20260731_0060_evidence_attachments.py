@@ -50,6 +50,7 @@ def upgrade() -> None:
         sa.CheckConstraint("upload_state NOT IN ('uploaded', 'processing', 'ready') OR upload_completed_at IS NOT NULL", name="ck_evidence_attachments_uploaded_timestamp"),
         sa.CheckConstraint("upload_state <> 'ready' OR processing_completed_at IS NOT NULL", name="ck_evidence_attachments_ready_timestamp"),
         sa.CheckConstraint("upload_state <> 'rejected' OR (rejected_at IS NOT NULL AND rejection_reason IS NOT NULL)", name="ck_evidence_attachments_rejected_details"),
+        sa.CheckConstraint("rejection_reason IS NULL OR (rejection_reason = btrim(rejection_reason) AND rejection_reason <> '')", name="ck_evidence_attachments_rejection_reason_nonblank"),
         sa.CheckConstraint("upload_state <> 'deleted' OR deleted_at IS NOT NULL", name="ck_evidence_attachments_deleted_timestamp"),
         sa.CheckConstraint("upload_completed_at IS NULL OR upload_completed_at >= created_at", name="ck_evidence_attachments_upload_after_creation"),
         sa.CheckConstraint("processing_completed_at IS NULL OR (upload_completed_at IS NOT NULL AND processing_completed_at >= upload_completed_at)", name="ck_evidence_attachments_processing_after_upload"),

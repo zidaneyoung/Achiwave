@@ -96,6 +96,11 @@ class EvidenceAttachment(Base):
             name="ck_evidence_attachments_rejected_details",
         ),
         CheckConstraint(
+            "rejection_reason IS NULL OR "
+            "(rejection_reason = btrim(rejection_reason) AND rejection_reason <> '')",
+            name="ck_evidence_attachments_rejection_reason_nonblank",
+        ),
+        CheckConstraint(
             "upload_state <> 'deleted' OR deleted_at IS NOT NULL",
             name="ck_evidence_attachments_deleted_timestamp",
         ),

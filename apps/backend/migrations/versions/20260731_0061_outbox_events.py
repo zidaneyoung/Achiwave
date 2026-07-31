@@ -48,6 +48,7 @@ def upgrade() -> None:
         sa.CheckConstraint("processing_state <> 'in_flight' OR (locked_at IS NOT NULL AND attempt_count >= 1)", name="ck_outbox_events_in_flight_lease"),
         sa.CheckConstraint("(processing_state = 'published' AND published_at IS NOT NULL) OR (processing_state <> 'published' AND published_at IS NULL)", name="ck_outbox_events_published_timestamp"),
         sa.CheckConstraint("processing_state <> 'failed' OR safe_failure_class IS NOT NULL", name="ck_outbox_events_failed_classification"),
+        sa.CheckConstraint("safe_failure_class IS NULL OR (safe_failure_class = btrim(safe_failure_class) AND safe_failure_class <> '')", name="ck_outbox_events_failure_class_nonblank"),
         sa.CheckConstraint("available_at >= created_at", name="ck_outbox_events_available_after_creation"),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], name="fk_outbox_events_user_id_users", ondelete="RESTRICT"),
         sa.PrimaryKeyConstraint("id", name="pk_outbox_events"),
