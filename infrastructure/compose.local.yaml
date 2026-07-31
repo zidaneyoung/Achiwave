@@ -10,9 +10,6 @@ x-backend-environment: &backend-environment
 
 x-backend-service: &backend-service
   image: achiwave-backend-local
-  build:
-    context: ../apps/backend
-    dockerfile: Dockerfile
   environment: *backend-environment
   init: true
   depends_on:
@@ -63,6 +60,9 @@ services:
 
   backend:
     <<: *backend-service
+    build:
+      context: ../apps/backend
+      dockerfile: Dockerfile
     environment:
       <<: *backend-environment
       ACHIWAVE_SERVICE_NAME: backend
@@ -98,6 +98,7 @@ services:
       - python
       - -m
       - celery
+      - --quiet
       - -A
       - achiwave_backend.worker:celery_app
       - worker
@@ -112,6 +113,7 @@ services:
       - python
       - -m
       - celery
+      - --quiet
       - -A
       - achiwave_backend.worker:celery_app
       - beat
