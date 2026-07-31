@@ -9,6 +9,7 @@ import {
 } from "react";
 
 import { bootstrapAuthentication } from "./bootstrap";
+import { authenticationService } from "./service";
 import type {
   AuthenticatedUserSnapshot,
   AuthenticationState,
@@ -16,9 +17,10 @@ import type {
 
 interface AuthenticationContextValue {
   state: AuthenticationState;
-  setAuthenticated(user: AuthenticatedUserSnapshot): void;
+  login(email: string, password: string): Promise<void>;
+  register(email: string, password: string): Promise<void>;
   setOfflineLimited(user: AuthenticatedUserSnapshot): void;
-  signOutLocally(): void;
+  signOut(): Promise<void>;
 }
 
 const AuthenticationContext = createContext<
@@ -38,6 +40,11 @@ export function AuthenticationProvider({
 
   useEffect(() => {
     let active = true;
+    const unsubscribe = authenticationService.subscribeSessionRejected(() => {
+      if (active) {
+        setState({ status: "unauthenticated" });
+      }
+    });
     void bootstrapAuthentication()
       .then((resolvedState) => {
         if (active) {
@@ -54,27 +61,34 @@ export function AuthenticationProvider({
       });
     return () => {
       active = false;
+      unsubscribe();
     };
   }, []);
 
-  const setAuthenticated = useCallback(
-    (user: AuthenticatedUserSnapshot) => {
-      setState({ status: "authenticated", user });
-    },
-    [],
-  );
+  const login = useCallback(async (email: string, password: string) => {
+    const user = await authenticationService.login({ email, password });
+    setState({ status: "authenticated", user });
+  }, []);
+  const register = useCallback(async (email: string, password: string) => {
+    const user = await authenticationService.register({ email, password });
+    setState({ status: "authenticated", user });
+  }, []);
   const setOfflineLimited = useCallback(
     (user: AuthenticatedUserSnapshot) => {
       setState({ status: "offline_limited", user });
     },
     [],
   );
-  const signOutLocally = useCallback(() => {
-    setState({ status: "unauthenticated" });
+  const signOut = useCallback(async () => {
+    try {
+      await authenticationService.logout();
+    } finally {
+      setState({ status: "unauthenticated" });
+    }
   }, []);
   const value = useMemo(
-    () => ({ state, setAuthenticated, setOfflineLimited, signOutLocally }),
-    [state, setAuthenticated, setOfflineLimited, signOutLocally],
+    () => ({ state, login, register, setOfflineLimited, signOut }),
+    [state, login, register, setOfflineLimited, signOut],
   );
 
   return (
