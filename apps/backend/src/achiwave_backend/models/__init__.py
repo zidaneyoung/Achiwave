@@ -16,6 +16,7 @@ from achiwave_backend.models.registered_device import RegisteredDevice
 from achiwave_backend.models.synchronization_operation import SynchronizationOperation
 from achiwave_backend.models.user import User
 from achiwave_backend.models.user_preference import UserPreference
+from achiwave_backend.models.xp_ledger_entry import XpLedgerEntry
 
 __all__ = [
     "Campaign",
@@ -32,4 +33,5 @@ __all__ = [
     "SynchronizationOperation",
     "User",
     "UserPreference",
+    "XpLedgerEntry",
 ]

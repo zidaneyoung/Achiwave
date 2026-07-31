@@ -43,6 +43,9 @@ class QuestCompletion(Base):
             ondelete="RESTRICT",
         ),
         UniqueConstraint(
+            "id", "user_id", name="uq_quest_completions_id_user"
+        ),
+        UniqueConstraint(
             "id",
             "user_id",
             "occurrence_id",

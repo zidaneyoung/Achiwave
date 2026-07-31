@@ -19,6 +19,7 @@ from achiwave_backend.models import (
     SynchronizationOperation,
     User,
     UserPreference,
+    XpLedgerEntry,
 )
 
 BACKEND_ROOT = Path(__file__).parents[1]
@@ -28,7 +29,7 @@ def test_stage3_migrations_have_one_alembic_head() -> None:
     configuration = Config(BACKEND_ROOT / "alembic.ini")
     scripts = ScriptDirectory.from_config(configuration)
 
-    assert scripts.get_heads() == ["20260731_0049"]
+    assert scripts.get_heads() == ["20260731_0050"]
 
 
 def test_stage3_metadata_registers_current_tables() -> None:
@@ -47,6 +48,7 @@ def test_stage3_metadata_registers_current_tables() -> None:
         "synchronization_operations",
         "user_preferences",
         "users",
+        "xp_ledger_entries",
     }
     assert Campaign.__table__ is Base.metadata.tables["campaigns"]
     assert ClientMutation.__table__ is Base.metadata.tables["client_mutations"]
@@ -68,3 +70,4 @@ def test_stage3_metadata_registers_current_tables() -> None:
     )
     assert User.__table__ is Base.metadata.tables["users"]
     assert UserPreference.__table__ is Base.metadata.tables["user_preferences"]
+    assert XpLedgerEntry.__table__ is Base.metadata.tables["xp_ledger_entries"]

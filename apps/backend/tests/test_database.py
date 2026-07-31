@@ -29,6 +29,7 @@ from achiwave_backend.models import (
     SynchronizationOperation,
     User,
     UserPreference,
+    XpLedgerEntry,
 )
 
 
@@ -96,6 +97,7 @@ def test_metadata_import_registers_models_without_connecting() -> None:
         "synchronization_operations",
         "user_preferences",
         "users",
+        "xp_ledger_entries",
     }
     assert Campaign.__table__ is Base.metadata.tables["campaigns"]
     assert ClientMutation.__table__ is Base.metadata.tables["client_mutations"]
@@ -117,6 +119,7 @@ def test_metadata_import_registers_models_without_connecting() -> None:
     )
     assert User.__table__ is Base.metadata.tables["users"]
     assert UserPreference.__table__ is Base.metadata.tables["user_preferences"]
+    assert XpLedgerEntry.__table__ is Base.metadata.tables["xp_ledger_entries"]
     engine.begin.assert_not_called()
 
 
