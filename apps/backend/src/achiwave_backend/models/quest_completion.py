@@ -36,6 +36,12 @@ class QuestCompletion(Base):
             name="fk_quest_completions_device_user",
             ondelete="RESTRICT",
         ),
+        ForeignKeyConstraint(
+            ["user_id", "client_mutation_id"],
+            ["client_mutations.user_id", "client_mutations.client_mutation_id"],
+            name="fk_quest_completions_user_client_mutation",
+            ondelete="RESTRICT",
+        ),
         UniqueConstraint(
             "id",
             "user_id",
@@ -137,6 +143,12 @@ class QuestCompletionReversal(Base):
             ["device_id", "user_id"],
             ["registered_devices.id", "registered_devices.user_id"],
             name="fk_quest_completion_reversals_device_user",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["user_id", "client_mutation_id"],
+            ["client_mutations.user_id", "client_mutations.client_mutation_id"],
+            name="fk_quest_completion_reversals_user_client_mutation",
             ondelete="RESTRICT",
         ),
         UniqueConstraint(

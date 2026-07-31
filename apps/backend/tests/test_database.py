@@ -16,6 +16,7 @@ from achiwave_backend.database import (
 )
 from achiwave_backend.models import (
     Campaign,
+    ClientMutation,
     DeviceSession,
     PushToken,
     Quest,
@@ -80,6 +81,7 @@ def test_metadata_import_registers_models_without_connecting() -> None:
 
     assert set(Base.metadata.tables) == {
         "campaigns",
+        "client_mutations",
         "device_sessions",
         "push_tokens",
         "quests",
@@ -92,6 +94,7 @@ def test_metadata_import_registers_models_without_connecting() -> None:
         "users",
     }
     assert Campaign.__table__ is Base.metadata.tables["campaigns"]
+    assert ClientMutation.__table__ is Base.metadata.tables["client_mutations"]
     assert DeviceSession.__table__ is Base.metadata.tables["device_sessions"]
     assert PushToken.__table__ is Base.metadata.tables["push_tokens"]
     assert Quest.__table__ is Base.metadata.tables["quests"]
