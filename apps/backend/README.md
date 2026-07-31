@@ -28,3 +28,13 @@ python -m celery -A achiwave_backend.worker:celery_app beat --loglevel=INFO --sc
 ```
 
 Stage 2 intentionally configures no scheduled domain jobs.
+
+Run the Stage 2 database baseline from this directory:
+
+```powershell
+python -m alembic upgrade head
+```
+
+Inspect or reverse the baseline with `python -m alembic current` and
+`python -m alembic downgrade base`. The baseline intentionally creates no
+domain tables.

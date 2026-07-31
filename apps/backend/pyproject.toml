@@ -9,6 +9,7 @@ description = "Achiwave FastAPI and worker foundation"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+  "alembic>=1.18.5,<1.19",
   "celery[redis]>=5.6.3,<5.7",
   "fastapi>=0.141.1,<0.142",
   "pydantic-settings>=2.14.2,<3",
