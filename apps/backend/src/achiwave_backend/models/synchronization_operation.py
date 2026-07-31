@@ -61,11 +61,13 @@ class SynchronizationOperation(Base):
             name="ck_synchronization_operations_attempt_count_nonnegative",
         ),
         CheckConstraint(
-            "(attempt_count = 0 AND last_attempt_at IS NULL) OR attempt_count >= 1",
+            "(attempt_count = 0 AND last_attempt_at IS NULL) OR "
+            "(attempt_count >= 1 AND last_attempt_at IS NOT NULL)",
             name="ck_synchronization_operations_attempt_timestamp",
         ),
         CheckConstraint(
-            "operation_state <> 'in_flight' OR lease_expires_at IS NOT NULL",
+            "operation_state <> 'in_flight' OR "
+            "(lease_expires_at IS NOT NULL AND attempt_count >= 1)",
             name="ck_synchronization_operations_in_flight_lease",
         ),
         CheckConstraint(
