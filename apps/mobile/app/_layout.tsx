@@ -3,6 +3,8 @@ import { Stack, type ErrorBoundaryProps } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AuthenticationProvider } from "../src/auth/AuthContext";
+
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   const [isRetrying, setIsRetrying] = useState(false);
 
@@ -52,10 +54,14 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 
 export default function RootLayout() {
   return (
-    <Stack>
-      <Stack.Screen name="index" options={{ title: "Achiwave" }} />
-      <Stack.Screen name="+not-found" options={{ title: "Not found" }} />
-    </Stack>
+    <AuthenticationProvider>
+      <Stack>
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        <Stack.Screen name="(protected)" options={{ headerShown: false }} />
+        <Stack.Screen name="+not-found" options={{ title: "Not found" }} />
+      </Stack>
+    </AuthenticationProvider>
   );
 }
 
