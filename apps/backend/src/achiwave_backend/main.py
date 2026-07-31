@@ -16,6 +16,7 @@ from achiwave_backend.api.errors import (
     api_error_handler,
     validation_error_handler,
 )
+from achiwave_backend.api.preferences import create_preferences_router
 from achiwave_backend.api.users import create_users_router
 from fastapi.exceptions import RequestValidationError
 from achiwave_backend.config import Settings, get_settings
@@ -83,6 +84,7 @@ def create_app(
     application.include_router(create_users_router(authentication))
     application.include_router(create_devices_router(authentication))
     application.include_router(create_sessions_router(authentication))
+    application.include_router(create_preferences_router(authentication))
 
     @application.middleware("http")
     async def log_request(request: Request, call_next):
