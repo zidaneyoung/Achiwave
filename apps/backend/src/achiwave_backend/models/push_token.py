@@ -43,6 +43,13 @@ class PushToken(Base):
         UniqueConstraint(
             "id", "user_id", "device_id", name="uq_push_tokens_id_user_device"
         ),
+        UniqueConstraint(
+            "id",
+            "user_id",
+            "device_id",
+            "provider",
+            name="uq_push_tokens_id_user_device_provider",
+        ),
         CheckConstraint(
             "provider IN ('expo', 'fcm', 'apns')",
             name="ck_push_tokens_provider",
