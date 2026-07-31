@@ -154,6 +154,22 @@ def test_push_token_model_repr_does_not_expose_sensitive_value() -> None:
     assert PushToken.__table__.c.token_value.info == {"sensitive": True}
 
 
+def test_achievement_rule_model_repr_does_not_expose_private_rule() -> None:
+    rule = AchievementRule(
+        rule_configuration={"private": "hidden-rule"},
+        authoritative_event_inputs=["private-input"],
+        integrity_hash=b"private-hash-value",
+    )
+
+    assert "hidden-rule" not in repr(rule)
+    assert "private-input" not in repr(rule)
+    assert AchievementRule.__table__.c.rule_configuration.info == {"sensitive": True}
+    assert AchievementRule.__table__.c.authoritative_event_inputs.info == {
+        "sensitive": True
+    }
+    assert AchievementRule.__table__.c.integrity_hash.info == {"sensitive": True}
+
+
 def test_ping_database_returns_true() -> None:
     connection = MagicMock()
     connection.scalar.return_value = 1
