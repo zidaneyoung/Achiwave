@@ -49,6 +49,12 @@ class RefreshRequest(BaseModel):
     installation: AndroidInstallationRequest
 
 
+class LogoutRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    refresh_token: str | None = Field(default=None, min_length=43, max_length=512)
+
+
 class SafeUserResponse(BaseModel):
     id: UUID
     email: str

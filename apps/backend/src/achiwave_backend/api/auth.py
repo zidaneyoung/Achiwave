@@ -1,16 +1,23 @@
 from collections.abc import Iterator
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Response, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from achiwave_backend.api.errors import ApiError, ErrorResponse
 from achiwave_backend.auth.passwords import PasswordManager, PasswordPolicyError
-from achiwave_backend.auth.tokens import TokenIssuer
+from achiwave_backend.auth.tokens import (
+    AccessTokenExpiredError,
+    InvalidAccessTokenError,
+    TokenIssuer,
+    TokenVerifier,
+)
 from achiwave_backend.config import Settings
 from achiwave_backend.database import SessionFactory
 from achiwave_backend.schemas.auth import (
     LoginRequest,
     LoginResponse,
+    LogoutRequest,
     RefreshRequest,
     RefreshResponse,
     RegistrationRequest,
@@ -22,6 +29,11 @@ from achiwave_backend.services.login import (
     DeviceContextMismatchError,
     InvalidCredentialsError,
     LoginService,
+)
+from achiwave_backend.services.logout import (
+    LogoutCredentialRequiredError,
+    LogoutService,
+    LogoutSessionNotFoundError,
 )
 from achiwave_backend.services.registration import (
     EmailAlreadyRegisteredError,
@@ -44,6 +56,7 @@ def create_auth_router(
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1/auth", tags=["authentication"])
     password_manager = PasswordManager(settings)
+    bearer = HTTPBearer(auto_error=False)
 
     def database_session() -> Iterator[Session]:
         if session_factory is None:
@@ -228,5 +241,43 @@ def create_auth_router(
             access_token_expires_at=result.credentials.access_expires_at,
             refresh_token=result.credentials.refresh_token,
         )
+
+    @router.post(
+        "/logout",
+        status_code=status.HTTP_204_NO_CONTENT,
+        response_class=Response,
+        responses={status.HTTP_401_UNAUTHORIZED: {"model": ErrorResponse}},
+    )
+    def logout(
+        request: LogoutRequest | None = None,
+        credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
+        session: Session = Depends(database_session),
+    ) -> Response:
+        access_token = credentials.credentials if credentials is not None else None
+        try:
+            LogoutService(TokenVerifier(settings)).logout(
+                session,
+                access_token=access_token,
+                refresh_token=request.refresh_token if request is not None else None,
+            )
+        except AccessTokenExpiredError as error:
+            raise ApiError(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                code="session_expired",
+                message="The session has expired.",
+                headers={"WWW-Authenticate": "Bearer"},
+            ) from error
+        except (
+            InvalidAccessTokenError,
+            LogoutCredentialRequiredError,
+            LogoutSessionNotFoundError,
+        ) as error:
+            raise ApiError(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                code="invalid_access_token",
+                message="Authentication is required.",
+                headers={"WWW-Authenticate": "Bearer"},
+            ) from error
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     return router
