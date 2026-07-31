@@ -4,6 +4,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   View,
 } from "react-native";
@@ -38,7 +39,17 @@ export default function PreferencesRoute() {
     try {
       setPreferences(await preferenceApi.get());
     } catch {
-      setMessage("Preferences could not be loaded. Check your connection.");
+      try {
+        const cached = await preferenceApi.getCached();
+        setPreferences(cached);
+        setMessage(
+          cached
+            ? "Showing saved preferences. Reconnect before making changes."
+            : "Preferences could not be loaded. Check your connection.",
+        );
+      } catch {
+        setMessage("Preferences could not be loaded. Check your connection.");
+      }
     } finally {
       setLoading(false);
     }
@@ -64,6 +75,30 @@ export default function PreferencesRoute() {
         error instanceof Error
           ? error.message
           : "Date format could not be saved.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function updateFeedback(
+    updates: { soundEnabled?: boolean; hapticsEnabled?: boolean },
+  ): Promise<void> {
+    if (!preferences || saving) {
+      return;
+    }
+    setSaving(true);
+    setMessage(null);
+    try {
+      setPreferences(
+        await preferenceApi.updateFeedback(updates, preferences.recordVersion),
+      );
+      setMessage("Feedback preferences saved.");
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Feedback preferences could not be saved.",
       );
     } finally {
       setSaving(false);
@@ -119,6 +154,37 @@ export default function PreferencesRoute() {
                 </Pressable>
               );
             })}
+            <Text accessibilityRole="header" style={styles.sectionTitle}>
+              Feedback
+            </Text>
+            <View style={styles.switchRow}>
+              <View style={styles.switchCopy}>
+                <Text style={styles.optionText}>Sound</Text>
+                <Text style={styles.help}>Allow future in-app sound feedback.</Text>
+              </View>
+              <Switch
+                accessibilityLabel="Sound feedback"
+                disabled={saving}
+                onValueChange={(value) =>
+                  void updateFeedback({ soundEnabled: value })
+                }
+                value={preferences.soundEnabled}
+              />
+            </View>
+            <View style={styles.switchRow}>
+              <View style={styles.switchCopy}>
+                <Text style={styles.optionText}>Haptics</Text>
+                <Text style={styles.help}>Allow future vibration feedback.</Text>
+              </View>
+              <Switch
+                accessibilityLabel="Haptic feedback"
+                disabled={saving}
+                onValueChange={(value) =>
+                  void updateFeedback({ hapticsEnabled: value })
+                }
+                value={preferences.hapticsEnabled}
+              />
+            </View>
           </View>
         ) : (
           <Pressable
@@ -160,6 +226,21 @@ const styles = StyleSheet.create({
   optionPressed: { backgroundColor: "#e1ebe5" },
   optionText: { color: "#17221d", flex: 1, fontSize: 17 },
   optionState: { color: "#1d5b44", fontSize: 15, fontWeight: "700", marginLeft: 12 },
+  switchRow: {
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+    borderColor: "#c8cec9",
+    borderRadius: 10,
+    borderWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 12,
+    minHeight: 64,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  switchCopy: { flex: 1, paddingRight: 16 },
+  help: { color: "#46534c", fontSize: 15, lineHeight: 20, marginTop: 4 },
   retryButton: {
     alignItems: "center",
     backgroundColor: "#1d5b44",

@@ -1,4 +1,5 @@
 import { authenticationService } from "../auth/service";
+import { loadCachedPreferences, saveCachedPreferences } from "./cache";
 import type { DateFormatPreference, PreferenceSnapshot } from "./types";
 
 export class PreferenceRequestError extends Error {
@@ -34,6 +35,8 @@ function parsePreferences(value: unknown): PreferenceSnapshot | null {
       notificationPreference !== "enabled" &&
       notificationPreference !== "disabled") ||
     !isDateFormat(value.date_format) ||
+    typeof value.sound_enabled !== "boolean" ||
+    typeof value.haptics_enabled !== "boolean" ||
     typeof value.record_version !== "number"
   ) {
     return null;
@@ -44,6 +47,8 @@ function parsePreferences(value: unknown): PreferenceSnapshot | null {
     timezoneEffectiveAt: value.timezone_effective_at,
     notificationPreference,
     dateFormat: value.date_format,
+    soundEnabled: value.sound_enabled,
+    hapticsEnabled: value.haptics_enabled,
     recordVersion: value.record_version,
   };
 }
@@ -67,7 +72,41 @@ async function parseResponse(response: Response): Promise<PreferenceSnapshot> {
   if (!preferences) {
     throw new PreferenceRequestError("Preferences are temporarily unavailable.");
   }
+  try {
+    await saveCachedPreferences(preferences);
+  } catch {
+    // A non-authoritative presentation cache must never fail the server update.
+  }
   return preferences;
+}
+
+interface PresentationPreferenceUpdates {
+  dateFormat?: DateFormatPreference;
+  soundEnabled?: boolean;
+  hapticsEnabled?: boolean;
+}
+
+async function updatePresentation(
+  updates: PresentationPreferenceUpdates,
+  recordVersion: number,
+): Promise<PreferenceSnapshot> {
+  const response = await authenticationService.request("/api/v1/preferences", {
+    body: JSON.stringify({
+      ...(updates.dateFormat === undefined
+        ? {}
+        : { date_format: updates.dateFormat }),
+      ...(updates.soundEnabled === undefined
+        ? {}
+        : { sound_enabled: updates.soundEnabled }),
+      ...(updates.hapticsEnabled === undefined
+        ? {}
+        : { haptics_enabled: updates.hapticsEnabled }),
+      record_version: recordVersion,
+    }),
+    headers: { "Content-Type": "application/json" },
+    method: "PATCH",
+  });
+  return parseResponse(response);
 }
 
 export const preferenceApi = {
@@ -80,14 +119,17 @@ export const preferenceApi = {
     dateFormat: DateFormatPreference,
     recordVersion: number,
   ): Promise<PreferenceSnapshot> {
-    const response = await authenticationService.request("/api/v1/preferences", {
-      body: JSON.stringify({
-        date_format: dateFormat,
-        record_version: recordVersion,
-      }),
-      headers: { "Content-Type": "application/json" },
-      method: "PATCH",
-    });
-    return parseResponse(response);
+    return updatePresentation({ dateFormat }, recordVersion);
+  },
+
+  async updateFeedback(
+    updates: { soundEnabled?: boolean; hapticsEnabled?: boolean },
+    recordVersion: number,
+  ): Promise<PreferenceSnapshot> {
+    return updatePresentation(updates, recordVersion);
+  },
+
+  getCached(): Promise<PreferenceSnapshot | null> {
+    return loadCachedPreferences();
   },
 };

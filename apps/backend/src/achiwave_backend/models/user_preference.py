@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKeyConstraint, Integer, Text, text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKeyConstraint, Integer, Text, text
 from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -59,6 +59,12 @@ class UserPreference(Base):
     )
     date_format: Mapped[str] = mapped_column(
         Text, nullable=False, server_default=text("'system'")
+    )
+    sound_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
+    haptics_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
     )
     record_version: Mapped[int] = mapped_column(
         Integer, nullable=False, server_default=text("1")

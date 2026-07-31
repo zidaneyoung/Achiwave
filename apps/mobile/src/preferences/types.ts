@@ -10,5 +10,7 @@ export interface PreferenceSnapshot {
   timezoneEffectiveAt: string;
   notificationPreference: "unspecified" | "enabled" | "disabled";
   dateFormat: DateFormatPreference;
+  soundEnabled: boolean;
+  hapticsEnabled: boolean;
   recordVersion: number;
 }

@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, model_validator
 
 
 class PreferenceResponse(BaseModel):
@@ -15,6 +15,8 @@ class PreferenceResponse(BaseModel):
         "month_day_year",
         "year_month_day",
     ]
+    sound_enabled: bool
+    haptics_enabled: bool
     record_version: int
 
 
@@ -33,5 +35,14 @@ class UpdatePresentationPreferencesRequest(BaseModel):
         "day_month_year",
         "month_day_year",
         "year_month_day",
-    ]
+    ] | None = None
+    sound_enabled: StrictBool | None = None
+    haptics_enabled: StrictBool | None = None
     record_version: int = Field(ge=1)
+
+    @model_validator(mode="after")
+    def require_non_null_update(self) -> "UpdatePresentationPreferencesRequest":
+        update_fields = self.model_fields_set - {"record_version"}
+        if not update_fields or any(getattr(self, field) is None for field in update_fields):
+            raise ValueError("At least one non-null preference is required.")
+        return self

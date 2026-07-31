@@ -23,6 +23,8 @@ def _preference_response(preference: UserPreference) -> PreferenceResponse:
         timezone_effective_at=preference.timezone_effective_at,
         notification_preference=preference.notification_preference,
         date_format=preference.date_format,
+        sound_enabled=preference.sound_enabled,
+        haptics_enabled=preference.haptics_enabled,
         record_version=preference.record_version,
     )
 

@@ -88,9 +88,26 @@ class PreferenceService:
             raise RuntimeError("Active user preference record is missing.")
         if preference.record_version != request.record_version:
             raise StalePreferenceVersionError
-        if preference.date_format != request.date_format:
+        changes: dict[str, object] = {}
+        if (
+            "date_format" in request.model_fields_set
+            and preference.date_format != request.date_format
+        ):
+            changes["date_format"] = request.date_format
+        if (
+            "sound_enabled" in request.model_fields_set
+            and preference.sound_enabled != request.sound_enabled
+        ):
+            changes["sound_enabled"] = request.sound_enabled
+        if (
+            "haptics_enabled" in request.model_fields_set
+            and preference.haptics_enabled != request.haptics_enabled
+        ):
+            changes["haptics_enabled"] = request.haptics_enabled
+        if changes:
             now = datetime.now(UTC)
-            preference.date_format = request.date_format
+            for field, value in changes.items():
+                setattr(preference, field, value)
             preference.record_version += 1
             preference.updated_at = now
         try:
