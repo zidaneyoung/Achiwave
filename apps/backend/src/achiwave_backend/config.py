@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, PostgresDsn
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ApplicationEnvironment = Literal["development", "test", "production"]
@@ -22,6 +22,14 @@ class Settings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = Field(default=8000, ge=1, le=65535)
     log_level: LogLevel = "INFO"
+    database_url: PostgresDsn | None = None
+
+    def require_database_url(self) -> str:
+        if self.database_url is None:
+            raise ValueError(
+                "ACHIWAVE_DATABASE_URL is required for database operations."
+            )
+        return str(self.database_url)
 
 
 @lru_cache
