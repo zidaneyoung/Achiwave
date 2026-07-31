@@ -73,6 +73,12 @@ class DeviceSession(Base):
             "replaced_by_session_id",
             "user_id",
         ),
+        Index(
+            "uq_device_sessions_credential_digest",
+            "credential_digest",
+            unique=True,
+            postgresql_where=text("credential_digest IS NOT NULL"),
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(

@@ -7,6 +7,7 @@ x-backend-environment: &backend-environment
   ACHIWAVE_REDIS_URL: redis://redis:6379/0
   ACHIWAVE_CELERY_BROKER_URL: redis://redis:6379/0
   ACHIWAVE_CELERY_RESULT_BACKEND: redis://redis:6379/0
+  ACHIWAVE_ACCESS_TOKEN_SIGNING_KEY: ${ACHIWAVE_ACCESS_TOKEN_SIGNING_KEY:-local-development-only-signing-key-change-me}
 
 x-backend-service: &backend-service
   image: achiwave-backend-local

@@ -45,3 +45,22 @@ def test_redis_url_has_a_non_secret_local_default() -> None:
 def test_redis_url_rejects_malformed_value() -> None:
     with pytest.raises(ValidationError):
         Settings(_env_file=None, redis_url="not-a-redis-url")
+
+
+def test_production_requires_a_strong_access_token_signing_key() -> None:
+    with pytest.raises(
+        ValidationError,
+        match="ACHIWAVE_ACCESS_TOKEN_SIGNING_KEY",
+    ):
+        Settings(_env_file=None, app_environment="production")
+
+
+def test_authentication_lifetimes_are_short_and_configurable() -> None:
+    settings = Settings(
+        _env_file=None,
+        access_token_lifetime_seconds=600,
+        refresh_token_lifetime_seconds=604_800,
+    )
+
+    assert settings.access_token_lifetime_seconds == 600
+    assert settings.refresh_token_lifetime_seconds == 604_800

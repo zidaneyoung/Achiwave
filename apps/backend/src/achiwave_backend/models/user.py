@@ -25,6 +25,10 @@ class User(Base):
             name="ck_users_display_email_nonblank",
         ),
         CheckConstraint(
+            "password_hash IS NULL OR btrim(password_hash) <> ''",
+            name="ck_users_password_hash_nonblank",
+        ),
+        CheckConstraint(
             "account_state IN ('active', 'deactivated', 'deletion_pending')",
             name="ck_users_account_state",
         ),
@@ -40,6 +44,10 @@ class User(Base):
     )
     canonical_email: Mapped[str] = mapped_column(Text)
     display_email: Mapped[str] = mapped_column(Text)
+    password_hash: Mapped[str | None] = mapped_column(
+        Text,
+        info={"sensitive": True},
+    )
     account_state: Mapped[str] = mapped_column(
         Text, nullable=False, server_default=text("'active'")
     )
@@ -59,3 +67,9 @@ class User(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("CURRENT_TIMESTAMP")
     )
+
+    def __repr__(self) -> str:
+        return (
+            f"User(id={self.id!r}, account_state={self.account_state!r}, "
+            f"record_version={self.record_version!r})"
+        )

@@ -5,7 +5,24 @@ from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from achiwave_backend.api.auth import create_auth_router
+from achiwave_backend.api.dependencies import (
+    create_authentication_dependencies,
+    create_database_session_dependency,
+)
+from achiwave_backend.api.errors import (
+    ApiError,
+    api_error_handler,
+    validation_error_handler,
+)
+from achiwave_backend.api.users import create_users_router
+from fastapi.exceptions import RequestValidationError
 from achiwave_backend.config import Settings, get_settings
+from achiwave_backend.database import (
+    SessionFactory,
+    create_database_engine,
+    create_session_factory,
+)
 from achiwave_backend.health import (
     HealthCheck,
     LivenessResponse,
@@ -29,6 +46,7 @@ def create_app(
     database_check: HealthCheck | None = None,
     redis_check: HealthCheck | None = None,
     request_logger: logging.Logger | None = None,
+    session_factory: SessionFactory | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     resolved_database_check = database_check or create_database_health_check(
@@ -42,6 +60,26 @@ def create_app(
     )
     application = FastAPI(title="Achiwave API", version="0.1.0")
     application.state.settings = resolved_settings
+    application.add_exception_handler(ApiError, api_error_handler)
+    application.add_exception_handler(
+        RequestValidationError,
+        validation_error_handler,
+    )
+
+    resolved_session_factory = session_factory
+    if resolved_session_factory is None and resolved_settings.database_url is not None:
+        engine = create_database_engine(resolved_settings)
+        application.state.database_engine = engine
+        resolved_session_factory = create_session_factory(engine)
+    database_session = create_database_session_dependency(
+        resolved_session_factory
+    )
+    authentication = create_authentication_dependencies(
+        resolved_settings,
+        database_session,
+    )
+    application.include_router(create_auth_router(resolved_settings, database_session))
+    application.include_router(create_users_router(authentication))
 
     @application.middleware("http")
     async def log_request(request: Request, call_next):
