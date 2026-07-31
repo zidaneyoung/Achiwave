@@ -40,6 +40,18 @@ export default function ProtectedHomeRoute() {
             <Text style={styles.buttonText}>Preferences</Text>
           </Pressable>
         </Link>
+        <Link href="/(protected)/account" asChild>
+          <Pressable
+            accessibilityHint="Opens account security actions."
+            accessibilityRole="button"
+            style={({ pressed }) => [
+              styles.button,
+              pressed && styles.buttonPressed,
+            ]}
+          >
+            <Text style={styles.buttonText}>Account</Text>
+          </Pressable>
+        </Link>
         <Pressable
           accessibilityHint="Ends this session and removes local credentials."
           accessibilityRole="button"

@@ -23,6 +23,11 @@ interface StoredAuthenticationCredentials extends AuthenticationCredentials {
   version: typeof CREDENTIAL_VERSION;
 }
 
+interface ClearedAuthenticationEnvelope {
+  version: typeof CREDENTIAL_VERSION;
+  state: "cleared";
+}
+
 export type CredentialLoadResult =
   | { status: "empty" }
   | { status: "corrupt" }
@@ -96,6 +101,15 @@ function isStoredCredentials(
   );
 }
 
+function isClearedEnvelope(value: unknown): value is ClearedAuthenticationEnvelope {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (value as Record<string, unknown>).version === CREDENTIAL_VERSION &&
+    (value as Record<string, unknown>).state === "cleared"
+  );
+}
+
 function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     value,
@@ -137,6 +151,9 @@ export function createSecureCredentialStore({
       }
       try {
         const parsed: unknown = JSON.parse(serialized);
+        if (isClearedEnvelope(parsed)) {
+          return { status: "empty" };
+        }
         if (!isStoredCredentials(parsed)) {
           throw new Error("Invalid protected credential envelope.");
         }
@@ -166,7 +183,15 @@ export function createSecureCredentialStore({
 
     async clearAuthentication(): Promise<void> {
       await assertAvailable();
-      await storage.deleteItemAsync(authenticationKey, SECURE_STORE_OPTIONS);
+      const cleared: ClearedAuthenticationEnvelope = {
+        version: CREDENTIAL_VERSION,
+        state: "cleared",
+      };
+      await storage.setItemAsync(
+        authenticationKey,
+        JSON.stringify(cleared),
+        SECURE_STORE_OPTIONS,
+      );
     },
 
     async getOrCreateInstallationId(): Promise<string> {

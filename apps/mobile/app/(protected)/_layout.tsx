@@ -26,6 +26,7 @@ export default function ProtectedLayout() {
       <Stack.Screen name="offline" options={{ title: "Offline" }} />
       <Stack.Screen name="security" options={{ title: "Devices and sessions" }} />
       <Stack.Screen name="preferences" options={{ title: "Preferences" }} />
+      <Stack.Screen name="account" options={{ title: "Account" }} />
     </Stack>
   );
 }
