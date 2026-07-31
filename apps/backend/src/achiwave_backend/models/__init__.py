@@ -8,6 +8,7 @@ from achiwave_backend.models.achievement_unlock import AchievementUnlock
 from achiwave_backend.models.client_mutation import ClientMutation
 from achiwave_backend.models.device_session import DeviceSession
 from achiwave_backend.models.level_definition import LevelDefinition
+from achiwave_backend.models.notification import Notification
 from achiwave_backend.models.progress_event import ProgressEvent
 from achiwave_backend.models.push_token import PushToken
 from achiwave_backend.models.quest import Quest
@@ -33,6 +34,7 @@ __all__ = [
     "ClientMutation",
     "DeviceSession",
     "LevelDefinition",
+    "Notification",
     "ProgressEvent",
     "PushToken",
     "Quest",

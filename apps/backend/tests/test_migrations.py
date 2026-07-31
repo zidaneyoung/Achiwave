@@ -13,6 +13,7 @@ from achiwave_backend.models import (
     ClientMutation,
     DeviceSession,
     LevelDefinition,
+    Notification,
     ProgressEvent,
     PushToken,
     Quest,
@@ -37,7 +38,7 @@ def test_stage3_migrations_have_one_alembic_head() -> None:
     configuration = Config(BACKEND_ROOT / "alembic.ini")
     scripts = ScriptDirectory.from_config(configuration)
 
-    assert scripts.get_heads() == ["20260731_0056"]
+    assert scripts.get_heads() == ["20260731_0057"]
 
 
 def test_stage3_metadata_registers_current_tables() -> None:
@@ -50,6 +51,7 @@ def test_stage3_metadata_registers_current_tables() -> None:
         "client_mutations",
         "device_sessions",
         "level_definitions",
+        "notifications",
         "push_tokens",
         "progress_events",
         "quests",
@@ -74,6 +76,7 @@ def test_stage3_metadata_registers_current_tables() -> None:
     assert ClientMutation.__table__ is Base.metadata.tables["client_mutations"]
     assert DeviceSession.__table__ is Base.metadata.tables["device_sessions"]
     assert LevelDefinition.__table__ is Base.metadata.tables["level_definitions"]
+    assert Notification.__table__ is Base.metadata.tables["notifications"]
     assert PushToken.__table__ is Base.metadata.tables["push_tokens"]
     assert ProgressEvent.__table__ is Base.metadata.tables["progress_events"]
     assert Quest.__table__ is Base.metadata.tables["quests"]
