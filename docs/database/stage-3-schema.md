@@ -115,6 +115,109 @@ Raw push tokens must never appear in logs, model representations, error messages
 notification payload audit, or public API models. Encryption-at-rest integration is
 deferred until a repository-approved key-management boundary exists.
 
+## Campaign, quest, occurrence, and completion tables
+
+### `campaigns` (#42)
+
+Purpose: immutable-owner objective and current backend-derived lifecycle snapshot.
+
+- Primary key: `id` UUID; `(id, user_id)` is a composite ownership key.
+- Ownership: `user_id` references users with `RESTRICT`.
+- Content/order: trimmed nonblank title and nonnegative display order.
+- Lifecycle: `active`, `completed`, or `archived`; completed and archived states
+  require their authoritative timestamps. Completion reason, archive/restore time,
+  record version, and a later-work tombstone are retained.
+- Query indexes: active campaigns by user/display order and archived campaigns by
+  user/archive time, both as partial indexes.
+- Deletion: ordinary product deletion means archive. Relationships to definitions
+  and history use `RESTRICT`.
+
+The database cannot decide the campaign-completion predicate. Later transactional
+domain logic must derive state and append the corresponding progress event.
+
+### `quests` (#43)
+
+Purpose: immutable campaign-bound one-time or recurring quest definition.
+
+- Primary key: `id` UUID; `(id, user_id, campaign_id, quest_type)` supports owned
+  child references and prevents cross-user/cross-campaign attachment.
+- Ownership: `(campaign_id, user_id)` references campaigns with `RESTRICT`.
+- Type/state: `one_time` or `recurring`; definition state is only `active` or
+  `archived`. There is no recurring-definition `completed` value.
+- Reward/order: integer `reward_xp >= 0` and nonnegative display order.
+- One-time scheduling: optional resolved availability/due instants and timezone;
+  recurring definitions cannot populate these columns.
+- Lifecycle: archive/restore timestamps, positive record version, and a later-work
+  tombstone. Owner and campaign immutability require service-layer update rules.
+- Query index: `(user_id, campaign_id, definition_state, display_order)`.
+- Evidence: no evidence-required or evidence-validation field exists.
+
+### `quest_recurrences` (#44)
+
+Purpose: exactly one MVP recurrence rule for one recurring definition.
+
+- Primary key: `quest_id`; composite FK includes user, campaign, and the enforced
+  `recurring` quest type.
+- Grammar: `daily`; `weekly` with a nonempty subset of weekdays 1–7; or `monthly`
+  with one day 1–31. No cron, interval, multiple-daily-time, or yearly columns exist.
+- Window: inclusive start date; optional inclusive end date or positive maximum
+  occurrence count, never both.
+- Time: local scheduled time, IANA-shaped timezone, positive rule version, and
+  server timestamps.
+- Query index: user/timezone/start date supports bounded future generation work.
+- Deletion: `RESTRICT`; archive controls generation without deleting the rule.
+
+Full IANA-zone existence, DST resolution, strict weekday de-duplication, and
+activation validation remain deterministic backend logic.
+
+### `quest_occurrences` (#45)
+
+Purpose: authoritative per-instance schedule, timezone, rule, and reward snapshot.
+
+- Primary key: `id` UUID; `(id, user_id)` is the completion ownership target.
+- Ownership: composite quest/user/campaign/type FK uses `RESTRICT`.
+- State: `scheduled`, `available`, `completed`, `reversed`, `expired`, or `voided`,
+  with required transition timestamps for historical states.
+- Identity: recurring partial unique index on `(quest_id, occurrence_local_date)`;
+  one-time partial unique index on `quest_id`.
+- Snapshots: authoritative local date, optional local time, IANA timezone,
+  timezone-data version, rule version, resolved UTC availability, optional expiry,
+  nonnegative reward XP, and generation time.
+- Query indexes: scheduled availability, available expiry, user/local-date lookup,
+  and quest history.
+- Deletion: `RESTRICT`; expired, voided, completed, and reversed rows remain history.
+
+Checks preserve snapshot shape but cannot make those columns immutable or stop a
+future occurrence from being completed. Later services must use allowed transitions
+and treat snapshot columns as write-once.
+
+### `quest_completions` and `quest_completion_reversals` (#46)
+
+Purpose: retained accepted-completion history plus a separate append-only reversal
+event. A reversal never deletes its completion.
+
+- Completion primary key: `id` UUID; composite key includes user and occurrence.
+- Ownership: occurrence/user and optional device/user FKs use `RESTRICT`.
+- Authority: first server receipt, optional processed time, backend effective local
+  date, optional device-observed metadata, client-time validity, and positive event
+  sequence are stored separately.
+- Active identity: partial unique index on `occurrence_id` where `reversed_at` is
+  null. After a transaction records a unique reversal and sets `reversed_at`, a
+  fresh completion row may become active while all prior history remains.
+- Replay support: optional per-user client mutation is unique within completion or
+  reversal history until the global mutation binding is added by #47.
+- Reversal: stable UUID, owner, occurrence, unique target completion, optional
+  originating device/mutation, nonblank reason, server timestamps, and event
+  sequence. All relationships use `RESTRICT`.
+- Query indexes: completion effective-date/history and reversal receipt history.
+- Sensitive classification: optional device times/timezones are private metadata;
+  no evidence, credential, or unrestricted request payload is stored.
+
+The completion row's `reversed_at`, occurrence state transition, reversal insertion,
+future XP compensation, and progress event must occur in one transaction. Ordinary
+constraints cannot require the matching child reversal while permitting insertion
+order, so later service logic and Stage 3 transaction tests cover that invariant.
+
 ## Current entity relationships
 
 ```mermaid
@@ -125,6 +228,13 @@ erDiagram
     REGISTERED_DEVICES ||--o{ PUSH_TOKENS : "receives"
     DEVICE_SESSIONS o|--o| DEVICE_SESSIONS : "replaced by"
     PUSH_TOKENS o|--o| PUSH_TOKENS : "replaced by"
+    USERS ||--o{ CAMPAIGNS : "owns"
+    CAMPAIGNS ||--o{ QUESTS : "contains"
+    QUESTS ||--o| QUEST_RECURRENCES : "may schedule"
+    QUESTS ||--o{ QUEST_OCCURRENCES : "snapshots"
+    QUEST_OCCURRENCES ||--o{ QUEST_COMPLETIONS : "accepts history"
+    QUEST_COMPLETIONS ||--o| QUEST_COMPLETION_REVERSALS : "may be reversed by"
+    REGISTERED_DEVICES o|--o{ QUEST_COMPLETIONS : "originates"
 ```
 
 ## Stage 1 rule mapping

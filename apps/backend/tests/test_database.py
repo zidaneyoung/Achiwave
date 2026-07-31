@@ -15,8 +15,14 @@ from achiwave_backend.database import (
     session_scope,
 )
 from achiwave_backend.models import (
+    Campaign,
     DeviceSession,
     PushToken,
+    Quest,
+    QuestCompletion,
+    QuestCompletionReversal,
+    QuestOccurrence,
+    QuestRecurrence,
     RegisteredDevice,
     User,
     UserPreference,
@@ -73,14 +79,29 @@ def test_metadata_import_registers_models_without_connecting() -> None:
     engine = MagicMock(spec=Engine)
 
     assert set(Base.metadata.tables) == {
+        "campaigns",
         "device_sessions",
         "push_tokens",
+        "quests",
+        "quest_recurrences",
+        "quest_occurrences",
+        "quest_completions",
+        "quest_completion_reversals",
         "registered_devices",
         "user_preferences",
         "users",
     }
+    assert Campaign.__table__ is Base.metadata.tables["campaigns"]
     assert DeviceSession.__table__ is Base.metadata.tables["device_sessions"]
     assert PushToken.__table__ is Base.metadata.tables["push_tokens"]
+    assert Quest.__table__ is Base.metadata.tables["quests"]
+    assert QuestCompletion.__table__ is Base.metadata.tables["quest_completions"]
+    assert (
+        QuestCompletionReversal.__table__
+        is Base.metadata.tables["quest_completion_reversals"]
+    )
+    assert QuestOccurrence.__table__ is Base.metadata.tables["quest_occurrences"]
+    assert QuestRecurrence.__table__ is Base.metadata.tables["quest_recurrences"]
     assert RegisteredDevice.__table__ is Base.metadata.tables["registered_devices"]
     assert User.__table__ is Base.metadata.tables["users"]
     assert UserPreference.__table__ is Base.metadata.tables["user_preferences"]
