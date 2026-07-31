@@ -9,9 +9,17 @@ from achiwave_backend.auth.tokens import TokenIssuer
 from achiwave_backend.config import Settings
 from achiwave_backend.database import SessionFactory
 from achiwave_backend.schemas.auth import (
+    LoginRequest,
+    LoginResponse,
     RegistrationRequest,
     RegistrationResponse,
     SafeUserResponse,
+)
+from achiwave_backend.services.login import (
+    AccountUnavailableError,
+    DeviceContextMismatchError,
+    InvalidCredentialsError,
+    LoginService,
 )
 from achiwave_backend.services.registration import (
     EmailAlreadyRegisteredError,
@@ -88,6 +96,58 @@ def create_auth_router(
             ),
             timezone_name=result.preference.timezone_name,
             timezone_was_defaulted=result.timezone_was_defaulted,
+            device_id=result.device.id,
+            session_id=result.session.id,
+            session_expires_at=result.session.expires_at,
+            access_token=result.credentials.access_token,
+            access_token_expires_at=result.credentials.access_expires_at,
+            refresh_token=result.credentials.refresh_token,
+        )
+
+    @router.post(
+        "/login",
+        response_model=LoginResponse,
+        responses={
+            status.HTTP_401_UNAUTHORIZED: {"model": ErrorResponse},
+            status.HTTP_409_CONFLICT: {"model": ErrorResponse},
+        },
+    )
+    def login(
+        request: LoginRequest,
+        session: Session = Depends(database_session),
+    ) -> LoginResponse:
+        try:
+            login_service = LoginService(password_manager, TokenIssuer(settings))
+            result = login_service.login(session, request)
+        except InvalidCredentialsError as error:
+            raise ApiError(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                code="invalid_credentials",
+                message="The supplied credentials are invalid.",
+                headers={"WWW-Authenticate": "Bearer"},
+            ) from error
+        except AccountUnavailableError as error:
+            raise ApiError(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                code="account_deactivated",
+                message="This account is not available.",
+                headers={"WWW-Authenticate": "Bearer"},
+            ) from error
+        except DeviceContextMismatchError as error:
+            raise ApiError(
+                status_code=status.HTTP_409_CONFLICT,
+                code="invalid_device_context",
+                message="The supplied device context is invalid.",
+            ) from error
+
+        return LoginResponse(
+            user=SafeUserResponse(
+                id=result.user.id,
+                email=result.user.display_email,
+                account_state="active",
+                record_version=result.user.record_version,
+            ),
+            timezone_name=result.preference.timezone_name,
             device_id=result.device.id,
             session_id=result.session.id,
             session_expires_at=result.session.expires_at,
