@@ -15,6 +15,7 @@ from achiwave_backend.database import (
     session_scope,
 )
 from achiwave_backend.models import (
+    AchievementDefinition,
     Campaign,
     ClientMutation,
     DeviceSession,
@@ -87,6 +88,7 @@ def test_metadata_import_registers_models_without_connecting() -> None:
     engine = MagicMock(spec=Engine)
 
     assert set(Base.metadata.tables) == {
+        "achievement_definitions",
         "campaigns",
         "client_mutations",
         "device_sessions",
@@ -108,6 +110,7 @@ def test_metadata_import_registers_models_without_connecting() -> None:
         "xp_ledger_entries",
     }
     assert Campaign.__table__ is Base.metadata.tables["campaigns"]
+    assert AchievementDefinition.__table__ is Base.metadata.tables["achievement_definitions"]
     assert ClientMutation.__table__ is Base.metadata.tables["client_mutations"]
     assert DeviceSession.__table__ is Base.metadata.tables["device_sessions"]
     assert LevelDefinition.__table__ is Base.metadata.tables["level_definitions"]
