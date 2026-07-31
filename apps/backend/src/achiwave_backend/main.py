@@ -6,11 +6,16 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from achiwave_backend.api.auth import create_auth_router
+from achiwave_backend.api.dependencies import (
+    create_authentication_dependencies,
+    create_database_session_dependency,
+)
 from achiwave_backend.api.errors import (
     ApiError,
     api_error_handler,
     validation_error_handler,
 )
+from achiwave_backend.api.users import create_users_router
 from fastapi.exceptions import RequestValidationError
 from achiwave_backend.config import Settings, get_settings
 from achiwave_backend.database import (
@@ -66,9 +71,15 @@ def create_app(
         engine = create_database_engine(resolved_settings)
         application.state.database_engine = engine
         resolved_session_factory = create_session_factory(engine)
-    application.include_router(
-        create_auth_router(resolved_settings, resolved_session_factory)
+    database_session = create_database_session_dependency(
+        resolved_session_factory
     )
+    authentication = create_authentication_dependencies(
+        resolved_settings,
+        database_session,
+    )
+    application.include_router(create_auth_router(resolved_settings, database_session))
+    application.include_router(create_users_router(authentication))
 
     @application.middleware("http")
     async def log_request(request: Request, call_next):

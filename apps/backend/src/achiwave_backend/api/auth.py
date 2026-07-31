@@ -1,4 +1,4 @@
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 
 from fastapi import APIRouter, Depends, Response, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -13,7 +13,6 @@ from achiwave_backend.auth.tokens import (
     TokenVerifier,
 )
 from achiwave_backend.config import Settings
-from achiwave_backend.database import SessionFactory
 from achiwave_backend.schemas.auth import (
     LoginRequest,
     LoginResponse,
@@ -52,24 +51,11 @@ from achiwave_backend.services.refresh import (
 
 def create_auth_router(
     settings: Settings,
-    session_factory: SessionFactory | None,
+    database_session: Callable[[], Iterator[Session]],
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1/auth", tags=["authentication"])
     password_manager = PasswordManager(settings)
     bearer = HTTPBearer(auto_error=False)
-
-    def database_session() -> Iterator[Session]:
-        if session_factory is None:
-            raise ApiError(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                code="dependency_unavailable",
-                message="Authentication is temporarily unavailable.",
-            )
-        session = session_factory()
-        try:
-            yield session
-        finally:
-            session.close()
 
     @router.post(
         "/register",
