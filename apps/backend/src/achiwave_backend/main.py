@@ -10,7 +10,7 @@ from achiwave_backend.api.dependencies import (
     create_authentication_dependencies,
     create_database_session_dependency,
 )
-from achiwave_backend.api.devices import create_devices_router
+from achiwave_backend.api.devices import create_devices_router, create_sessions_router
 from achiwave_backend.api.errors import (
     ApiError,
     api_error_handler,
@@ -82,6 +82,7 @@ def create_app(
     application.include_router(create_auth_router(resolved_settings, database_session))
     application.include_router(create_users_router(authentication))
     application.include_router(create_devices_router(authentication))
+    application.include_router(create_sessions_router(authentication))
 
     @application.middleware("http")
     async def log_request(request: Request, call_next):

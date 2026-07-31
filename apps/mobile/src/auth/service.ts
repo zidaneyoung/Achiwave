@@ -78,7 +78,8 @@ export interface AuthenticationService {
   restore(): Promise<AuthenticationState>;
   logout(): Promise<void>;
   request(path: string, init?: RequestInit): Promise<Response>;
-  subscribeSessionRejected(listener: () => void): () => void;
+  handleCurrentSessionRevoked(): Promise<void>;
+  subscribeSessionRejected(listener: (message: string) => void): () => void;
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -206,7 +207,7 @@ export function createAuthenticationService({
   timeoutMilliseconds = 10_000,
 }: AuthenticationServiceOptions = {}): AuthenticationService {
   let refreshPromise: Promise<AuthenticationCredentials> | null = null;
-  const sessionRejectedListeners = new Set<() => void>();
+  const sessionRejectedListeners = new Set<(message: string) => void>();
   const appEnvironment =
     apiEnvironment === "test" ? "preview" : apiEnvironment;
 
@@ -307,7 +308,7 @@ export function createAuthenticationService({
     if (!response.ok) {
       const errorCode = parseApiError(body)?.code ?? null;
       if (response.status === 401 || (errorCode && PERMANENT_SESSION_CODES.has(errorCode))) {
-        await rejectSession();
+        await rejectSession("Your session ended. Sign in again.");
         throw new AuthenticationRequestError(
           "session_rejected",
           "Your session ended. Sign in again.",
@@ -338,10 +339,10 @@ export function createAuthenticationService({
     return refreshPromise;
   }
 
-  async function rejectSession(): Promise<void> {
+  async function rejectSession(message: string): Promise<void> {
     await credentialStore.clearAuthentication();
     for (const listener of sessionRejectedListeners) {
-      listener();
+      listener(message);
     }
   }
 
@@ -375,7 +376,10 @@ export function createAuthenticationService({
       }
       if (Date.parse(result.credentials.sessionExpiresAt) <= Date.now()) {
         await credentialStore.clearAuthentication();
-        return { status: "unauthenticated" };
+        return {
+          status: "unauthenticated",
+          message: "Your session expired. Sign in again.",
+        };
       }
       try {
         const credentials = await refresh(result.credentials.sessionId);
@@ -391,7 +395,10 @@ export function createAuthenticationService({
           error instanceof AuthenticationRequestError &&
           error.code === "session_rejected"
         ) {
-          return { status: "unauthenticated" };
+          return {
+            status: "unauthenticated",
+            message: "Your session ended. Sign in again.",
+          };
         }
         throw error;
       }
@@ -440,7 +447,7 @@ export function createAuthenticationService({
       credentials = await refresh(credentials.sessionId);
       response = await requestWithAccessToken(path, init, credentials.accessToken);
       if (response.status === 401) {
-        await rejectSession();
+        await rejectSession("Your session ended. Sign in again.");
         throw new AuthenticationRequestError(
           "session_rejected",
           "Your session ended. Sign in again.",
@@ -449,7 +456,13 @@ export function createAuthenticationService({
       return response;
     },
 
-    subscribeSessionRejected(listener: () => void): () => void {
+    handleCurrentSessionRevoked(): Promise<void> {
+      return rejectSession(
+        "This device or session was revoked. Sign in again.",
+      );
+    },
+
+    subscribeSessionRejected(listener: (message: string) => void): () => void {
       sessionRejectedListeners.add(listener);
       return () => sessionRejectedListeners.delete(listener);
     },

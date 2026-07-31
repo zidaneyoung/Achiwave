@@ -13,6 +13,6 @@ export interface AuthenticatedUserSnapshot {
 export type AuthenticationState =
   | { status: "loading" }
   | { status: "authenticated"; user: AuthenticatedUserSnapshot }
-  | { status: "unauthenticated" }
+  | { status: "unauthenticated"; message?: string }
   | { status: "offline_limited"; user: AuthenticatedUserSnapshot }
   | { status: "failure"; message: string };

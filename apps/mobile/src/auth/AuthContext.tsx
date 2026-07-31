@@ -40,9 +40,9 @@ export function AuthenticationProvider({
 
   useEffect(() => {
     let active = true;
-    const unsubscribe = authenticationService.subscribeSessionRejected(() => {
+    const unsubscribe = authenticationService.subscribeSessionRejected((message) => {
       if (active) {
-        setState({ status: "unauthenticated" });
+        setState({ status: "unauthenticated", message });
       }
     });
     void bootstrapAuthentication()

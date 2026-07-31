@@ -1,3 +1,4 @@
+import { Link } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -15,6 +16,18 @@ export default function ProtectedHomeRoute() {
           Signed in
         </Text>
         <Text style={styles.message}>{state.user.email}</Text>
+        <Link href="/(protected)/security" asChild>
+          <Pressable
+            accessibilityHint="Shows devices and sessions that can access this account."
+            accessibilityRole="button"
+            style={({ pressed }) => [
+              styles.button,
+              pressed && styles.buttonPressed,
+            ]}
+          >
+            <Text style={styles.buttonText}>Devices and sessions</Text>
+          </Pressable>
+        </Link>
         <Pressable
           accessibilityHint="Ends this session and removes local credentials."
           accessibilityRole="button"

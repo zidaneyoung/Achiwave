@@ -21,10 +21,12 @@ interface AuthenticationFormProps {
 }
 
 export function AuthenticationForm({ mode }: AuthenticationFormProps) {
-  const { login, register } = useAuthentication();
+  const { state, login, register } = useAuthentication();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(
+    state.status === "unauthenticated" ? (state.message ?? null) : null,
+  );
   const [submitting, setSubmitting] = useState(false);
   const isRegistration = mode === "register";
 

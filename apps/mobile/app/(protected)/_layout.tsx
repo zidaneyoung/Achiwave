@@ -24,6 +24,7 @@ export default function ProtectedLayout() {
     <Stack>
       <Stack.Screen name="index" options={{ title: "Achiwave" }} />
       <Stack.Screen name="offline" options={{ title: "Offline" }} />
+      <Stack.Screen name="security" options={{ title: "Devices and sessions" }} />
     </Stack>
   );
 }
