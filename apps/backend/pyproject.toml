@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=82,<83"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "achiwave-backend"
+version = "0.1.0"
+description = "Achiwave FastAPI and worker foundation"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "celery[redis]>=5.6.3,<5.7",
+  "fastapi>=0.141.1,<0.142",
+  "pydantic-settings>=2.14.2,<3",
+  "psycopg[binary]>=3.3.4,<4",
+  "redis>=6.4,<6.5",
+  "uvicorn[standard]>=0.52.0,<0.53",
+]
+
+[project.optional-dependencies]
+dev = [
+  "httpx2>=2.7,<3",
+  "pytest>=9.1.1,<10",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
