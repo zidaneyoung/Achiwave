@@ -101,6 +101,7 @@ def create_auth_router(
             user=SafeUserResponse(
                 id=result.user.id,
                 email=result.user.display_email,
+                display_name=result.user.display_name,
                 account_state="active",
                 record_version=result.user.record_version,
             ),
@@ -154,6 +155,7 @@ def create_auth_router(
             user=SafeUserResponse(
                 id=result.user.id,
                 email=result.user.display_email,
+                display_name=result.user.display_name,
                 account_state="active",
                 record_version=result.user.record_version,
             ),

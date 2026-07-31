@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKeyConstraint, Integer, Text, text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKeyConstraint, Integer, Text, text
 from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -34,6 +34,15 @@ class UserPreference(Base):
             name="ck_user_preferences_notification_preference",
         ),
         CheckConstraint(
+            "date_format IN ("
+            "'system', 'day_month_year', 'month_day_year', 'year_month_day')",
+            name="ck_user_preferences_date_format",
+        ),
+        CheckConstraint(
+            "reduced_motion IN ('system', 'reduce', 'allow')",
+            name="ck_user_preferences_reduced_motion",
+        ),
+        CheckConstraint(
             "record_version >= 1",
             name="ck_user_preferences_record_version_positive",
         ),
@@ -51,6 +60,18 @@ class UserPreference(Base):
     )
     notification_preference: Mapped[str] = mapped_column(
         Text, nullable=False, server_default=text("'unspecified'")
+    )
+    date_format: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default=text("'system'")
+    )
+    sound_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
+    haptics_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
+    reduced_motion: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default=text("'system'")
     )
     record_version: Mapped[int] = mapped_column(
         Integer, nullable=False, server_default=text("1")

@@ -28,6 +28,18 @@ export default function ProtectedHomeRoute() {
             <Text style={styles.buttonText}>Devices and sessions</Text>
           </Pressable>
         </Link>
+        <Link href="/(protected)/preferences" asChild>
+          <Pressable
+            accessibilityHint="Opens your presentation preferences."
+            accessibilityRole="button"
+            style={({ pressed }) => [
+              styles.button,
+              pressed && styles.buttonPressed,
+            ]}
+          >
+            <Text style={styles.buttonText}>Preferences</Text>
+          </Pressable>
+        </Link>
         <Pressable
           accessibilityHint="Ends this session and removes local credentials."
           accessibilityRole="button"
