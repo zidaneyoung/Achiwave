@@ -7,6 +7,7 @@ from achiwave_backend.models.achievement_rule import AchievementRule
 from achiwave_backend.models.achievement_unlock import AchievementUnlock
 from achiwave_backend.models.client_mutation import ClientMutation
 from achiwave_backend.models.device_session import DeviceSession
+from achiwave_backend.models.evidence_attachment import EvidenceAttachment
 from achiwave_backend.models.level_definition import LevelDefinition
 from achiwave_backend.models.notification import Notification
 from achiwave_backend.models.notification_delivery import NotificationDelivery
@@ -35,6 +36,7 @@ __all__ = [
     "Campaign",
     "ClientMutation",
     "DeviceSession",
+    "EvidenceAttachment",
     "LevelDefinition",
     "Notification",
     "NotificationDelivery",

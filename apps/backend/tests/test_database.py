@@ -22,6 +22,7 @@ from achiwave_backend.models import (
     Campaign,
     ClientMutation,
     DeviceSession,
+    EvidenceAttachment,
     LevelDefinition,
     Notification,
     NotificationDelivery,
@@ -101,6 +102,7 @@ def test_metadata_import_registers_models_without_connecting() -> None:
         "campaigns",
         "client_mutations",
         "device_sessions",
+        "evidence_attachments",
         "level_definitions",
         "notifications",
         "notification_deliveries",
@@ -128,6 +130,7 @@ def test_metadata_import_registers_models_without_connecting() -> None:
     assert AchievementUnlock.__table__ is Base.metadata.tables["achievement_unlocks"]
     assert ClientMutation.__table__ is Base.metadata.tables["client_mutations"]
     assert DeviceSession.__table__ is Base.metadata.tables["device_sessions"]
+    assert EvidenceAttachment.__table__ is Base.metadata.tables["evidence_attachments"]
     assert LevelDefinition.__table__ is Base.metadata.tables["level_definitions"]
     assert Notification.__table__ is Base.metadata.tables["notifications"]
     assert NotificationDelivery.__table__ is Base.metadata.tables["notification_deliveries"]
