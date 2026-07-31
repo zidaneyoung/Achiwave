@@ -17,7 +17,14 @@ function resolvePublicEnvironment(source = process.env) {
     throw new Error("EXPO_PUBLIC_API_BASE_URL is required.");
   }
 
-  const parsedUrl = new URL(apiBaseUrl);
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(apiBaseUrl);
+  } catch {
+    throw new Error(
+      "EXPO_PUBLIC_API_BASE_URL must be a valid absolute URL.",
+    );
+  }
   if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
     throw new Error("EXPO_PUBLIC_API_BASE_URL must use HTTP or HTTPS.");
   }
