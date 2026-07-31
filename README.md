@@ -23,3 +23,8 @@ No user-facing web application is planned for the initial product direction.
 
 Stage 1 domain rules and acceptance evidence are indexed in
 [`docs/README.md`](docs/README.md).
+
+## Local development
+
+- [Set up and run the Stage 2 local stack](docs/local-development.md)
+- [Review Stage 2 issue-by-issue acceptance evidence](docs/testing/stage-2-acceptance.md)
