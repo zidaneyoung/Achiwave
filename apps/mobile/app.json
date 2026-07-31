@@ -4,10 +4,14 @@
     "slug": "achiwave",
     "version": "0.1.0",
     "orientation": "portrait",
+    "scheme": "achiwave",
     "platforms": [
       "android",
       "ios"
     ],
+    "android": {
+      "package": "com.zidaneyoung.achiwave.dev"
+    },
     "plugins": [
       "expo-router"
     ],
