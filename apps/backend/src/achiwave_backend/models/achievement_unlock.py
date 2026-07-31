@@ -93,6 +93,17 @@ class AchievementUnlock(Base):
             "rule_version",
             "unlocked_at",
         ),
+        Index(
+            "ix_achievement_unlocks_progress",
+            "achievement_progress_id",
+            "user_id",
+        ),
+        Index(
+            "ix_achievement_unlocks_source_event",
+            "source_progress_event_id",
+            "user_id",
+            "source_progress_event_sequence",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(

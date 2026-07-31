@@ -421,7 +421,35 @@ Purpose: transactional publication state written with a future source-domain cha
   event allowlists; arbitrary nested JSON is never assumed safe.
 - Partial due and stale-lease indexes plus aggregate history support deterministic
   worker polling. Published rows remain audit history. No worker or Beat schedule is
-  implemented by Stage 3.
+implemented by Stage 3.
+
+## Final integrity audit (#62)
+
+Revision `20260731_0062` closes the whole-schema integrity audit without changing
+the data model. It rebuilds six IANA-timezone shape checks using PostgreSQL's
+supported regular-expression syntax on `user_preferences`, `quests`,
+`quest_recurrences`, `quest_occurrences`, `quest_completions`, and `streak_days`.
+Full timezone-database membership and DST resolution remain backend logic.
+
+PostgreSQL does not automatically index referencing foreign-key columns. The audit
+therefore adds 17 join/restriction-support indexes whose leftmost columns were not
+already covered by a useful index:
+
+- achievement progress last-event, unlock progress, and unlock source-event;
+- replacement links for sessions and push tokens;
+- evidence completion ancestry;
+- delivery device, outbox, and push-token ancestry;
+- outbox user scope and progress-event mutation lookup;
+- completion and completion-reversal device ancestry;
+- reminder occurrence ownership and streak-source reversal ancestry;
+- synchronization device lookup and XP-ledger mutation lookup.
+
+The audit intentionally adds no speculative indexes. PostgreSQL inspection found
+no duplicate index definitions. Invariants that need multi-row locking or domain
+evaluation—event-sequence allocation, recurrence generation, mutation payload
+comparison before replay, reward transactions, append-only write roles, recursive
+outbox allowlists, and coordinated privacy erasure—remain future backend/service
+responsibilities and are not falsely represented as ordinary checks.
 
 ## Current entity relationships
 
@@ -467,17 +495,92 @@ erDiagram
     OUTBOX_EVENTS o|--o{ NOTIFICATION_DELIVERIES : "dispatches"
 ```
 
+## Deletion behaviour matrix (#63)
+
+Every Stage 3 FK declares `ON DELETE`. Preferences are the only nonhistorical
+dependent record that cascades with its user. All other relationships restrict
+ordinary deletion so ownership, security, reward, notification, evidence, and audit
+history cannot be silently orphaned or erased.
+
+| Child | Parent | Child relationship columns | On delete |
+|---|---|---|---|
+| `achievement_rules` | `achievement_definitions` | `achievement_definition_id, rule_version, rule_model` | `RESTRICT` |
+| `campaigns` | `users` | `user_id` | `RESTRICT` |
+| `client_mutations` | `users` | `user_id` | `RESTRICT` |
+| `notifications` | `users` | `user_id` | `RESTRICT` |
+| `outbox_events` | `users` | `user_id` | `RESTRICT` |
+| `registered_devices` | `users` | `user_id` | `RESTRICT` |
+| `streak_days` | `users` | `user_id` | `RESTRICT` |
+| `streaks` | `users` | `user_id` | `RESTRICT` |
+| `user_preferences` | `users` | `user_id` | `CASCADE` |
+| `device_sessions` | `registered_devices` | `device_id, user_id` | `RESTRICT` |
+| `device_sessions` | `device_sessions` | `replaced_by_session_id, user_id` | `RESTRICT` |
+| `progress_events` | `client_mutations` | `user_id, client_mutation_id` | `RESTRICT` |
+| `progress_events` | `users` | `user_id` | `RESTRICT` |
+| `push_tokens` | `registered_devices` | `device_id, user_id, platform, app_environment` | `RESTRICT` |
+| `push_tokens` | `push_tokens` | `replaced_by_push_token_id, user_id, device_id` | `RESTRICT` |
+| `quests` | `campaigns` | `campaign_id, user_id` | `RESTRICT` |
+| `synchronization_operations` | `registered_devices` | `device_id, user_id` | `RESTRICT` |
+| `synchronization_operations` | `client_mutations` | `user_id, client_mutation_id` | `RESTRICT` |
+| `achievement_progress` | `progress_events` | `last_progress_event_id, user_id, last_event_sequence` | `RESTRICT` |
+| `achievement_progress` | `achievement_rules` | `achievement_definition_id, rule_version, progress_model` | `RESTRICT` |
+| `achievement_progress` | `users` | `user_id` | `RESTRICT` |
+| `notification_deliveries` | `registered_devices` | `device_id, user_id` | `RESTRICT` |
+| `notification_deliveries` | `notifications` | `notification_id, user_id` | `RESTRICT` |
+| `notification_deliveries` | `outbox_events` | `outbox_event_id, user_id` | `RESTRICT` |
+| `notification_deliveries` | `push_tokens` | `push_token_id, user_id, device_id, provider` | `RESTRICT` |
+| `quest_occurrences` | `quests` | `quest_id, user_id, campaign_id, quest_type` | `RESTRICT` |
+| `quest_recurrences` | `quests` | `quest_id, user_id, campaign_id, quest_type` | `RESTRICT` |
+| `achievement_unlocks` | `achievement_definitions` | `achievement_definition_id, rule_version` | `RESTRICT` |
+| `achievement_unlocks` | `achievement_progress` | `achievement_progress_id, user_id, achievement_definition_id, rule_version` | `RESTRICT` |
+| `achievement_unlocks` | `progress_events` | `source_progress_event_id, user_id, source_progress_event_sequence` | `RESTRICT` |
+| `achievement_unlocks` | `users` | `user_id` | `RESTRICT` |
+| `quest_completions` | `registered_devices` | `device_id, user_id` | `RESTRICT` |
+| `quest_completions` | `quest_occurrences` | `occurrence_id, user_id` | `RESTRICT` |
+| `quest_completions` | `client_mutations` | `user_id, client_mutation_id` | `RESTRICT` |
+| `reminders` | `quest_occurrences` | `occurrence_id, user_id, quest_id` | `RESTRICT` |
+| `reminders` | `quests` | `quest_id, user_id` | `RESTRICT` |
+| `evidence_attachments` | `quest_completions` | `completion_id, user_id, occurrence_id` | `RESTRICT` |
+| `evidence_attachments` | `quest_occurrences` | `occurrence_id, user_id, quest_id` | `RESTRICT` |
+| `evidence_attachments` | `quests` | `quest_id, user_id` | `RESTRICT` |
+| `quest_completion_reversals` | `quest_completions` | `completion_id, user_id, occurrence_id` | `RESTRICT` |
+| `quest_completion_reversals` | `registered_devices` | `device_id, user_id` | `RESTRICT` |
+| `quest_completion_reversals` | `client_mutations` | `user_id, client_mutation_id` | `RESTRICT` |
+| `streak_day_sources` | `quest_completions` | `completion_id, user_id, effective_local_date` | `RESTRICT` |
+| `streak_day_sources` | `streak_days` | `streak_day_id, user_id, effective_local_date` | `RESTRICT` |
+| `streak_day_sources` | `quest_completion_reversals` | `reversal_id, user_id, completion_id` | `RESTRICT` |
+| `xp_ledger_entries` | `quest_completions` | `completion_id, user_id` | `RESTRICT` |
+| `xp_ledger_entries` | `xp_ledger_entries` | `reverses_ledger_entry_id, user_id, source_award_amount, source_award_reason` | `RESTRICT` |
+| `xp_ledger_entries` | `progress_events` | `progress_event_id, user_id, event_sequence` | `RESTRICT` |
+| `xp_ledger_entries` | `quest_completion_reversals` | `reversal_id, user_id` | `RESTRICT` |
+| `xp_ledger_entries` | `client_mutations` | `user_id, client_mutation_id` | `RESTRICT` |
+| `xp_ledger_entries` | `users` | `user_id` | `RESTRICT` |
+
+Campaign and quest user-facing deletion is archive/tombstone state. Device, session,
+token, reminder, notification, and evidence removal is lifecycle state/timestamp,
+not ordinary row deletion. Completion, reversal, progress-event, XP, streak-source,
+unlock, delivery-attempt, and published-outbox history is retained. Permanent account
+erasure remains a later coordinated privacy workflow that must order or de-identify
+all restricted records; Stage 3 does not implement it.
+
 ## Stage 1 rule mapping
 
-- `domain-model.md`: immutable user ownership and device context boundaries.
+- `domain-model.md`: immutable user ownership, campaign/quest ancestry, occurrence
+  identity, and device-context boundaries.
+- `state-transitions.md`: explicit campaign, quest, occurrence, completion,
+  reversal, archive, and restoration state/timestamp combinations.
+- `progression.md`: append-oriented progress events, source-bound XP awards and
+  compensations, versioned level curves, reconstructable streak sources, private
+  achievement rules, and immutable unlocks.
 - `time-and-timezone.md`: saved IANA timezone snapshots, positive versions, and
-  server-effective instants.
-- `offline-and-synchronization.md`: registered devices are context only; private
-  queued or token values never become authority.
-- `history-and-deletion.md`: revocation is state plus audit timestamps; ordinary
-  deletion is restricted where security history must remain.
-- `mvp-boundary.md`: no authentication, notification delivery, or mobile permission
-  behavior is implemented by these tables.
+  server-effective instants; device-observed values remain metadata.
+- `offline-and-synchronization.md`: stable mutation bindings, one authoritative
+  replay result, ordered progress, registered-device context, and no generic
+  reward-bearing last-write-wins behavior.
+- `history-and-deletion.md`: archive and revocation are lifecycle state; reward,
+  completion, unlock, delivery, and audit history uses restriction and compensation.
+- `mvp-boundary.md`: no authentication, domain API, worker, delivery, upload, or
+  mobile behavior is implemented by this schema.
 
-Later Stage 3 branches extend this document with domain, progression, achievement,
-notification, evidence, outbox, deletion, and full integrity details.
+Issue-level commits, migrations, and real PostgreSQL evidence are recorded in the
+[Stage 3 acceptance audit](../testing/stage-3-acceptance.md).

@@ -28,3 +28,5 @@ Stage 1 domain rules and acceptance evidence are indexed in
 
 - [Set up and run the Stage 2 local stack](docs/local-development.md)
 - [Review Stage 2 issue-by-issue acceptance evidence](docs/testing/stage-2-acceptance.md)
+- [Review the Stage 3 PostgreSQL schema](docs/database/stage-3-schema.md)
+- [Review Stage 3 issue-by-issue acceptance evidence](docs/testing/stage-3-acceptance.md)

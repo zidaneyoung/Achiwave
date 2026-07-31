@@ -1,7 +1,8 @@
 # Achiwave backend
 
-The Stage 2 backend is a minimal FastAPI service and shared worker package. It
-does not contain authentication, domain endpoints, or Stage 3 data models.
+The backend is a minimal FastAPI service and shared worker package with the
+Stage 3 SQLAlchemy/Alembic data model. It does not contain authentication,
+domain endpoints, reward services, recurrence workers, or notification delivery.
 
 Create local settings before starting services:
 
@@ -47,12 +48,22 @@ python -m celery -A achiwave_backend.worker:celery_app beat --loglevel=INFO --sc
 
 Stage 2 intentionally configures no scheduled domain jobs.
 
-Run the Stage 2 database baseline from this directory:
+Apply the linear Stage 3 migration chain from this directory:
 
 ```powershell
 python -m alembic upgrade head
 ```
 
-Inspect or reverse the baseline with `python -m alembic current` and
-`python -m alembic downgrade base`. The baseline intentionally creates no
-domain tables.
+Inspect it with `python -m alembic heads`, `python -m alembic current`, and
+`python -m alembic check`. The schema and its acceptance evidence are documented
+in [`docs/database/stage-3-schema.md`](../../docs/database/stage-3-schema.md) and
+[`docs/testing/stage-3-acceptance.md`](../../docs/testing/stage-3-acceptance.md).
+
+The destructive migration tests require an explicitly disposable PostgreSQL URL:
+
+```powershell
+$env:ACHIWAVE_TEST_DATABASE_URL = '<explicit disposable PostgreSQL URL>'
+python -m pytest tests/test_stage3_postgres.py -q
+```
+
+The tests refuse database names that do not contain `test`, `stage3`, or `ci`.

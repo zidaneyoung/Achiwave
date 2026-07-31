@@ -81,6 +81,12 @@ class Reminder(Base):
             postgresql_where=text("enabled = true AND deleted_at IS NULL"),
         ),
         Index("ix_reminders_user_enabled", "user_id", "enabled", "updated_at"),
+        Index(
+            "ix_reminders_occurrence_owner",
+            "occurrence_id",
+            "user_id",
+            "quest_id",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(

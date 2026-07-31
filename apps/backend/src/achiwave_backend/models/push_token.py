@@ -109,6 +109,12 @@ class PushToken(Base):
             "device_id",
             "token_state",
         ),
+        Index(
+            "ix_push_tokens_replaced_by",
+            "replaced_by_push_token_id",
+            "user_id",
+            "device_id",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(

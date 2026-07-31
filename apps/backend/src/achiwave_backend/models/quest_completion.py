@@ -78,8 +78,8 @@ class QuestCompletion(Base):
         CheckConstraint(
             "device_timezone_name IS NULL OR device_timezone_name = 'UTC' "
             "OR device_timezone_name ~ "
-            "'^[A-Za-z]+(?:[_+-][A-Za-z0-9]+)*/[A-Za-z0-9_+-]+"
-            "(?:/[A-Za-z0-9_+-]+)*$'",
+            "'^[A-Za-z]+([_+-][A-Za-z0-9]+)*/[A-Za-z0-9_+-]+"
+            "(/[A-Za-z0-9_+-]+)*$'",
             name="ck_quest_completions_device_timezone_shape",
         ),
         Index(
@@ -105,6 +105,7 @@ class QuestCompletion(Base):
             "occurrence_id",
             "server_received_at",
         ),
+        Index("ix_quest_completions_device", "device_id", "user_id"),
     )
 
     id: Mapped[UUID] = mapped_column(
@@ -202,6 +203,7 @@ class QuestCompletionReversal(Base):
             "user_id",
             "server_received_at",
         ),
+        Index("ix_quest_completion_reversals_device", "device_id", "user_id"),
     )
 
     id: Mapped[UUID] = mapped_column(

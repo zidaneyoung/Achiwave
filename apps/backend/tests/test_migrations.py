@@ -42,7 +42,7 @@ def test_stage3_migrations_have_one_alembic_head() -> None:
     configuration = Config(BACKEND_ROOT / "alembic.ini")
     scripts = ScriptDirectory.from_config(configuration)
 
-    assert scripts.get_heads() == ["20260731_0061"]
+    assert scripts.get_heads() == ["20260731_0062"]
 
 
 def test_stage3_metadata_registers_current_tables() -> None:
@@ -110,3 +110,24 @@ def test_stage3_metadata_registers_current_tables() -> None:
     assert User.__table__ is Base.metadata.tables["users"]
     assert UserPreference.__table__ is Base.metadata.tables["user_preferences"]
     assert XpLedgerEntry.__table__ is Base.metadata.tables["xp_ledger_entries"]
+
+
+def test_stage3_foreign_keys_define_deletion_behaviour() -> None:
+    foreign_keys = [
+        foreign_key
+        for table in Base.metadata.tables.values()
+        for foreign_key in table.foreign_key_constraints
+    ]
+
+    assert len(foreign_keys) == 51
+    assert all(foreign_key.ondelete is not None for foreign_key in foreign_keys)
+    assert {
+        foreign_key.name
+        for foreign_key in foreign_keys
+        if foreign_key.ondelete == "CASCADE"
+    } == {"fk_user_preferences_user_id_users"}
+    assert all(
+        foreign_key.ondelete == "CASCADE"
+        or foreign_key.ondelete == "RESTRICT"
+        for foreign_key in foreign_keys
+    )
