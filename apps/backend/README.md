@@ -22,12 +22,16 @@ python -m pip install -e ".[dev]"
 Run the API for local development:
 
 ```powershell
-python -m uvicorn achiwave_backend.main:app --reload
+python -m uvicorn achiwave_backend.main:app --reload --no-access-log
 ```
 
 The process-only liveness endpoint is `GET /health/live`. The dependency-aware
 readiness endpoint is `GET /health/ready` and returns HTTP 503 until both
 PostgreSQL and Redis are reachable.
+
+Backend, worker, and scheduler logs are JSON lines on standard output. Set
+`ACHIWAVE_SERVICE_NAME` to `backend`, `worker`, or `scheduler` when starting
+each process outside Compose.
 
 Start the Celery worker after configuring Redis:
 
