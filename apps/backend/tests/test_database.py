@@ -22,7 +22,11 @@ from achiwave_backend.models import (
     Campaign,
     ClientMutation,
     DeviceSession,
+    EvidenceAttachment,
     LevelDefinition,
+    Notification,
+    NotificationDelivery,
+    OutboxEvent,
     ProgressEvent,
     PushToken,
     Quest,
@@ -31,6 +35,7 @@ from achiwave_backend.models import (
     QuestOccurrence,
     QuestRecurrence,
     RegisteredDevice,
+    Reminder,
     SynchronizationOperation,
     Streak,
     StreakDay,
@@ -98,7 +103,11 @@ def test_metadata_import_registers_models_without_connecting() -> None:
         "campaigns",
         "client_mutations",
         "device_sessions",
+        "evidence_attachments",
         "level_definitions",
+        "notifications",
+        "notification_deliveries",
+        "outbox_events",
         "push_tokens",
         "progress_events",
         "quests",
@@ -107,6 +116,7 @@ def test_metadata_import_registers_models_without_connecting() -> None:
         "quest_completions",
         "quest_completion_reversals",
         "registered_devices",
+        "reminders",
         "synchronization_operations",
         "streak_day_sources",
         "streak_days",
@@ -122,7 +132,11 @@ def test_metadata_import_registers_models_without_connecting() -> None:
     assert AchievementUnlock.__table__ is Base.metadata.tables["achievement_unlocks"]
     assert ClientMutation.__table__ is Base.metadata.tables["client_mutations"]
     assert DeviceSession.__table__ is Base.metadata.tables["device_sessions"]
+    assert EvidenceAttachment.__table__ is Base.metadata.tables["evidence_attachments"]
     assert LevelDefinition.__table__ is Base.metadata.tables["level_definitions"]
+    assert Notification.__table__ is Base.metadata.tables["notifications"]
+    assert NotificationDelivery.__table__ is Base.metadata.tables["notification_deliveries"]
+    assert OutboxEvent.__table__ is Base.metadata.tables["outbox_events"]
     assert PushToken.__table__ is Base.metadata.tables["push_tokens"]
     assert ProgressEvent.__table__ is Base.metadata.tables["progress_events"]
     assert Quest.__table__ is Base.metadata.tables["quests"]
@@ -134,6 +148,7 @@ def test_metadata_import_registers_models_without_connecting() -> None:
     assert QuestOccurrence.__table__ is Base.metadata.tables["quest_occurrences"]
     assert QuestRecurrence.__table__ is Base.metadata.tables["quest_recurrences"]
     assert RegisteredDevice.__table__ is Base.metadata.tables["registered_devices"]
+    assert Reminder.__table__ is Base.metadata.tables["reminders"]
     assert (
         SynchronizationOperation.__table__
         is Base.metadata.tables["synchronization_operations"]
@@ -168,6 +183,23 @@ def test_achievement_rule_model_repr_does_not_expose_private_rule() -> None:
         "sensitive": True
     }
     assert AchievementRule.__table__.c.integrity_hash.info == {"sensitive": True}
+
+
+def test_evidence_and_outbox_repr_do_not_expose_private_payloads() -> None:
+    attachment = EvidenceAttachment(
+        storage_key="private/object/key",
+        attachment_metadata={"private": "evidence-metadata"},
+    )
+    event = OutboxEvent(event_payload={"private": "outbox-payload"})
+
+    assert "private/object/key" not in repr(attachment)
+    assert "evidence-metadata" not in repr(attachment)
+    assert "outbox-payload" not in repr(event)
+    assert EvidenceAttachment.__table__.c.storage_key.info == {"sensitive": True}
+    assert EvidenceAttachment.__table__.c.attachment_metadata.info == {
+        "sensitive": True
+    }
+    assert OutboxEvent.__table__.c.event_payload.info == {"sensitive": True}
 
 
 def test_ping_database_returns_true() -> None:

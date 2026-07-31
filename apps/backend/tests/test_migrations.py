@@ -12,7 +12,11 @@ from achiwave_backend.models import (
     Campaign,
     ClientMutation,
     DeviceSession,
+    EvidenceAttachment,
     LevelDefinition,
+    Notification,
+    NotificationDelivery,
+    OutboxEvent,
     ProgressEvent,
     PushToken,
     Quest,
@@ -21,6 +25,7 @@ from achiwave_backend.models import (
     QuestOccurrence,
     QuestRecurrence,
     RegisteredDevice,
+    Reminder,
     SynchronizationOperation,
     Streak,
     StreakDay,
@@ -37,7 +42,7 @@ def test_stage3_migrations_have_one_alembic_head() -> None:
     configuration = Config(BACKEND_ROOT / "alembic.ini")
     scripts = ScriptDirectory.from_config(configuration)
 
-    assert scripts.get_heads() == ["20260731_0056"]
+    assert scripts.get_heads() == ["20260731_0061"]
 
 
 def test_stage3_metadata_registers_current_tables() -> None:
@@ -49,7 +54,11 @@ def test_stage3_metadata_registers_current_tables() -> None:
         "campaigns",
         "client_mutations",
         "device_sessions",
+        "evidence_attachments",
         "level_definitions",
+        "notifications",
+        "notification_deliveries",
+        "outbox_events",
         "push_tokens",
         "progress_events",
         "quests",
@@ -58,6 +67,7 @@ def test_stage3_metadata_registers_current_tables() -> None:
         "quest_completions",
         "quest_completion_reversals",
         "registered_devices",
+        "reminders",
         "synchronization_operations",
         "streak_day_sources",
         "streak_days",
@@ -73,7 +83,11 @@ def test_stage3_metadata_registers_current_tables() -> None:
     assert AchievementUnlock.__table__ is Base.metadata.tables["achievement_unlocks"]
     assert ClientMutation.__table__ is Base.metadata.tables["client_mutations"]
     assert DeviceSession.__table__ is Base.metadata.tables["device_sessions"]
+    assert EvidenceAttachment.__table__ is Base.metadata.tables["evidence_attachments"]
     assert LevelDefinition.__table__ is Base.metadata.tables["level_definitions"]
+    assert Notification.__table__ is Base.metadata.tables["notifications"]
+    assert NotificationDelivery.__table__ is Base.metadata.tables["notification_deliveries"]
+    assert OutboxEvent.__table__ is Base.metadata.tables["outbox_events"]
     assert PushToken.__table__ is Base.metadata.tables["push_tokens"]
     assert ProgressEvent.__table__ is Base.metadata.tables["progress_events"]
     assert Quest.__table__ is Base.metadata.tables["quests"]
@@ -85,6 +99,7 @@ def test_stage3_metadata_registers_current_tables() -> None:
     assert QuestOccurrence.__table__ is Base.metadata.tables["quest_occurrences"]
     assert QuestRecurrence.__table__ is Base.metadata.tables["quest_recurrences"]
     assert RegisteredDevice.__table__ is Base.metadata.tables["registered_devices"]
+    assert Reminder.__table__ is Base.metadata.tables["reminders"]
     assert (
         SynchronizationOperation.__table__
         is Base.metadata.tables["synchronization_operations"]

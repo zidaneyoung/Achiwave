@@ -7,7 +7,11 @@ from achiwave_backend.models.achievement_rule import AchievementRule
 from achiwave_backend.models.achievement_unlock import AchievementUnlock
 from achiwave_backend.models.client_mutation import ClientMutation
 from achiwave_backend.models.device_session import DeviceSession
+from achiwave_backend.models.evidence_attachment import EvidenceAttachment
 from achiwave_backend.models.level_definition import LevelDefinition
+from achiwave_backend.models.notification import Notification
+from achiwave_backend.models.notification_delivery import NotificationDelivery
+from achiwave_backend.models.outbox_event import OutboxEvent
 from achiwave_backend.models.progress_event import ProgressEvent
 from achiwave_backend.models.push_token import PushToken
 from achiwave_backend.models.quest import Quest
@@ -18,6 +22,7 @@ from achiwave_backend.models.quest_completion import (
 from achiwave_backend.models.quest_occurrence import QuestOccurrence
 from achiwave_backend.models.quest_recurrence import QuestRecurrence
 from achiwave_backend.models.registered_device import RegisteredDevice
+from achiwave_backend.models.reminder import Reminder
 from achiwave_backend.models.synchronization_operation import SynchronizationOperation
 from achiwave_backend.models.streak import Streak, StreakDay, StreakDaySource
 from achiwave_backend.models.user import User
@@ -32,7 +37,11 @@ __all__ = [
     "Campaign",
     "ClientMutation",
     "DeviceSession",
+    "EvidenceAttachment",
     "LevelDefinition",
+    "Notification",
+    "NotificationDelivery",
+    "OutboxEvent",
     "ProgressEvent",
     "PushToken",
     "Quest",
@@ -41,6 +50,7 @@ __all__ = [
     "QuestOccurrence",
     "QuestRecurrence",
     "RegisteredDevice",
+    "Reminder",
     "SynchronizationOperation",
     "Streak",
     "StreakDay",

@@ -29,6 +29,9 @@ class Quest(Base):
             ondelete="RESTRICT",
         ),
         UniqueConstraint(
+            "id", "user_id", name="uq_quests_id_user"
+        ),
+        UniqueConstraint(
             "id",
             "user_id",
             "campaign_id",
