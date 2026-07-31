@@ -16,10 +16,11 @@ domain model.
   Compose file was therefore verified with Docker Engine 29 and Compose 2.40
   inside WSL 2; all five services became healthy and the disposable verification
   project was removed afterward.
-- Android Studio's bundled JDK was available, but no Android SDK, Platform-Tools,
-  ADB, emulator, or connected device was installed. Configuration, TypeScript,
-  Expo Doctor, and Android bundle export checks passed. The device-only render
-  failure/retry interaction could not be run and is recorded as Unable to Verify.
+- The Android recheck used SDK Platform 36, Platform-Tools/ADB 37.0.1, and a
+  Google APIs x86_64 API 36 emulator. On this Java 25 Windows host, native
+  builds required `--enable-native-access=ALL-UNNAMED` and a short disposable
+  worktree to avoid CMake path-length limits. Debug and release APKs built and
+  installed, and issue #34's render failure/retry interaction passed.
 
 ## Issue evidence
 
@@ -41,7 +42,7 @@ domain model.
 | [#31](https://github.com/zidaneyoung/Achiwave/issues/31) | `stage-2/persistence-health-28-31` | [`6d7135c`](https://github.com/zidaneyoung/Achiwave/commit/6d7135c) | [#369](https://github.com/zidaneyoung/Achiwave/pull/369) | `apps/backend/src/achiwave_backend/health.py`, `apps/backend/tests/test_health.py` | Pytest plus live dependency transitions — liveness stayed 200; readiness returned 200 with both dependencies and 503 for each unavailable dependency without leaking URLs. | Pass |
 | [#32](https://github.com/zidaneyoung/Achiwave/issues/32) | `stage-2/local-infrastructure-32-33` | [`170e2e1`](https://github.com/zidaneyoung/Achiwave/commit/170e2e1), [`94fcfe1`](https://github.com/zidaneyoung/Achiwave/commit/94fcfe1) | [#370](https://github.com/zidaneyoung/Achiwave/pull/370) | `infrastructure/compose.local.yaml`, `apps/backend/Dockerfile` | Compose config plus a full WSL Docker run — five services became healthy, migration/current passed, worker task completed, and PostgreSQL data survived stop/start. | Pass |
 | [#33](https://github.com/zidaneyoung/Achiwave/issues/33) | `stage-2/local-infrastructure-32-33` | [`f3e6d2c`](https://github.com/zidaneyoung/Achiwave/commit/f3e6d2c), [`94fcfe1`](https://github.com/zidaneyoung/Achiwave/commit/94fcfe1) | [#370](https://github.com/zidaneyoung/Achiwave/pull/370) | `apps/backend/src/achiwave_backend/logging_config.py`, `apps/backend/tests/test_logging.py` | Pytest and live API/worker/scheduler logs — application records parsed as JSON, included service context, and redacted configured credentials and URLs. | Pass |
-| [#34](https://github.com/zidaneyoung/Achiwave/issues/34) | `stage-2/android-runtime-config-34-36` | [`b3a3248`](https://github.com/zidaneyoung/Achiwave/commit/b3a3248) | [#371](https://github.com/zidaneyoung/Achiwave/pull/371) | `apps/mobile/app/_layout.tsx` | TypeScript and Android export passed. Expo Router's named boundary contract and fixed-message retry fallback compiled; the deliberate Android render failure/retry interaction could not run without SDK/ADB/device. | Unable to Verify |
+| [#34](https://github.com/zidaneyoung/Achiwave/issues/34) | `stage-2/android-runtime-config-34-36` | [`b3a3248`](https://github.com/zidaneyoung/Achiwave/commit/b3a3248) | [#371](https://github.com/zidaneyoung/Achiwave/pull/371) | `apps/mobile/app/_layout.tsx` | Android API 36 emulator build/install plus a deliberate release render failure — the accessible fixed-message fallback displayed without the injected internal error detail, and tapping `Try again` restored the normal screen. | Pass |
 | [#35](https://github.com/zidaneyoung/Achiwave/issues/35) | `stage-2/android-runtime-config-34-36` | [`399a810`](https://github.com/zidaneyoung/Achiwave/commit/399a810), [`7ab5ca9`](https://github.com/zidaneyoung/Achiwave/commit/7ab5ca9) | [#371](https://github.com/zidaneyoung/Achiwave/pull/371) | `apps/mobile/app.config.ts`, `apps/mobile/src/config/environment.js`, `apps/mobile/src/api/client.ts` | Development emulator config and explicit production config resolved; missing/insecure production URLs failed clearly; mock liveness request, schema rejection, timeout, and sanitized failure checks passed. | Pass |
 | [#36](https://github.com/zidaneyoung/Achiwave/issues/36) | `stage-2/android-runtime-config-34-36` | [`fe1924e`](https://github.com/zidaneyoung/Achiwave/commit/fe1924e), [`5447248`](https://github.com/zidaneyoung/Achiwave/commit/5447248) | [#371](https://github.com/zidaneyoung/Achiwave/pull/371), [#372](https://github.com/zidaneyoung/Achiwave/pull/372) (path correction) | `docs/local-development.md`, `docs/testing/stage-2-acceptance.md` | PowerShell local-link audit — all 23 Markdown files had no broken local links; all 19 issue rows reference existing committed files; documented mobile and backend checks produced the results below. | Pass |
 
@@ -59,10 +60,13 @@ domain model.
   generated output was removed afterward.
 - strict TypeScript, development and production Expo config evaluation,
   invalid-production-config rejection, and API-client behavior checks: Pass.
-- `npx expo run:android`: Unable to Verify on this host. The installed Android
-  Studio has a JDK but no SDK, Platform-Tools, ADB, emulator, or attached
-  device. The earlier attempt stopped at that missing prerequisite, so it was
-  not repeated.
+- `npx expo run:android --device Achiwave_Issue34_API36_G --no-bundler` from a
+  short disposable worktree at the audited commit: Pass, the debug APK built
+  and installed on the API 36 emulator. A self-contained release APK with a
+  temporary deliberate render failure also built and installed; UI Automator
+  observed the safe accessible fallback, absence of the injected internal
+  detail, and successful recovery after tapping `Try again`. The temporary
+  source change, Git worktree, emulator, and AVD definitions were removed.
 - PowerShell local Markdown link audit: Pass, 23 files checked with no broken
   local links.
 
