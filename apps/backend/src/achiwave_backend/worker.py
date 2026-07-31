@@ -23,6 +23,10 @@ def create_celery_app(settings: Settings | None = None) -> Celery:
             "socket_timeout": resolved_settings.redis_socket_timeout_seconds,
             "visibility_timeout": 3600,
         },
+        beat_schedule={},
+        beat_schedule_filename=str(
+            resolved_settings.celery_beat_schedule_filename
+        ),
         enable_utc=True,
         result_expires=3600,
         result_serializer="json",

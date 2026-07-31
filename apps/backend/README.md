@@ -20,3 +20,11 @@ Start the Celery worker after configuring Redis:
 ```powershell
 python -m celery -A achiwave_backend.worker:celery_app worker --loglevel=INFO
 ```
+
+Start Celery Beat with an explicitly ignored local schedule file:
+
+```powershell
+python -m celery -A achiwave_backend.worker:celery_app beat --loglevel=INFO --schedule .runtime/celerybeat-schedule
+```
+
+Stage 2 intentionally configures no scheduled domain jobs.

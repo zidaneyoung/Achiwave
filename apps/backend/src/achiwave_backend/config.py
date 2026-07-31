@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import Field, PostgresDsn, RedisDsn
@@ -28,6 +29,7 @@ class Settings(BaseSettings):
     celery_broker_url: RedisDsn | None = None
     celery_result_backend: RedisDsn | None = None
     celery_task_always_eager: bool = False
+    celery_beat_schedule_filename: Path = Path(".runtime/celerybeat-schedule")
     redis_connect_timeout_seconds: float = Field(default=1.0, gt=0, le=10)
     redis_socket_timeout_seconds: float = Field(default=1.0, gt=0, le=10)
 
