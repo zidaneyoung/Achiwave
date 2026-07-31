@@ -70,11 +70,12 @@ def assert_no_sentinels(output: str) -> None:
 
 def test_normal_structured_logging_recursively_redacts_secret_fields() -> None:
     logger, stream = create_security_logger()
+    correlation_id = "a" * 64
 
     logger.info(
         "authentication_event",
         extra={
-            "correlation_id": "stage4-correlation-84",
+            "correlation_id": correlation_id,
             "error_code": "invalid_credentials",
             "context": {
                 "PaSsWoRd": PASSWORD,
@@ -103,7 +104,7 @@ def test_normal_structured_logging_recursively_redacts_secret_fields() -> None:
     output = stream.getvalue()
     payload = json.loads(output)
     assert payload["message"] == "authentication_event"
-    assert payload["correlation_id"] == "stage4-correlation-84"
+    assert payload["correlation_id"] == correlation_id
     assert payload["error_code"] == "invalid_credentials"
     assert "[REDACTED]" in output
     assert_no_sentinels(output)

@@ -20,6 +20,7 @@ const sentinels = {
 test("mobile console wrapper recursively redacts authentication secrets", () => {
   const calls = [];
   const collect = (...data) => calls.push(data);
+  const correlationId = "a".repeat(64);
   const logger = createSafeConsole({
     debug: collect,
     error: collect,
@@ -28,7 +29,7 @@ test("mobile console wrapper recursively redacts authentication secrets", () => 
   });
 
   logger.error("authentication_failure", {
-    correlationId: "stage4-mobile-84",
+    correlationId,
     errorCode: "invalid_credentials",
     PaSsWoRd: sentinels.password,
     Authorization: `Bearer ${sentinels.authorization}`,
@@ -53,7 +54,7 @@ test("mobile console wrapper recursively redacts authentication secrets", () => 
 
   const output = JSON.stringify(calls);
   assert.match(output, /authentication_failure/);
-  assert.match(output, /stage4-mobile-84/);
+  assert.match(output, new RegExp(correlationId));
   assert.match(output, /invalid_credentials/);
   assert.match(output, /\[REDACTED\]/);
   for (const sentinel of Object.values(sentinels)) {

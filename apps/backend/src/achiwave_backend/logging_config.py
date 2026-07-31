@@ -70,12 +70,13 @@ def _is_sensitive_key(key: object) -> bool:
     )
 
 
-def redact_sensitive(value: str) -> str:
+def redact_sensitive(value: str, *, redact_opaque: bool = True) -> str:
     redacted = SENSITIVE_URL.sub(rf"\1{REDACTED}@", value)
     redacted = BEARER_VALUE.sub(f"Bearer {REDACTED}", redacted)
     redacted = JWT_VALUE.sub(REDACTED, redacted)
     redacted = SENSITIVE_KEY_VALUE.sub(rf"\1\2{REDACTED}", redacted)
-    redacted = OPAQUE_CREDENTIAL_VALUE.sub(REDACTED, redacted)
+    if redact_opaque:
+        redacted = OPAQUE_CREDENTIAL_VALUE.sub(REDACTED, redacted)
     return redacted
 
 
@@ -86,7 +87,10 @@ def redact_structure(value: object, *, key: object | None = None) -> object:
     if value is None or isinstance(value, bool | int | float):
         return value
     if isinstance(value, str):
-        return redact_sensitive(value)
+        return redact_sensitive(
+            value,
+            redact_opaque=_normalized_key(key) != "correlation_id",
+        )
     if isinstance(value, bytes | bytearray | memoryview):
         return "[BINARY]"
     if isinstance(value, Mapping):

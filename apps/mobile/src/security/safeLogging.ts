@@ -38,8 +38,8 @@ function isSensitiveKey(key: string): boolean {
   );
 }
 
-function redactText(value: string): string {
-  return value
+function redactText(value: string, redactOpaque = true): string {
+  const redacted = value
     .replace(
       /\b([a-z][a-z0-9+.-]*:\/\/)([^@/\s]+)@/gi,
       `$1${REDACTED}@`,
@@ -52,11 +52,13 @@ function redactText(value: string): string {
     .replace(
       /\b(authorization|cookie|password(?:_hash)?|secret|token|access_token|refresh_token|credential_digest|installation_id|database_url|redis_url|signing_key)\b(["']?\s*[:=]\s*["']?)([^"'\s,;&}]+)/gi,
       `$1$2${REDACTED}`,
-    )
-    .replace(
+    );
+  return redactOpaque
+    ? redacted.replace(
       /(^|[^A-Za-z0-9_-])[A-Za-z0-9_-]{43,}(?![A-Za-z0-9_-])/g,
       `$1${REDACTED}`,
-    );
+    )
+    : redacted;
 }
 
 export function sanitizeLogValue(
@@ -89,9 +91,16 @@ export function sanitizeLogValue(
   }
   const sanitized: Record<string, unknown> = {};
   for (const [key, nestedValue] of Object.entries(value)) {
-    sanitized[key] = isSensitiveKey(key)
-      ? REDACTED
-      : sanitizeLogValue(nestedValue, seen);
+    if (isSensitiveKey(key)) {
+      sanitized[key] = REDACTED;
+    } else if (
+      normalizedKey(key) === "correlationid" &&
+      typeof nestedValue === "string"
+    ) {
+      sanitized[key] = redactText(nestedValue, false);
+    } else {
+      sanitized[key] = sanitizeLogValue(nestedValue, seen);
+    }
   }
   return sanitized;
 }
