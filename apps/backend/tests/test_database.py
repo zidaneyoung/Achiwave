@@ -16,7 +16,10 @@ from achiwave_backend.database import (
 )
 from achiwave_backend.models import (
     Campaign,
+    ClientMutation,
     DeviceSession,
+    LevelDefinition,
+    ProgressEvent,
     PushToken,
     Quest,
     QuestCompletion,
@@ -24,8 +27,13 @@ from achiwave_backend.models import (
     QuestOccurrence,
     QuestRecurrence,
     RegisteredDevice,
+    SynchronizationOperation,
+    Streak,
+    StreakDay,
+    StreakDaySource,
     User,
     UserPreference,
+    XpLedgerEntry,
 )
 
 
@@ -80,20 +88,31 @@ def test_metadata_import_registers_models_without_connecting() -> None:
 
     assert set(Base.metadata.tables) == {
         "campaigns",
+        "client_mutations",
         "device_sessions",
+        "level_definitions",
         "push_tokens",
+        "progress_events",
         "quests",
         "quest_recurrences",
         "quest_occurrences",
         "quest_completions",
         "quest_completion_reversals",
         "registered_devices",
+        "synchronization_operations",
+        "streak_day_sources",
+        "streak_days",
+        "streaks",
         "user_preferences",
         "users",
+        "xp_ledger_entries",
     }
     assert Campaign.__table__ is Base.metadata.tables["campaigns"]
+    assert ClientMutation.__table__ is Base.metadata.tables["client_mutations"]
     assert DeviceSession.__table__ is Base.metadata.tables["device_sessions"]
+    assert LevelDefinition.__table__ is Base.metadata.tables["level_definitions"]
     assert PushToken.__table__ is Base.metadata.tables["push_tokens"]
+    assert ProgressEvent.__table__ is Base.metadata.tables["progress_events"]
     assert Quest.__table__ is Base.metadata.tables["quests"]
     assert QuestCompletion.__table__ is Base.metadata.tables["quest_completions"]
     assert (
@@ -103,8 +122,16 @@ def test_metadata_import_registers_models_without_connecting() -> None:
     assert QuestOccurrence.__table__ is Base.metadata.tables["quest_occurrences"]
     assert QuestRecurrence.__table__ is Base.metadata.tables["quest_recurrences"]
     assert RegisteredDevice.__table__ is Base.metadata.tables["registered_devices"]
+    assert (
+        SynchronizationOperation.__table__
+        is Base.metadata.tables["synchronization_operations"]
+    )
+    assert Streak.__table__ is Base.metadata.tables["streaks"]
+    assert StreakDay.__table__ is Base.metadata.tables["streak_days"]
+    assert StreakDaySource.__table__ is Base.metadata.tables["streak_day_sources"]
     assert User.__table__ is Base.metadata.tables["users"]
     assert UserPreference.__table__ is Base.metadata.tables["user_preferences"]
+    assert XpLedgerEntry.__table__ is Base.metadata.tables["xp_ledger_entries"]
     engine.begin.assert_not_called()
 
 
