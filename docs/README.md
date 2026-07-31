@@ -4,6 +4,8 @@
 
 - [Stage 2 local development](local-development.md)
 - [Stage 2 acceptance audit](testing/stage-2-acceptance.md)
+- [Stage 3 PostgreSQL schema](database/stage-3-schema.md)
+- [Stage 3 acceptance audit](testing/stage-3-acceptance.md)
 
 This index is the normative entry point for Stage 1 product rules. If a later
 implementation conflicts with these documents, the implementation is wrong until

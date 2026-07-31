@@ -421,7 +421,35 @@ Purpose: transactional publication state written with a future source-domain cha
   event allowlists; arbitrary nested JSON is never assumed safe.
 - Partial due and stale-lease indexes plus aggregate history support deterministic
   worker polling. Published rows remain audit history. No worker or Beat schedule is
-  implemented by Stage 3.
+implemented by Stage 3.
+
+## Final integrity audit (#62)
+
+Revision `20260731_0062` closes the whole-schema integrity audit without changing
+the data model. It rebuilds six IANA-timezone shape checks using PostgreSQL's
+supported regular-expression syntax on `user_preferences`, `quests`,
+`quest_recurrences`, `quest_occurrences`, `quest_completions`, and `streak_days`.
+Full timezone-database membership and DST resolution remain backend logic.
+
+PostgreSQL does not automatically index referencing foreign-key columns. The audit
+therefore adds 17 join/restriction-support indexes whose leftmost columns were not
+already covered by a useful index:
+
+- achievement progress last-event, unlock progress, and unlock source-event;
+- replacement links for sessions and push tokens;
+- evidence completion ancestry;
+- delivery device, outbox, and push-token ancestry;
+- outbox user scope and progress-event mutation lookup;
+- completion and completion-reversal device ancestry;
+- reminder occurrence ownership and streak-source reversal ancestry;
+- synchronization device lookup and XP-ledger mutation lookup.
+
+The audit intentionally adds no speculative indexes. PostgreSQL inspection found
+no duplicate index definitions. Invariants that need multi-row locking or domain
+evaluation—event-sequence allocation, recurrence generation, mutation payload
+comparison before replay, reward transactions, append-only write roles, recursive
+outbox allowlists, and coordinated privacy erasure—remain future backend/service
+responsibilities and are not falsely represented as ordinary checks.
 
 ## Current entity relationships
 
@@ -537,15 +565,22 @@ all restricted records; Stage 3 does not implement it.
 
 ## Stage 1 rule mapping
 
-- `domain-model.md`: immutable user ownership and device context boundaries.
+- `domain-model.md`: immutable user ownership, campaign/quest ancestry, occurrence
+  identity, and device-context boundaries.
+- `state-transitions.md`: explicit campaign, quest, occurrence, completion,
+  reversal, archive, and restoration state/timestamp combinations.
+- `progression.md`: append-oriented progress events, source-bound XP awards and
+  compensations, versioned level curves, reconstructable streak sources, private
+  achievement rules, and immutable unlocks.
 - `time-and-timezone.md`: saved IANA timezone snapshots, positive versions, and
-  server-effective instants.
-- `offline-and-synchronization.md`: registered devices are context only; private
-  queued or token values never become authority.
-- `history-and-deletion.md`: revocation is state plus audit timestamps; ordinary
-  deletion is restricted where security history must remain.
-- `mvp-boundary.md`: no authentication, notification delivery, or mobile permission
-  behavior is implemented by these tables.
+  server-effective instants; device-observed values remain metadata.
+- `offline-and-synchronization.md`: stable mutation bindings, one authoritative
+  replay result, ordered progress, registered-device context, and no generic
+  reward-bearing last-write-wins behavior.
+- `history-and-deletion.md`: archive and revocation are lifecycle state; reward,
+  completion, unlock, delivery, and audit history uses restriction and compensation.
+- `mvp-boundary.md`: no authentication, domain API, worker, delivery, upload, or
+  mobile behavior is implemented by this schema.
 
-Later Stage 3 branches extend this document with domain, progression, achievement,
-notification, evidence, outbox, deletion, and full integrity details.
+Issue-level commits, migrations, and real PostgreSQL evidence are recorded in the
+[Stage 3 acceptance audit](../testing/stage-3-acceptance.md).
