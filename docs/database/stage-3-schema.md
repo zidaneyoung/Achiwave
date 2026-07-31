@@ -218,6 +218,87 @@ future XP compensation, and progress event must occur in one transaction. Ordina
 constraints cannot require the matching child reversal while permitting insertion
 order, so later service logic and Stage 3 transaction tests cover that invariant.
 
+### `client_mutations` (#47)
+
+Purpose: durable per-user idempotency binding for exact replay.
+
+- UUID primary key; unique `(user_id, client_mutation_id)` and composite ownership
+  key `(id, user_id)`.
+- Stores canonical payload hash, operation/target identity, explicit processing
+  state, canonical result identity, safe error class, and server timestamps.
+- Composite FKs bind completion, reversal, progress, and synchronization records to
+  the same user. `RESTRICT` preserves replay history.
+- A partial unfinished-processing index supports recovery. Payload hashes, not raw
+  private payloads, make mutation-ID reuse with different content detectable.
+
+### `synchronization_operations` (#48)
+
+Purpose: auditable retry state for a later synchronization worker.
+
+- UUID primary key; one row per user/client mutation.
+- Composite FKs enforce matching user, registered device, and mutation ownership.
+- Explicit states distinguish pending, leased, successful, retryable, permanent,
+  and cancelled outcomes. Checks enforce nonnegative attempts, in-flight leases,
+  successful timestamps, and positive expected versions.
+- Partial indexes support due work and stale-lease recovery; no credentials or
+  evidence payloads are stored.
+
+### `progress_events` (#49)
+
+Purpose: append-only authoritative progression event log.
+
+- UUID primary key; unique per-user event sequence and stable
+  `(user, event type, source type, source id)` identity.
+- Optional mutation binding is ownership-safe. Server receipt/processing times,
+  backend effective date, rule version, and object-shaped safe JSON metadata are
+  retained.
+- User-sequence and source indexes support ordered replay and provenance lookup.
+  Arbitrary client-authored events and secret rule bodies are application-forbidden.
+
+### `xp_ledger_entries` (#50)
+
+Purpose: immutable XP awards and exact compensating reversals.
+
+- UUID primary key; composite ownership FKs bind the user to a completion or
+  reversal, progress event/sequence, optional mutation, and source award.
+- Award rows require nonnegative XP and a completion. Compensation rows require a
+  reversal and exactly negate the referenced award amount; the composite self-FK
+  proves that amount matches the retained source row.
+- Partial unique indexes permit one award per completion and one compensation per
+  reversal/source award. Progress event and user sequence are also unique.
+- Zero-XP awards are valid. Authoritative XP is `sum(xp_delta)`. Preventing a
+  negative aggregate total requires locking and validation in the future domain
+  transaction because ordinary row checks cannot constrain a cross-row sum.
+
+### `level_definitions` (#51)
+
+Purpose: backend-owned, versioned level-curve thresholds.
+
+- Composite primary key `(curve_version, level_number)`; thresholds are unique per
+  curve. Versions and levels are positive, thresholds nonnegative, and level 1 is 0.
+- Explicit draft/active/retired state and timestamps preserve activation history.
+- Before activation, backend transaction logic must verify levels are contiguous
+  from 1 and thresholds strictly increase (using ordered `lag`/row-number
+  validation). Active curves are application-immutable. No product thresholds are
+  seeded by Stage 3.
+
+### `streaks`, `streak_days`, and `streak_day_sources` (#52)
+
+Purpose: reconstructable user-global daily streaks with a derived summary.
+
+- `streaks` is one row per user with nonnegative current/longest values, a last
+  qualifying date, calculation watermark, and record version.
+- `streak_days` has UUID identity plus unique `(user_id, effective_local_date)`.
+  It snapshots server-derived date, IANA timezone and preference version. Credited
+  days require at least one source; removed days retain their timestamps and row.
+- `streak_day_sources` binds each completion, user, and effective date to its day;
+  a unique completion source prevents duplicate credit. Optional reversal ownership
+  and state preserve removal history.
+- Date-range and day/state indexes support recalculation. Multiple completions can
+  share one day, including zero-XP completions. Reversing one source leaves the day
+  credited while another active source remains. Source counts and summary values
+  must change with source state in one future backend transaction.
+
 ## Current entity relationships
 
 ```mermaid
@@ -235,6 +316,17 @@ erDiagram
     QUEST_OCCURRENCES ||--o{ QUEST_COMPLETIONS : "accepts history"
     QUEST_COMPLETIONS ||--o| QUEST_COMPLETION_REVERSALS : "may be reversed by"
     REGISTERED_DEVICES o|--o{ QUEST_COMPLETIONS : "originates"
+    USERS ||--o{ CLIENT_MUTATIONS : "binds replay"
+    CLIENT_MUTATIONS ||--o| SYNCHRONIZATION_OPERATIONS : "tracks"
+    USERS ||--o{ PROGRESS_EVENTS : "owns"
+    PROGRESS_EVENTS ||--o| XP_LEDGER_ENTRIES : "records"
+    QUEST_COMPLETIONS ||--o| XP_LEDGER_ENTRIES : "awards"
+    QUEST_COMPLETION_REVERSALS ||--o| XP_LEDGER_ENTRIES : "compensates"
+    XP_LEDGER_ENTRIES o|--o| XP_LEDGER_ENTRIES : "reverses"
+    USERS ||--o| STREAKS : "summarizes"
+    USERS ||--o{ STREAK_DAYS : "credits"
+    STREAK_DAYS ||--o{ STREAK_DAY_SOURCES : "traces"
+    QUEST_COMPLETIONS ||--o| STREAK_DAY_SOURCES : "qualifies"
 ```
 
 ## Stage 1 rule mapping
