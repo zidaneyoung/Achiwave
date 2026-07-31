@@ -29,6 +29,13 @@ class RegisteredDevice(Base):
             ondelete="RESTRICT",
         ),
         UniqueConstraint("id", "user_id", name="uq_registered_devices_id_user_id"),
+        UniqueConstraint(
+            "id",
+            "user_id",
+            "platform",
+            "app_environment",
+            name="uq_registered_devices_id_user_platform_environment",
+        ),
         CheckConstraint(
             "platform IN ('android', 'ios')",
             name="ck_registered_devices_platform",

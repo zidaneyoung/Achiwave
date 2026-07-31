@@ -14,7 +14,13 @@ from achiwave_backend.database import (
     ping_database,
     session_scope,
 )
-from achiwave_backend.models import DeviceSession, RegisteredDevice, User, UserPreference
+from achiwave_backend.models import (
+    DeviceSession,
+    PushToken,
+    RegisteredDevice,
+    User,
+    UserPreference,
+)
 
 
 def test_create_database_engine_uses_bounded_pool_settings() -> None:
@@ -68,15 +74,24 @@ def test_metadata_import_registers_models_without_connecting() -> None:
 
     assert set(Base.metadata.tables) == {
         "device_sessions",
+        "push_tokens",
         "registered_devices",
         "user_preferences",
         "users",
     }
     assert DeviceSession.__table__ is Base.metadata.tables["device_sessions"]
+    assert PushToken.__table__ is Base.metadata.tables["push_tokens"]
     assert RegisteredDevice.__table__ is Base.metadata.tables["registered_devices"]
     assert User.__table__ is Base.metadata.tables["users"]
     assert UserPreference.__table__ is Base.metadata.tables["user_preferences"]
     engine.begin.assert_not_called()
+
+
+def test_push_token_model_repr_does_not_expose_sensitive_value() -> None:
+    token = PushToken(token_value="private-token", token_hash=b"x" * 32)
+
+    assert "private-token" not in repr(token)
+    assert PushToken.__table__.c.token_value.info == {"sensitive": True}
 
 
 def test_ping_database_returns_true() -> None:
