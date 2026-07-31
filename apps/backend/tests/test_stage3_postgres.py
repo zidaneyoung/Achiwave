@@ -16,7 +16,7 @@ from achiwave_backend.database import Base
 import achiwave_backend.models  # noqa: F401
 
 BACKEND_ROOT = Path(__file__).parents[1]
-EXPECTED_HEAD = "20260731_0062"
+EXPECTED_HEAD = "20260731_0065"
 TEST_DATABASE_ENV = "ACHIWAVE_TEST_DATABASE_URL"
 
 
