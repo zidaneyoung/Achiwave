@@ -1,10 +1,11 @@
-import { Redirect, Stack } from "expo-router";
+import { Redirect, Stack, useSegments } from "expo-router";
 
 import { AuthStateScreen } from "../../src/auth/AuthStateScreen";
 import { useAuthentication } from "../../src/auth/AuthContext";
 
 export default function ProtectedLayout() {
   const { state } = useAuthentication();
+  const segments = useSegments();
   if (state.status === "loading") {
     return (
       <AuthStateScreen
@@ -19,6 +20,12 @@ export default function ProtectedLayout() {
   }
   if (state.status === "failure") {
     return <AuthStateScreen message={state.message} title="Session unavailable" />;
+  }
+  if (
+    state.status === "offline_limited" &&
+    segments[segments.length - 1] !== "offline"
+  ) {
+    return <Redirect href="/(protected)/offline" />;
   }
   return (
     <Stack>

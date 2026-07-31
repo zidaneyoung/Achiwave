@@ -22,6 +22,7 @@ interface AuthenticationContextValue {
   login(email: string, password: string): Promise<void>;
   register(email: string, password: string): Promise<void>;
   deactivateAccount(password: string): Promise<void>;
+  revalidate(): Promise<void>;
   setOfflineLimited(user: AuthenticatedUserSnapshot): void;
   signOut(): Promise<void>;
 }
@@ -105,16 +106,36 @@ export function AuthenticationProvider({
   const deactivateAccount = useCallback(async (password: string) => {
     await accountApi.deactivate(password);
   }, []);
+  const revalidate = useCallback(async () => {
+    setState({ status: "loading" });
+    try {
+      setState(await bootstrapAuthentication());
+    } catch {
+      setState({
+        status: "failure",
+        message: "Authentication could not be restored safely.",
+      });
+    }
+  }, []);
   const value = useMemo(
     () => ({
       state,
       login,
       register,
       deactivateAccount,
+      revalidate,
       setOfflineLimited,
       signOut,
     }),
-    [state, login, register, deactivateAccount, setOfflineLimited, signOut],
+    [
+      state,
+      login,
+      register,
+      deactivateAccount,
+      revalidate,
+      setOfflineLimited,
+      signOut,
+    ],
   );
 
   return (

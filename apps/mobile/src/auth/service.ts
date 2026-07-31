@@ -379,6 +379,40 @@ export function createAuthenticationService({
     });
   }
 
+  async function validateOrRefresh(
+    credentials: AuthenticationCredentials,
+  ): Promise<AuthenticationCredentials> {
+    if (Date.parse(credentials.accessTokenExpiresAt) <= Date.now()) {
+      return refresh(credentials.sessionId);
+    }
+    const response = await requestWithAccessToken(
+      "/api/v1/users/me",
+      { method: "GET" },
+      credentials.accessToken,
+    );
+    if (response.status === 401) {
+      return refresh(credentials.sessionId);
+    }
+    if (!response.ok) {
+      throw new AuthenticationRequestError(
+        "unexpected_response",
+        "Authentication could not be validated safely.",
+      );
+    }
+    const body = await readJson(response);
+    if (
+      !isObject(body) ||
+      readString(body, "id") !== credentials.user.id ||
+      readString(body, "email") !== credentials.user.email
+    ) {
+      throw new AuthenticationRequestError(
+        "unexpected_response",
+        "Authentication could not be validated safely.",
+      );
+    }
+    return credentials;
+  }
+
   return {
     register(input) {
       return authenticate("register", input);
@@ -401,7 +435,7 @@ export function createAuthenticationService({
         };
       }
       try {
-        const credentials = await refresh(result.credentials.sessionId);
+        const credentials = await validateOrRefresh(result.credentials);
         return { status: "authenticated", user: credentials.user };
       } catch (error) {
         if (
