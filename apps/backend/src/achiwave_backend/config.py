@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     celery_result_backend: RedisDsn | None = None
     celery_task_always_eager: bool = False
     celery_beat_schedule_filename: Path = Path(".runtime/celerybeat-schedule")
+    database_connect_timeout_seconds: int = Field(default=3, ge=1, le=10)
+    database_pool_size: int = Field(default=5, ge=1, le=20)
+    database_max_overflow: int = Field(default=5, ge=0, le=20)
+    database_pool_timeout_seconds: float = Field(default=3.0, gt=0, le=10)
     redis_connect_timeout_seconds: float = Field(default=1.0, gt=0, le=10)
     redis_socket_timeout_seconds: float = Field(default=1.0, gt=0, le=10)
 

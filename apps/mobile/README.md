@@ -3,6 +3,20 @@
 This package contains the native Expo application for Android and future iOS
 support. Run all mobile commands from this directory.
 
+## Environment
+
+Create local public configuration before running Expo:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+`EXPO_PUBLIC_API_ENV` selects the API environment and
+`EXPO_PUBLIC_API_BASE_URL` points to the backend. Android emulators reach a
+backend running on the host through `http://10.0.2.2:8000`; physical devices
+need a reachable local-network URL instead. Every `EXPO_PUBLIC_*` value is
+embedded in the application bundle and must never contain a secret.
+
 ## Android identity
 
 Stage 2 development builds use `com.zidaneyoung.achiwave.dev` and the `achiwave`
