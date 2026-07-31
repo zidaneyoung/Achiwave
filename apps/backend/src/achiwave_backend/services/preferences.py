@@ -5,7 +5,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from achiwave_backend.models import User, UserPreference
-from achiwave_backend.schemas.preferences import UpdateTimezoneRequest
+from achiwave_backend.schemas.preferences import (
+    UpdatePresentationPreferencesRequest,
+    UpdateTimezoneRequest,
+)
 
 
 class InvalidTimezoneError(Exception):
@@ -61,6 +64,33 @@ class PreferenceService:
             preference.timezone_name = request.timezone_name
             preference.timezone_version += 1
             preference.timezone_effective_at = now
+            preference.record_version += 1
+            preference.updated_at = now
+        try:
+            database_session.commit()
+        except Exception:
+            database_session.rollback()
+            raise
+        return preference
+
+    def update_presentation(
+        self,
+        database_session: Session,
+        current_user: User,
+        request: UpdatePresentationPreferencesRequest,
+    ) -> UserPreference:
+        preference = database_session.scalar(
+            select(UserPreference)
+            .where(UserPreference.user_id == current_user.id)
+            .with_for_update()
+        )
+        if preference is None:
+            raise RuntimeError("Active user preference record is missing.")
+        if preference.record_version != request.record_version:
+            raise StalePreferenceVersionError
+        if preference.date_format != request.date_format:
+            now = datetime.now(UTC)
+            preference.date_format = request.date_format
             preference.record_version += 1
             preference.updated_at = now
         try:
