@@ -15,6 +15,10 @@ from achiwave_backend.database import (
     session_scope,
 )
 from achiwave_backend.models import (
+    AchievementDefinition,
+    AchievementProgress,
+    AchievementRule,
+    AchievementUnlock,
     Campaign,
     ClientMutation,
     DeviceSession,
@@ -87,6 +91,10 @@ def test_metadata_import_registers_models_without_connecting() -> None:
     engine = MagicMock(spec=Engine)
 
     assert set(Base.metadata.tables) == {
+        "achievement_definitions",
+        "achievement_progress",
+        "achievement_rules",
+        "achievement_unlocks",
         "campaigns",
         "client_mutations",
         "device_sessions",
@@ -108,6 +116,10 @@ def test_metadata_import_registers_models_without_connecting() -> None:
         "xp_ledger_entries",
     }
     assert Campaign.__table__ is Base.metadata.tables["campaigns"]
+    assert AchievementDefinition.__table__ is Base.metadata.tables["achievement_definitions"]
+    assert AchievementProgress.__table__ is Base.metadata.tables["achievement_progress"]
+    assert AchievementRule.__table__ is Base.metadata.tables["achievement_rules"]
+    assert AchievementUnlock.__table__ is Base.metadata.tables["achievement_unlocks"]
     assert ClientMutation.__table__ is Base.metadata.tables["client_mutations"]
     assert DeviceSession.__table__ is Base.metadata.tables["device_sessions"]
     assert LevelDefinition.__table__ is Base.metadata.tables["level_definitions"]
@@ -140,6 +152,22 @@ def test_push_token_model_repr_does_not_expose_sensitive_value() -> None:
 
     assert "private-token" not in repr(token)
     assert PushToken.__table__.c.token_value.info == {"sensitive": True}
+
+
+def test_achievement_rule_model_repr_does_not_expose_private_rule() -> None:
+    rule = AchievementRule(
+        rule_configuration={"private": "hidden-rule"},
+        authoritative_event_inputs=["private-input"],
+        integrity_hash=b"private-hash-value",
+    )
+
+    assert "hidden-rule" not in repr(rule)
+    assert "private-input" not in repr(rule)
+    assert AchievementRule.__table__.c.rule_configuration.info == {"sensitive": True}
+    assert AchievementRule.__table__.c.authoritative_event_inputs.info == {
+        "sensitive": True
+    }
+    assert AchievementRule.__table__.c.integrity_hash.info == {"sensitive": True}
 
 
 def test_ping_database_returns_true() -> None:

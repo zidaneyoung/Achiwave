@@ -300,6 +300,62 @@ Purpose: reconstructable user-global daily streaks with a derived summary.
   credited while another active source remains. Source counts and summary values
   must change with source state in one future backend transaction.
 
+### `achievement_definitions` (#53)
+
+Purpose: versioned backend-owned achievement identity and safe presentation data.
+
+- UUID primary key; stable internal key/rule version is unique, with composite
+  version/model keys for rule and unlock integrity.
+- Visibility is `visible`, `progress_hidden`, or `secret`; progress models are the
+  bounded deterministic Stage 1 set. Threshold shape, nonblank public fields,
+  positive rule version, and activation lifecycle are constrained.
+- Hidden/secret progress exposure is forbidden. Locked secret definitions store
+  only fixed generic localization keys; their real metadata is returned only after
+  later authenticated unlock checks. No executable criteria are public columns.
+- Active visibility lookup is partially indexed. Definition activation and
+  retirement use timestamps; activated versions are application-immutable.
+
+### `achievement_rules` (#54)
+
+Purpose: private structured evaluation rules separated from presentation metadata.
+
+- UUID primary key; exactly one row per definition/rule version. A composite FK
+  also requires its rule model to match the definition progress model.
+- Object-shaped rule configuration, a nonempty authoritative-event input array,
+  positive schema version, integrity hash, and activation timestamp are retained.
+- Configuration, event inputs, and integrity hash are marked sensitive. They are
+  backend-only and must be validated against a model-specific schema; Python/SQL
+  source, client expressions, and other executable bodies are forbidden.
+- All references use `RESTRICT`; ordinary definition removal cannot erase rules.
+
+### `achievement_progress` (#55)
+
+Purpose: mutable, backend-derived per-user state for one rule version.
+
+- UUID primary key; unique `(user_id, achievement_definition_id, rule_version)` and
+  a composite ownership key for unlocks.
+- Composite FKs require an existing matching rule model and enforce that the last
+  evaluated progress event/sequence belongs to the same user.
+- Nonnegative typed current value, object-shaped narrowly scoped state, explicit
+  satisfied/unsatisfied state and timestamp, positive record version, and server
+  timestamps are constrained.
+- User/satisfaction and definition/satisfaction indexes support collection and
+  reconciliation work. Reversal may lower locked/current progress; no client field
+  is authoritative.
+
+### `achievement_unlocks` (#56)
+
+Purpose: immutable first-satisfaction history that never relocks.
+
+- UUID primary key; unique `(user_id, achievement_definition_id, rule_version)` and
+  per-user unlock sequence prevent duplicate evaluation results.
+- Composite FKs bind the unlock to matching user progress, definition version, and
+  triggering authoritative progress event/sequence. All delete behavior is
+  `RESTRICT`.
+- Authoritative unlock/creation timestamps and user/definition history indexes are
+  retained. Presentation claims remain separate and are not implemented here.
+- Later progress reduction or reversal never updates or deletes this row.
+
 ## Current entity relationships
 
 ```mermaid
@@ -328,6 +384,11 @@ erDiagram
     USERS ||--o{ STREAK_DAYS : "credits"
     STREAK_DAYS ||--o{ STREAK_DAY_SOURCES : "traces"
     QUEST_COMPLETIONS ||--o| STREAK_DAY_SOURCES : "qualifies"
+    ACHIEVEMENT_DEFINITIONS ||--|| ACHIEVEMENT_RULES : "keeps private rule"
+    USERS ||--o{ ACHIEVEMENT_PROGRESS : "earns"
+    ACHIEVEMENT_RULES ||--o{ ACHIEVEMENT_PROGRESS : "evaluates"
+    ACHIEVEMENT_PROGRESS ||--o| ACHIEVEMENT_UNLOCKS : "first satisfies"
+    PROGRESS_EVENTS ||--o{ ACHIEVEMENT_UNLOCKS : "triggers"
 ```
 
 ## Stage 1 rule mapping

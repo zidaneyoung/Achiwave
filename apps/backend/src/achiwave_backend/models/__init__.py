@@ -1,6 +1,10 @@
 """Explicit SQLAlchemy model registration for Alembic metadata."""
 
 from achiwave_backend.models.campaign import Campaign
+from achiwave_backend.models.achievement_definition import AchievementDefinition
+from achiwave_backend.models.achievement_progress import AchievementProgress
+from achiwave_backend.models.achievement_rule import AchievementRule
+from achiwave_backend.models.achievement_unlock import AchievementUnlock
 from achiwave_backend.models.client_mutation import ClientMutation
 from achiwave_backend.models.device_session import DeviceSession
 from achiwave_backend.models.level_definition import LevelDefinition
@@ -21,6 +25,10 @@ from achiwave_backend.models.user_preference import UserPreference
 from achiwave_backend.models.xp_ledger_entry import XpLedgerEntry
 
 __all__ = [
+    "AchievementDefinition",
+    "AchievementProgress",
+    "AchievementRule",
+    "AchievementUnlock",
     "Campaign",
     "ClientMutation",
     "DeviceSession",
