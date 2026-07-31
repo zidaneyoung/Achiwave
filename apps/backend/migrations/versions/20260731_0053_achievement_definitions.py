@@ -38,7 +38,7 @@ def upgrade() -> None:
         sa.Column("activated_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("retired_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
-        sa.CheckConstraint("definition_key ~ '^[a-z0-9]+(?:_[a-z0-9]+)*$'", name="ck_achievement_definitions_key_shape"),
+        sa.CheckConstraint("definition_key ~ '^[a-z0-9]+(_[a-z0-9]+)*$'", name="ck_achievement_definitions_key_shape"),
         sa.CheckConstraint("rule_version >= 1", name="ck_achievement_definitions_rule_version_positive"),
         sa.CheckConstraint("visibility IN ('visible', 'progress_hidden', 'secret')", name="ck_achievement_definitions_visibility"),
         sa.CheckConstraint(
@@ -54,7 +54,7 @@ def upgrade() -> None:
         ),
         sa.CheckConstraint("public_name = btrim(public_name) AND public_name <> ''", name="ck_achievement_definitions_public_name_nonblank"),
         sa.CheckConstraint("public_description = btrim(public_description) AND public_description <> ''", name="ck_achievement_definitions_public_description_nonblank"),
-        sa.CheckConstraint("icon_key ~ '^[a-z0-9]+(?:[_-][a-z0-9]+)*$'", name="ck_achievement_definitions_icon_key_shape"),
+        sa.CheckConstraint("icon_key ~ '^[a-z0-9]+([_-][a-z0-9]+)*$'", name="ck_achievement_definitions_icon_key_shape"),
         sa.CheckConstraint("accessible_label = btrim(accessible_label) AND accessible_label <> ''", name="ck_achievement_definitions_accessible_label_nonblank"),
         sa.CheckConstraint("visibility = 'visible' OR progress_exposure_enabled = false", name="ck_achievement_definitions_hidden_progress_not_exposed"),
         sa.CheckConstraint(

@@ -40,7 +40,7 @@ class AchievementDefinition(Base):
             name="uq_achievement_definitions_id_rule_version_model",
         ),
         CheckConstraint(
-            "definition_key ~ '^[a-z0-9]+(?:_[a-z0-9]+)*$'",
+            "definition_key ~ '^[a-z0-9]+(_[a-z0-9]+)*$'",
             name="ck_achievement_definitions_key_shape",
         ),
         CheckConstraint(
@@ -71,7 +71,7 @@ class AchievementDefinition(Base):
             name="ck_achievement_definitions_public_description_nonblank",
         ),
         CheckConstraint(
-            "icon_key ~ '^[a-z0-9]+(?:[_-][a-z0-9]+)*$'",
+            "icon_key ~ '^[a-z0-9]+([_-][a-z0-9]+)*$'",
             name="ck_achievement_definitions_icon_key_shape",
         ),
         CheckConstraint(
