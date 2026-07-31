@@ -7,6 +7,12 @@
     "platforms": [
       "android",
       "ios"
-    ]
+    ],
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
   }
 }

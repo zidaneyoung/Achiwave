@@ -1,14 +1,17 @@
-import { SafeAreaView, StatusBar, StyleSheet, Text, View } from "react-native";
+import { Link } from "expo-router";
+import { StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-export default function App() {
+export default function NotFoundRoute() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <Text accessibilityRole="header" style={styles.title}>
-          Achiwave
+          This route does not exist.
         </Text>
-        <Text style={styles.subtitle}>Mobile foundation ready.</Text>
-        <StatusBar barStyle="dark-content" />
+        <Link accessibilityRole="link" href="/" style={styles.link}>
+          Return to Achiwave
+        </Link>
       </View>
     </SafeAreaView>
   );
@@ -27,12 +30,14 @@ const styles = StyleSheet.create({
   },
   title: {
     color: "#17221d",
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: "700",
+    textAlign: "center",
   },
-  subtitle: {
-    color: "#46534c",
+  link: {
+    color: "#1d5b44",
     fontSize: 17,
-    marginTop: 8,
+    marginTop: 20,
+    textDecorationLine: "underline",
   },
 });
