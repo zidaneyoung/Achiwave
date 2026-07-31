@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class AccountDeactivationRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    password: str = Field(min_length=1, max_length=1024)
+    password: str = Field(min_length=1, max_length=1024, repr=False)
 
 
 class AccountDeactivationResponse(BaseModel):

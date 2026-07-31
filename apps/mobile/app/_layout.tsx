@@ -4,13 +4,14 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AuthenticationProvider } from "../src/auth/AuthContext";
+import { safeConsole } from "../src/security/safeLogging";
 
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   const [isRetrying, setIsRetrying] = useState(false);
 
   useEffect(() => {
     if (__DEV__) {
-      console.error("Achiwave root render failed.");
+      safeConsole.error("root_render_failed");
     }
   }, [error]);
 

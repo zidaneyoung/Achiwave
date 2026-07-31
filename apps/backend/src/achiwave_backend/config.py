@@ -27,13 +27,15 @@ class Settings(BaseSettings):
     port: int = Field(default=8000, ge=1, le=65535)
     log_level: LogLevel = "INFO"
     service_name: ServiceName = "backend"
-    database_url: PostgresDsn | None = None
-    redis_url: RedisDsn = RedisDsn("redis://localhost:6379/0")
-    celery_broker_url: RedisDsn | None = None
-    celery_result_backend: RedisDsn | None = None
+    database_url: PostgresDsn | None = Field(default=None, repr=False)
+    redis_url: RedisDsn = Field(
+        default=RedisDsn("redis://localhost:6379/0"), repr=False
+    )
+    celery_broker_url: RedisDsn | None = Field(default=None, repr=False)
+    celery_result_backend: RedisDsn | None = Field(default=None, repr=False)
     celery_task_always_eager: bool = False
     celery_beat_schedule_filename: Path = Path(".runtime/celerybeat-schedule")
-    access_token_signing_key: SecretStr | None = None
+    access_token_signing_key: SecretStr | None = Field(default=None, repr=False)
     access_token_algorithm: AccessTokenAlgorithm = "HS256"
     access_token_issuer: str = "achiwave"
     access_token_audience: str = "achiwave-mobile"

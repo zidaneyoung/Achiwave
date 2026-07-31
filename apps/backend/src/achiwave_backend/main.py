@@ -1,4 +1,5 @@
 import logging
+import re
 from time import perf_counter
 
 from fastapi import FastAPI, Request, status
@@ -35,6 +36,8 @@ from achiwave_backend.health import (
     evaluate_readiness,
 )
 from achiwave_backend.logging_config import configure_logging
+
+CORRELATION_ID = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
 
 
 class ServiceResponse(BaseModel):
@@ -91,21 +94,29 @@ def create_app(
     @application.middleware("http")
     async def log_request(request: Request, call_next):
         started_at = perf_counter()
+        correlation_id = request.headers.get("x-correlation-id")
+
+        def request_metadata(status_code: int) -> dict[str, object]:
+            route = getattr(request.scope.get("route"), "path", "<unmatched>")
+            metadata: dict[str, object] = {
+                "method": request.method,
+                "route": route,
+                "status_code": status_code,
+                "duration_ms": round(
+                    (perf_counter() - started_at) * 1000,
+                    3,
+                ),
+            }
+            if correlation_id and CORRELATION_ID.fullmatch(correlation_id):
+                metadata["correlation_id"] = correlation_id
+            return metadata
+
         try:
             response = await call_next(request)
         except Exception:
-            route = getattr(request.scope.get("route"), "path", "<unmatched>")
             resolved_request_logger.exception(
                 "http_request_failed",
-                extra={
-                    "method": request.method,
-                    "route": route,
-                    "status_code": 500,
-                    "duration_ms": round(
-                        (perf_counter() - started_at) * 1000,
-                        3,
-                    ),
-                },
+                extra=request_metadata(500),
             )
             raise
 
@@ -118,15 +129,7 @@ def create_app(
         resolved_request_logger.log(
             log_level,
             "http_request",
-            extra={
-                "method": request.method,
-                "route": route,
-                "status_code": response.status_code,
-                "duration_ms": round(
-                    (perf_counter() - started_at) * 1000,
-                    3,
-                ),
-            },
+            extra=request_metadata(response.status_code),
         )
         return response
 
