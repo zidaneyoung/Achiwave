@@ -20,6 +20,7 @@ from achiwave_backend.models.quest_completion import (
 from achiwave_backend.models.quest_occurrence import QuestOccurrence
 from achiwave_backend.models.quest_recurrence import QuestRecurrence
 from achiwave_backend.models.registered_device import RegisteredDevice
+from achiwave_backend.models.reminder import Reminder
 from achiwave_backend.models.synchronization_operation import SynchronizationOperation
 from achiwave_backend.models.streak import Streak, StreakDay, StreakDaySource
 from achiwave_backend.models.user import User
@@ -45,6 +46,7 @@ __all__ = [
     "QuestOccurrence",
     "QuestRecurrence",
     "RegisteredDevice",
+    "Reminder",
     "SynchronizationOperation",
     "Streak",
     "StreakDay",

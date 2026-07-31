@@ -33,6 +33,9 @@ class QuestOccurrence(Base):
         UniqueConstraint(
             "id", "user_id", name="uq_quest_occurrences_id_user_id"
         ),
+        UniqueConstraint(
+            "id", "user_id", "quest_id", name="uq_quest_occurrences_id_user_quest"
+        ),
         CheckConstraint(
             "occurrence_state IN "
             "('scheduled', 'available', 'completed', 'reversed', 'expired', 'voided')",

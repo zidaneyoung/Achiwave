@@ -33,6 +33,7 @@ from achiwave_backend.models import (
     QuestOccurrence,
     QuestRecurrence,
     RegisteredDevice,
+    Reminder,
     SynchronizationOperation,
     Streak,
     StreakDay,
@@ -111,6 +112,7 @@ def test_metadata_import_registers_models_without_connecting() -> None:
         "quest_completions",
         "quest_completion_reversals",
         "registered_devices",
+        "reminders",
         "synchronization_operations",
         "streak_day_sources",
         "streak_days",
@@ -140,6 +142,7 @@ def test_metadata_import_registers_models_without_connecting() -> None:
     assert QuestOccurrence.__table__ is Base.metadata.tables["quest_occurrences"]
     assert QuestRecurrence.__table__ is Base.metadata.tables["quest_recurrences"]
     assert RegisteredDevice.__table__ is Base.metadata.tables["registered_devices"]
+    assert Reminder.__table__ is Base.metadata.tables["reminders"]
     assert (
         SynchronizationOperation.__table__
         is Base.metadata.tables["synchronization_operations"]

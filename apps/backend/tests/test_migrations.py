@@ -23,6 +23,7 @@ from achiwave_backend.models import (
     QuestOccurrence,
     QuestRecurrence,
     RegisteredDevice,
+    Reminder,
     SynchronizationOperation,
     Streak,
     StreakDay,
@@ -39,7 +40,7 @@ def test_stage3_migrations_have_one_alembic_head() -> None:
     configuration = Config(BACKEND_ROOT / "alembic.ini")
     scripts = ScriptDirectory.from_config(configuration)
 
-    assert scripts.get_heads() == ["20260731_0058"]
+    assert scripts.get_heads() == ["20260731_0059"]
 
 
 def test_stage3_metadata_registers_current_tables() -> None:
@@ -62,6 +63,7 @@ def test_stage3_metadata_registers_current_tables() -> None:
         "quest_completions",
         "quest_completion_reversals",
         "registered_devices",
+        "reminders",
         "synchronization_operations",
         "streak_day_sources",
         "streak_days",
@@ -91,6 +93,7 @@ def test_stage3_metadata_registers_current_tables() -> None:
     assert QuestOccurrence.__table__ is Base.metadata.tables["quest_occurrences"]
     assert QuestRecurrence.__table__ is Base.metadata.tables["quest_recurrences"]
     assert RegisteredDevice.__table__ is Base.metadata.tables["registered_devices"]
+    assert Reminder.__table__ is Base.metadata.tables["reminders"]
     assert (
         SynchronizationOperation.__table__
         is Base.metadata.tables["synchronization_operations"]
