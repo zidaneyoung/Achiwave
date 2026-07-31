@@ -14,6 +14,7 @@ from achiwave_backend.database import (
     ping_database,
     session_scope,
 )
+from achiwave_backend.models import User
 
 
 def test_create_database_engine_uses_bounded_pool_settings() -> None:
@@ -62,10 +63,11 @@ def test_session_rolls_back_and_closes_after_error() -> None:
     session.close.assert_called_once_with()
 
 
-def test_metadata_import_does_not_create_domain_tables() -> None:
+def test_metadata_import_registers_models_without_connecting() -> None:
     engine = MagicMock(spec=Engine)
 
-    assert Base.metadata.tables == {}
+    assert set(Base.metadata.tables) == {"users"}
+    assert User.__table__ is Base.metadata.tables["users"]
     engine.begin.assert_not_called()
 
 

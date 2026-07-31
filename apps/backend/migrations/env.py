@@ -2,6 +2,7 @@ from logging.config import fileConfig
 
 from alembic import context
 
+import achiwave_backend.models  # noqa: F401
 from achiwave_backend.config import Settings
 from achiwave_backend.database import Base, create_database_engine
 
