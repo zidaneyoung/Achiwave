@@ -25,6 +25,7 @@ def _preference_response(preference: UserPreference) -> PreferenceResponse:
         date_format=preference.date_format,
         sound_enabled=preference.sound_enabled,
         haptics_enabled=preference.haptics_enabled,
+        reduced_motion=preference.reduced_motion,
         record_version=preference.record_version,
     )
 

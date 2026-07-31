@@ -15,6 +15,7 @@ import { formatPreferenceDate } from "../../src/preferences/formatDate";
 import type {
   DateFormatPreference,
   PreferenceSnapshot,
+  ReducedMotionPreference,
 } from "../../src/preferences/types";
 
 const DATE_FORMAT_OPTIONS: Array<{
@@ -25,6 +26,15 @@ const DATE_FORMAT_OPTIONS: Array<{
   { value: "day_month_year", label: "Day / month / year" },
   { value: "month_day_year", label: "Month / day / year" },
   { value: "year_month_day", label: "Year - month - day" },
+];
+
+const MOTION_OPTIONS: Array<{
+  value: ReducedMotionPreference;
+  label: string;
+}> = [
+  { value: "system", label: "Use device setting" },
+  { value: "reduce", label: "Reduce motion" },
+  { value: "allow", label: "Allow motion" },
 ];
 
 export default function PreferencesRoute() {
@@ -99,6 +109,30 @@ export default function PreferencesRoute() {
         error instanceof Error
           ? error.message
           : "Feedback preferences could not be saved.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function selectReducedMotion(
+    value: ReducedMotionPreference,
+  ): Promise<void> {
+    if (!preferences || saving || preferences.reducedMotion === value) {
+      return;
+    }
+    setSaving(true);
+    setMessage(null);
+    try {
+      setPreferences(
+        await preferenceApi.updateReducedMotion(value, preferences.recordVersion),
+      );
+      setMessage("Motion preference saved.");
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Motion preference could not be saved.",
       );
     } finally {
       setSaving(false);
@@ -185,6 +219,29 @@ export default function PreferencesRoute() {
                 value={preferences.hapticsEnabled}
               />
             </View>
+            <Text accessibilityRole="header" style={styles.sectionTitle}>
+              Motion
+            </Text>
+            {MOTION_OPTIONS.map((option) => {
+              const selected = option.value === preferences.reducedMotion;
+              return (
+                <Pressable
+                  key={option.value}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected, disabled: saving }}
+                  disabled={saving}
+                  onPress={() => void selectReducedMotion(option.value)}
+                  style={({ pressed }) => [
+                    styles.option,
+                    selected && styles.optionSelected,
+                    pressed && styles.optionPressed,
+                  ]}
+                >
+                  <Text style={styles.optionText}>{option.label}</Text>
+                  <Text style={styles.optionState}>{selected ? "Selected" : ""}</Text>
+                </Pressable>
+              );
+            })}
           </View>
         ) : (
           <Pressable

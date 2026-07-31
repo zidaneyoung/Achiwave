@@ -17,6 +17,7 @@ class PreferenceResponse(BaseModel):
     ]
     sound_enabled: bool
     haptics_enabled: bool
+    reduced_motion: Literal["system", "reduce", "allow"]
     record_version: int
 
 
@@ -38,6 +39,7 @@ class UpdatePresentationPreferencesRequest(BaseModel):
     ] | None = None
     sound_enabled: StrictBool | None = None
     haptics_enabled: StrictBool | None = None
+    reduced_motion: Literal["system", "reduce", "allow"] | None = None
     record_version: int = Field(ge=1)
 
     @model_validator(mode="after")

@@ -29,6 +29,9 @@ function isStoredSnapshot(value: unknown): value is StoredPreferenceSnapshot {
       candidate.dateFormat === "year_month_day") &&
     typeof candidate.soundEnabled === "boolean" &&
     typeof candidate.hapticsEnabled === "boolean" &&
+    (candidate.reducedMotion === "system" ||
+      candidate.reducedMotion === "reduce" ||
+      candidate.reducedMotion === "allow") &&
     typeof candidate.recordVersion === "number"
   );
 }

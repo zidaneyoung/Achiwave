@@ -104,6 +104,11 @@ class PreferenceService:
             and preference.haptics_enabled != request.haptics_enabled
         ):
             changes["haptics_enabled"] = request.haptics_enabled
+        if (
+            "reduced_motion" in request.model_fields_set
+            and preference.reduced_motion != request.reduced_motion
+        ):
+            changes["reduced_motion"] = request.reduced_motion
         if changes:
             now = datetime.now(UTC)
             for field, value in changes.items():

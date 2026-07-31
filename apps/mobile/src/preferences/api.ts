@@ -1,6 +1,10 @@
 import { authenticationService } from "../auth/service";
 import { loadCachedPreferences, saveCachedPreferences } from "./cache";
-import type { DateFormatPreference, PreferenceSnapshot } from "./types";
+import type {
+  DateFormatPreference,
+  PreferenceSnapshot,
+  ReducedMotionPreference,
+} from "./types";
 
 export class PreferenceRequestError extends Error {
   constructor(message: string) {
@@ -37,6 +41,9 @@ function parsePreferences(value: unknown): PreferenceSnapshot | null {
     !isDateFormat(value.date_format) ||
     typeof value.sound_enabled !== "boolean" ||
     typeof value.haptics_enabled !== "boolean" ||
+    (value.reduced_motion !== "system" &&
+      value.reduced_motion !== "reduce" &&
+      value.reduced_motion !== "allow") ||
     typeof value.record_version !== "number"
   ) {
     return null;
@@ -49,6 +56,7 @@ function parsePreferences(value: unknown): PreferenceSnapshot | null {
     dateFormat: value.date_format,
     soundEnabled: value.sound_enabled,
     hapticsEnabled: value.haptics_enabled,
+    reducedMotion: value.reduced_motion,
     recordVersion: value.record_version,
   };
 }
@@ -84,6 +92,7 @@ interface PresentationPreferenceUpdates {
   dateFormat?: DateFormatPreference;
   soundEnabled?: boolean;
   hapticsEnabled?: boolean;
+  reducedMotion?: ReducedMotionPreference;
 }
 
 async function updatePresentation(
@@ -101,6 +110,9 @@ async function updatePresentation(
       ...(updates.hapticsEnabled === undefined
         ? {}
         : { haptics_enabled: updates.hapticsEnabled }),
+      ...(updates.reducedMotion === undefined
+        ? {}
+        : { reduced_motion: updates.reducedMotion }),
       record_version: recordVersion,
     }),
     headers: { "Content-Type": "application/json" },
@@ -127,6 +139,13 @@ export const preferenceApi = {
     recordVersion: number,
   ): Promise<PreferenceSnapshot> {
     return updatePresentation(updates, recordVersion);
+  },
+
+  async updateReducedMotion(
+    reducedMotion: ReducedMotionPreference,
+    recordVersion: number,
+  ): Promise<PreferenceSnapshot> {
+    return updatePresentation({ reducedMotion }, recordVersion);
   },
 
   getCached(): Promise<PreferenceSnapshot | null> {
