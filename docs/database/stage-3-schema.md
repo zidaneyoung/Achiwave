@@ -356,6 +356,73 @@ Purpose: immutable first-satisfaction history that never relocks.
   retained. Presentation claims remain separate and are not implemented here.
 - Later progress reduction or reversal never updates or deletes this row.
 
+### `notifications` (#57)
+
+Purpose: user-owned notification intent and in-app presentation history.
+
+- UUID primary key and composite user key; stable per-user type/source identity
+  prevents duplicate intent rows.
+- Typed literal/localized content, object-shaped parameters, privacy classification,
+  availability, and unread/read/dismissed/archived timestamps are constrained.
+- Secret records require fixed generic lock-screen localization keys. Deep links use
+  a small route/UUID pair rather than an arbitrary URI. Notifications never award
+  progression and permission denial does not affect their source event.
+- User/state/availability and provenance indexes support inbox retrieval.
+
+### `notification_deliveries` (#58)
+
+Purpose: append-only push delivery-attempt audit history.
+
+- UUID primary key; composite FKs require notification, device, push token, provider,
+  outbox event, and user ownership to agree.
+- Attempt identity is unique per notification/device/channel/number. Positive
+  attempts, explicit lifecycle states, ordered timestamps, nonblank safe failure
+  classes, and provider-safe receipt IDs are constrained.
+- Provider receipts are partially unique; notification-attempt and user-state
+  indexes support audit queries. Raw provider responses, credentials, and raw token
+  values are not columns. Invalid-token outcomes retain every earlier attempt.
+
+### `reminders` (#59)
+
+Purpose: timezone-aware reminder definitions without scheduler behavior.
+
+- UUID primary key; composite quest/user and optional occurrence/user/quest FKs
+  prevent cross-owner or cross-quest scheduling.
+- Typed reminder kind, local time, IANA-shaped zone, timezone-preference version,
+  enabled state, next due instant, record version, and disabled/deleted timestamps
+  are retained.
+- Partial unique indexes prevent duplicate occurrence and definition schedules;
+  partial due and user-state indexes support a later scheduler. Reminder rows have
+  no completion or progression authority.
+
+### `evidence_attachments` (#60)
+
+Purpose: private object-storage metadata; PostgreSQL stores no file bytes.
+
+- UUID primary key; composite quest, optional occurrence, and optional completion
+  FKs enforce one user and matching ancestry. A completion requires an occurrence.
+- Provider/storage key is globally unique and never reused, while digest lookup is
+  intentionally nonunique so the same content can support distinct evidence rows.
+- Safe filename, media type, nonnegative byte size, minimum digest length, explicit
+  upload/processing state, timestamps, and object-shaped narrow metadata are
+  constrained. Storage key and metadata are marked sensitive.
+- User/quest/state, occurrence, and digest indexes support private lifecycle queries.
+  Uploads, device permissions, signed URLs, and mandatory evidence are out of scope.
+
+### `outbox_events` (#61)
+
+Purpose: transactional publication state written with a future source-domain change.
+
+- UUID is the stable event identity; optional user scope uses `RESTRICT`. Aggregate
+  and event type, object payload, positive schema version, availability, state,
+  attempts, lease, publication, and safe failure metadata are retained.
+- Top-level credential, password-hash, push-token, private-rule, and evidence-content
+  keys are rejected. Future producers must additionally use recursively validated
+  event allowlists; arbitrary nested JSON is never assumed safe.
+- Partial due and stale-lease indexes plus aggregate history support deterministic
+  worker polling. Published rows remain audit history. No worker or Beat schedule is
+  implemented by Stage 3.
+
 ## Current entity relationships
 
 ```mermaid
@@ -389,6 +456,15 @@ erDiagram
     ACHIEVEMENT_RULES ||--o{ ACHIEVEMENT_PROGRESS : "evaluates"
     ACHIEVEMENT_PROGRESS ||--o| ACHIEVEMENT_UNLOCKS : "first satisfies"
     PROGRESS_EVENTS ||--o{ ACHIEVEMENT_UNLOCKS : "triggers"
+    USERS ||--o{ NOTIFICATIONS : "receives"
+    NOTIFICATIONS ||--o{ NOTIFICATION_DELIVERIES : "attempts"
+    REGISTERED_DEVICES ||--o{ NOTIFICATION_DELIVERIES : "targets"
+    PUSH_TOKENS ||--o{ NOTIFICATION_DELIVERIES : "uses"
+    QUESTS ||--o{ REMINDERS : "schedules"
+    QUEST_OCCURRENCES o|--o{ REMINDERS : "may target"
+    QUESTS ||--o{ EVIDENCE_ATTACHMENTS : "accepts optional evidence"
+    QUEST_COMPLETIONS o|--o{ EVIDENCE_ATTACHMENTS : "may reference"
+    OUTBOX_EVENTS o|--o{ NOTIFICATION_DELIVERIES : "dispatches"
 ```
 
 ## Stage 1 rule mapping
