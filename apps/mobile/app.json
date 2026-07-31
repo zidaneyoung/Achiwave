@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "name": "Achiwave",
+    "slug": "achiwave",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "platforms": [
+      "android",
+      "ios"
+    ]
+  }
+}
