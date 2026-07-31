@@ -8,6 +8,7 @@ from achiwave_backend.models import (
     AchievementDefinition,
     AchievementProgress,
     AchievementRule,
+    AchievementUnlock,
     Campaign,
     ClientMutation,
     DeviceSession,
@@ -36,7 +37,7 @@ def test_stage3_migrations_have_one_alembic_head() -> None:
     configuration = Config(BACKEND_ROOT / "alembic.ini")
     scripts = ScriptDirectory.from_config(configuration)
 
-    assert scripts.get_heads() == ["20260731_0055"]
+    assert scripts.get_heads() == ["20260731_0056"]
 
 
 def test_stage3_metadata_registers_current_tables() -> None:
@@ -44,6 +45,7 @@ def test_stage3_metadata_registers_current_tables() -> None:
         "achievement_definitions",
         "achievement_progress",
         "achievement_rules",
+        "achievement_unlocks",
         "campaigns",
         "client_mutations",
         "device_sessions",
@@ -68,6 +70,7 @@ def test_stage3_metadata_registers_current_tables() -> None:
     assert AchievementDefinition.__table__ is Base.metadata.tables["achievement_definitions"]
     assert AchievementProgress.__table__ is Base.metadata.tables["achievement_progress"]
     assert AchievementRule.__table__ is Base.metadata.tables["achievement_rules"]
+    assert AchievementUnlock.__table__ is Base.metadata.tables["achievement_unlocks"]
     assert ClientMutation.__table__ is Base.metadata.tables["client_mutations"]
     assert DeviceSession.__table__ is Base.metadata.tables["device_sessions"]
     assert LevelDefinition.__table__ is Base.metadata.tables["level_definitions"]

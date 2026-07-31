@@ -18,6 +18,7 @@ from achiwave_backend.models import (
     AchievementDefinition,
     AchievementProgress,
     AchievementRule,
+    AchievementUnlock,
     Campaign,
     ClientMutation,
     DeviceSession,
@@ -93,6 +94,7 @@ def test_metadata_import_registers_models_without_connecting() -> None:
         "achievement_definitions",
         "achievement_progress",
         "achievement_rules",
+        "achievement_unlocks",
         "campaigns",
         "client_mutations",
         "device_sessions",
@@ -117,6 +119,7 @@ def test_metadata_import_registers_models_without_connecting() -> None:
     assert AchievementDefinition.__table__ is Base.metadata.tables["achievement_definitions"]
     assert AchievementProgress.__table__ is Base.metadata.tables["achievement_progress"]
     assert AchievementRule.__table__ is Base.metadata.tables["achievement_rules"]
+    assert AchievementUnlock.__table__ is Base.metadata.tables["achievement_unlocks"]
     assert ClientMutation.__table__ is Base.metadata.tables["client_mutations"]
     assert DeviceSession.__table__ is Base.metadata.tables["device_sessions"]
     assert LevelDefinition.__table__ is Base.metadata.tables["level_definitions"]
