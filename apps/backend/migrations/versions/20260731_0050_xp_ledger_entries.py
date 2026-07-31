@@ -35,6 +35,7 @@ def upgrade() -> None:
         sa.Column("client_mutation_id", postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column("rule_version", sa.Integer(), nullable=False),
         sa.Column("source_award_amount", sa.Integer(), nullable=True),
+        sa.Column("source_award_reason", sa.Text(), nullable=True),
         sa.Column("reverses_ledger_entry_id", postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column("event_sequence", sa.BigInteger(), nullable=False),
         sa.Column(
@@ -66,10 +67,13 @@ def upgrade() -> None:
         sa.CheckConstraint(
             "(reason = 'quest_completion' AND completion_id IS NOT NULL "
             "AND reversal_id IS NULL AND reverses_ledger_entry_id IS NULL "
-            "AND source_award_amount IS NULL AND xp_delta >= 0) OR "
+            "AND source_award_amount IS NULL AND source_award_reason IS NULL "
+            "AND xp_delta >= 0) OR "
             "(reason = 'completion_reversal' AND completion_id IS NULL "
             "AND reversal_id IS NOT NULL AND reverses_ledger_entry_id IS NOT NULL "
-            "AND source_award_amount IS NOT NULL AND xp_delta = -source_award_amount)",
+            "AND source_award_amount IS NOT NULL "
+            "AND source_award_reason = 'quest_completion' "
+            "AND xp_delta = -source_award_amount)",
             name="ck_xp_ledger_entries_reason_source_delta",
         ),
         sa.ForeignKeyConstraint(
@@ -100,14 +104,28 @@ def upgrade() -> None:
             ondelete="RESTRICT",
         ),
         sa.ForeignKeyConstraint(
-            ["reverses_ledger_entry_id", "user_id", "source_award_amount"],
-            ["xp_ledger_entries.id", "xp_ledger_entries.user_id", "xp_ledger_entries.xp_delta"],
+            [
+                "reverses_ledger_entry_id",
+                "user_id",
+                "source_award_amount",
+                "source_award_reason",
+            ],
+            [
+                "xp_ledger_entries.id",
+                "xp_ledger_entries.user_id",
+                "xp_ledger_entries.xp_delta",
+                "xp_ledger_entries.reason",
+            ],
             name="fk_xp_ledger_entries_exact_source_award",
             ondelete="RESTRICT",
         ),
         sa.PrimaryKeyConstraint("id", name="pk_xp_ledger_entries"),
         sa.UniqueConstraint(
-            "id", "user_id", "xp_delta", name="uq_xp_ledger_entries_id_user_delta"
+            "id",
+            "user_id",
+            "xp_delta",
+            "reason",
+            name="uq_xp_ledger_entries_id_user_delta_reason",
         ),
         sa.UniqueConstraint(
             "user_id", "event_sequence", name="uq_xp_ledger_entries_user_sequence"

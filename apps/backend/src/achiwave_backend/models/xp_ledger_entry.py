@@ -54,13 +54,27 @@ class XpLedgerEntry(Base):
             ondelete="RESTRICT",
         ),
         ForeignKeyConstraint(
-            ["reverses_ledger_entry_id", "user_id", "source_award_amount"],
-            ["xp_ledger_entries.id", "xp_ledger_entries.user_id", "xp_ledger_entries.xp_delta"],
+            [
+                "reverses_ledger_entry_id",
+                "user_id",
+                "source_award_amount",
+                "source_award_reason",
+            ],
+            [
+                "xp_ledger_entries.id",
+                "xp_ledger_entries.user_id",
+                "xp_ledger_entries.xp_delta",
+                "xp_ledger_entries.reason",
+            ],
             name="fk_xp_ledger_entries_exact_source_award",
             ondelete="RESTRICT",
         ),
         UniqueConstraint(
-            "id", "user_id", "xp_delta", name="uq_xp_ledger_entries_id_user_delta"
+            "id",
+            "user_id",
+            "xp_delta",
+            "reason",
+            name="uq_xp_ledger_entries_id_user_delta_reason",
         ),
         UniqueConstraint(
             "user_id", "event_sequence", name="uq_xp_ledger_entries_user_sequence"
@@ -85,10 +99,13 @@ class XpLedgerEntry(Base):
         CheckConstraint(
             "(reason = 'quest_completion' AND completion_id IS NOT NULL "
             "AND reversal_id IS NULL AND reverses_ledger_entry_id IS NULL "
-            "AND source_award_amount IS NULL AND xp_delta >= 0) OR "
+            "AND source_award_amount IS NULL AND source_award_reason IS NULL "
+            "AND xp_delta >= 0) OR "
             "(reason = 'completion_reversal' AND completion_id IS NULL "
             "AND reversal_id IS NOT NULL AND reverses_ledger_entry_id IS NOT NULL "
-            "AND source_award_amount IS NOT NULL AND xp_delta = -source_award_amount)",
+            "AND source_award_amount IS NOT NULL "
+            "AND source_award_reason = 'quest_completion' "
+            "AND xp_delta = -source_award_amount)",
             name="ck_xp_ledger_entries_reason_source_delta",
         ),
         Index(
@@ -126,6 +143,7 @@ class XpLedgerEntry(Base):
     client_mutation_id: Mapped[UUID | None] = mapped_column(PostgreSQLUUID(as_uuid=True))
     rule_version: Mapped[int] = mapped_column(Integer, nullable=False)
     source_award_amount: Mapped[int | None] = mapped_column(Integer)
+    source_award_reason: Mapped[str | None] = mapped_column(Text)
     reverses_ledger_entry_id: Mapped[UUID | None] = mapped_column(
         PostgreSQLUUID(as_uuid=True)
     )
