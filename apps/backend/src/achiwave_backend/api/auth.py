@@ -11,6 +11,8 @@ from achiwave_backend.database import SessionFactory
 from achiwave_backend.schemas.auth import (
     LoginRequest,
     LoginResponse,
+    RefreshRequest,
+    RefreshResponse,
     RegistrationRequest,
     RegistrationResponse,
     SafeUserResponse,
@@ -24,6 +26,15 @@ from achiwave_backend.services.login import (
 from achiwave_backend.services.registration import (
     EmailAlreadyRegisteredError,
     RegistrationService,
+)
+from achiwave_backend.services.refresh import (
+    InvalidRefreshTokenError,
+    RefreshAccountUnavailableError,
+    RefreshDeviceRevokedError,
+    RefreshService,
+    RefreshTokenReuseError,
+    SessionExpiredError,
+    SessionRevokedError,
 )
 
 
@@ -149,6 +160,68 @@ def create_auth_router(
             ),
             timezone_name=result.preference.timezone_name,
             device_id=result.device.id,
+            session_id=result.session.id,
+            session_expires_at=result.session.expires_at,
+            access_token=result.credentials.access_token,
+            access_token_expires_at=result.credentials.access_expires_at,
+            refresh_token=result.credentials.refresh_token,
+        )
+
+    @router.post(
+        "/refresh",
+        response_model=RefreshResponse,
+        responses={status.HTTP_401_UNAUTHORIZED: {"model": ErrorResponse}},
+    )
+    def refresh(
+        request: RefreshRequest,
+        session: Session = Depends(database_session),
+    ) -> RefreshResponse:
+        try:
+            result = RefreshService(TokenIssuer(settings)).refresh(session, request)
+        except InvalidRefreshTokenError as error:
+            raise ApiError(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                code="invalid_refresh_token",
+                message="The refresh credential is invalid.",
+                headers={"WWW-Authenticate": "Bearer"},
+            ) from error
+        except SessionExpiredError as error:
+            raise ApiError(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                code="session_expired",
+                message="The session has expired.",
+                headers={"WWW-Authenticate": "Bearer"},
+            ) from error
+        except SessionRevokedError as error:
+            raise ApiError(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                code="session_revoked",
+                message="The session is no longer active.",
+                headers={"WWW-Authenticate": "Bearer"},
+            ) from error
+        except RefreshTokenReuseError as error:
+            raise ApiError(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                code="refresh_token_reuse_detected",
+                message="The session is no longer active.",
+                headers={"WWW-Authenticate": "Bearer"},
+            ) from error
+        except RefreshDeviceRevokedError as error:
+            raise ApiError(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                code="device_revoked",
+                message="The registered device is no longer active.",
+                headers={"WWW-Authenticate": "Bearer"},
+            ) from error
+        except RefreshAccountUnavailableError as error:
+            raise ApiError(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                code="account_deactivated",
+                message="This account is not available.",
+                headers={"WWW-Authenticate": "Bearer"},
+            ) from error
+
+        return RefreshResponse(
             session_id=result.session.id,
             session_expires_at=result.session.expires_at,
             access_token=result.credentials.access_token,

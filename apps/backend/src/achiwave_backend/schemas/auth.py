@@ -42,6 +42,13 @@ class LoginRequest(BaseModel):
         return value.strip() if isinstance(value, str) else value
 
 
+class RefreshRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    refresh_token: str = Field(min_length=43, max_length=512)
+    installation: AndroidInstallationRequest
+
+
 class SafeUserResponse(BaseModel):
     id: UUID
     email: str
@@ -66,6 +73,15 @@ class LoginResponse(BaseModel):
     user: SafeUserResponse
     timezone_name: str
     device_id: UUID
+    session_id: UUID
+    session_expires_at: datetime
+    access_token: str
+    access_token_expires_at: datetime
+    refresh_token: str
+    token_type: Literal["bearer"] = "bearer"
+
+
+class RefreshResponse(BaseModel):
     session_id: UUID
     session_expires_at: datetime
     access_token: str

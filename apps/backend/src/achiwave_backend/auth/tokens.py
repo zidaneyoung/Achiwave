@@ -58,9 +58,11 @@ class TokenIssuer:
         return IssuedCredentials(
             access_token=access_token,
             refresh_token=refresh_token,
-            refresh_token_digest=hashlib.sha256(
-                refresh_token.encode("utf-8")
-            ).digest(),
+            refresh_token_digest=digest_refresh_token(refresh_token),
             access_expires_at=access_expires_at,
             refresh_expires_at=refresh_expires_at,
         )
+
+
+def digest_refresh_token(refresh_token: str) -> bytes:
+    return hashlib.sha256(refresh_token.encode("utf-8")).digest()
