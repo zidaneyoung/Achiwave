@@ -252,7 +252,8 @@ Purpose: append-only authoritative progression event log.
 - Optional mutation binding is ownership-safe. Server receipt/processing times,
   backend effective date, rule version, and object-shaped safe JSON metadata are
   retained.
-- User-sequence and source indexes support ordered replay and provenance lookup.
+- The unique user-sequence index and source index support ordered replay and
+  provenance lookup.
   Arbitrary client-authored events and secret rule bodies are application-forbidden.
 
 ### `xp_ledger_entries` (#50)
@@ -294,7 +295,7 @@ Purpose: reconstructable user-global daily streaks with a derived summary.
 - `streak_day_sources` binds each completion, user, and effective date to its day;
   a unique completion source prevents duplicate credit. Optional reversal ownership
   and state preserve removal history.
-- Date-range and day/state indexes support recalculation. Multiple completions can
+- The unique user/date index and day/state index support recalculation. Multiple completions can
   share one day, including zero-XP completions. Reversing one source leaves the day
   credited while another active source remains. Source counts and summary values
   must change with source state in one future backend transaction.
