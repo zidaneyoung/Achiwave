@@ -48,6 +48,12 @@ class QuestCompletion(Base):
         UniqueConstraint(
             "id",
             "user_id",
+            "completion_effective_date",
+            name="uq_quest_completions_id_user_effective_date",
+        ),
+        UniqueConstraint(
+            "id",
+            "user_id",
             "occurrence_id",
             name="uq_quest_completions_id_user_occurrence",
         ),

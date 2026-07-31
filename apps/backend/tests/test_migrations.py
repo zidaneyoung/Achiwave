@@ -18,6 +18,9 @@ from achiwave_backend.models import (
     QuestRecurrence,
     RegisteredDevice,
     SynchronizationOperation,
+    Streak,
+    StreakDay,
+    StreakDaySource,
     User,
     UserPreference,
     XpLedgerEntry,
@@ -30,7 +33,7 @@ def test_stage3_migrations_have_one_alembic_head() -> None:
     configuration = Config(BACKEND_ROOT / "alembic.ini")
     scripts = ScriptDirectory.from_config(configuration)
 
-    assert scripts.get_heads() == ["20260731_0051"]
+    assert scripts.get_heads() == ["20260731_0052"]
 
 
 def test_stage3_metadata_registers_current_tables() -> None:
@@ -48,6 +51,9 @@ def test_stage3_metadata_registers_current_tables() -> None:
         "quest_completion_reversals",
         "registered_devices",
         "synchronization_operations",
+        "streak_day_sources",
+        "streak_days",
+        "streaks",
         "user_preferences",
         "users",
         "xp_ledger_entries",
@@ -71,6 +77,9 @@ def test_stage3_metadata_registers_current_tables() -> None:
         SynchronizationOperation.__table__
         is Base.metadata.tables["synchronization_operations"]
     )
+    assert Streak.__table__ is Base.metadata.tables["streaks"]
+    assert StreakDay.__table__ is Base.metadata.tables["streak_days"]
+    assert StreakDaySource.__table__ is Base.metadata.tables["streak_day_sources"]
     assert User.__table__ is Base.metadata.tables["users"]
     assert UserPreference.__table__ is Base.metadata.tables["user_preferences"]
     assert XpLedgerEntry.__table__ is Base.metadata.tables["xp_ledger_entries"]
