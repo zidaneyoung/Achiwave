@@ -73,7 +73,6 @@ class ProgressEvent(Base):
             "jsonb_typeof(event_metadata) = 'object'",
             name="ck_progress_events_metadata_object",
         ),
-        Index("ix_progress_events_user_sequence", "user_id", "event_sequence"),
         Index(
             "ix_progress_events_user_source",
             "user_id",

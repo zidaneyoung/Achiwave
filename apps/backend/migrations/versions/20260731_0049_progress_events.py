@@ -99,12 +99,6 @@ def upgrade() -> None:
         ),
     )
     op.create_index(
-        "ix_progress_events_user_sequence",
-        "progress_events",
-        ["user_id", "event_sequence"],
-        unique=False,
-    )
-    op.create_index(
         "ix_progress_events_user_source",
         "progress_events",
         ["user_id", "source_type", "source_id"],
@@ -114,5 +108,4 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_index("ix_progress_events_user_source", table_name="progress_events")
-    op.drop_index("ix_progress_events_user_sequence", table_name="progress_events")
     op.drop_table("progress_events")
