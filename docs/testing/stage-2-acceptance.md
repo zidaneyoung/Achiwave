@@ -43,7 +43,28 @@ domain model.
 | [#33](https://github.com/zidaneyoung/Achiwave/issues/33) | `stage-2/local-infrastructure-32-33` | [`f3e6d2c`](https://github.com/zidaneyoung/Achiwave/commit/f3e6d2c), [`94fcfe1`](https://github.com/zidaneyoung/Achiwave/commit/94fcfe1) | [#370](https://github.com/zidaneyoung/Achiwave/pull/370) | `apps/backend/src/achiwave_backend/logging.py`, `apps/backend/tests/test_logging.py` | Pytest and live API/worker/scheduler logs — application records parsed as JSON, included service context, and redacted configured credentials and URLs. | Pass |
 | [#34](https://github.com/zidaneyoung/Achiwave/issues/34) | `stage-2/android-runtime-config-34-36` | [`b3a3248`](https://github.com/zidaneyoung/Achiwave/commit/b3a3248) | PR pending | `apps/mobile/app/_layout.tsx` | TypeScript and Android export passed. Expo Router's named boundary contract and fixed-message retry fallback compiled; the deliberate Android render failure/retry interaction could not run without SDK/ADB/device. | Unable to Verify |
 | [#35](https://github.com/zidaneyoung/Achiwave/issues/35) | `stage-2/android-runtime-config-34-36` | [`399a810`](https://github.com/zidaneyoung/Achiwave/commit/399a810) | PR pending | `apps/mobile/app.config.ts`, `apps/mobile/src/config/environment.js`, `apps/mobile/src/api/client.ts` | Development emulator config and explicit production config resolved; missing/insecure production URLs failed clearly; mock liveness request, schema rejection, timeout, and sanitized failure checks passed. | Pass |
-| [#36](https://github.com/zidaneyoung/Achiwave/issues/36) | `stage-2/android-runtime-config-34-36` | Issue implementation commit pending | PR pending | `docs/local-development.md`, `docs/testing/stage-2-acceptance.md` | Link audit and documented-command verification pending final branch checks. | Unable to Verify |
+| [#36](https://github.com/zidaneyoung/Achiwave/issues/36) | `stage-2/android-runtime-config-34-36` | [`fe1924e`](https://github.com/zidaneyoung/Achiwave/commit/fe1924e) | PR pending | `docs/local-development.md`, `docs/testing/stage-2-acceptance.md` | PowerShell local-link audit — all 23 Markdown files had no broken local links; documented mobile and backend checks produced the results below. | Pass |
+
+## Final branch verification
+
+- `.\.venv\Scripts\python.exe -m pytest -q` in `apps/backend`: Pass,
+  31 tests passed. An initial invocation with the global Python failed
+  collection because the editable package was not installed there; activating
+  the documented package virtual environment resolved that setup error.
+- `npx expo-doctor` with the documented development environment: Pass, 20/20
+  checks. An invocation without `.env` failed at config evaluation as intended
+  because required public API settings were absent.
+- `npx expo export --platform android --output-dir .stage2-final-export` with
+  development config: Pass, the Android bundle and assets exported. The
+  generated output was removed afterward.
+- strict TypeScript, development and production Expo config evaluation,
+  invalid-production-config rejection, and API-client behavior checks: Pass.
+- `npx expo run:android`: Unable to Verify on this host. The installed Android
+  Studio has a JDK but no SDK, Platform-Tools, ADB, emulator, or attached
+  device. The earlier attempt stopped at that missing prerequisite, so it was
+  not repeated.
+- PowerShell local Markdown link audit: Pass, 23 files checked with no broken
+  local links.
 
 ## Runtime cleanup
 
