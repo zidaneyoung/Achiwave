@@ -135,6 +135,23 @@ Actual result: one head and current revision `20260731_0062`; upgrade succeeded;
 `No new upgrade operations detected.` The PG test separately proves the full
 downgrade and re-upgrade path.
 
+### COMPOSE — built stack and live readiness
+
+```powershell
+docker compose -p achiwave_stage3_verify -f infrastructure/compose.local.yaml up --build -d
+docker compose -p achiwave_stage3_verify -f infrastructure/compose.local.yaml run --rm backend python -m alembic upgrade head
+docker compose -p achiwave_stage3_verify -f infrastructure/compose.local.yaml ps
+Invoke-RestMethod http://127.0.0.1:58000/health/live
+Invoke-RestMethod http://127.0.0.1:58000/health/ready
+```
+
+Actual result: the isolated Compose project built successfully. PostgreSQL,
+Redis, and backend reported healthy; worker and scheduler remained running. The
+clean Compose database upgraded through `20260731_0062`. Liveness returned
+`{"status":"ok"}` and readiness returned PostgreSQL and Redis as `ok`. The
+isolated containers, network, and `achiwave_stage3_verify_postgres_data` test
+volume were then removed with `down -v --remove-orphans`.
+
 ## Deletion, privacy, and application boundaries
 
 Campaign and quest user-facing deletion remains archive/tombstone state. Device,
@@ -155,5 +172,5 @@ Stage 4 authentication or application endpoint was added.
 No dependency was added. PostgreSQL integration uses the already-declared
 `psycopg`, SQLAlchemy, Alembic, and pytest stack. GitHub has no configured Actions
 checks for these pull requests, so the recorded local and PostgreSQL verification
-is the available required-check evidence. Docker Compose and final readiness are
-recorded after the sixth branch is published and merged.
+is the available required-check evidence. The final audit repeats the clean
+migration, backend suite, and readiness checks on merged `main`.
