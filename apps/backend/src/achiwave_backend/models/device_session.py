@@ -68,6 +68,11 @@ class DeviceSession(Base):
             "expires_at",
             postgresql_where=text("session_state = 'active'"),
         ),
+        Index(
+            "ix_device_sessions_replaced_by",
+            "replaced_by_session_id",
+            "user_id",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(

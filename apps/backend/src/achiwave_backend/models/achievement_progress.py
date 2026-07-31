@@ -97,6 +97,12 @@ class AchievementProgress(Base):
             "rule_version",
             "satisfaction_state",
         ),
+        Index(
+            "ix_achievement_progress_last_event",
+            "last_progress_event_id",
+            "user_id",
+            "last_event_sequence",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(

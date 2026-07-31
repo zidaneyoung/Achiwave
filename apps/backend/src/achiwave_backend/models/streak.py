@@ -93,7 +93,7 @@ class StreakDay(Base):
         ),
         CheckConstraint(
             "timezone_name = 'UTC' OR timezone_name ~ "
-            "'^[A-Za-z]+(?:[_+-][A-Za-z0-9]+)*/[A-Za-z0-9_+-]+(?:/[A-Za-z0-9_+-]+)*$'",
+            "'^[A-Za-z]+([_+-][A-Za-z0-9]+)*/[A-Za-z0-9_+-]+(/[A-Za-z0-9_+-]+)*$'",
             name="ck_streak_days_timezone_shape",
         ),
         CheckConstraint(
@@ -181,6 +181,12 @@ class StreakDaySource(Base):
             name="ck_streak_day_sources_state_timestamps",
         ),
         Index("ix_streak_day_sources_day_state", "streak_day_id", "source_state"),
+        Index(
+            "ix_streak_day_sources_reversal",
+            "reversal_id",
+            "user_id",
+            "completion_id",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(

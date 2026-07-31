@@ -93,6 +93,11 @@ class SynchronizationOperation(Base):
             "operation_state",
             "updated_at",
         ),
+        Index(
+            "ix_synchronization_operations_device",
+            "device_id",
+            "user_id",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(

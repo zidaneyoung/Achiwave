@@ -127,6 +127,11 @@ class XpLedgerEntry(Base):
             postgresql_where=text("reverses_ledger_entry_id IS NOT NULL"),
         ),
         Index("ix_xp_ledger_entries_user_recorded", "user_id", "server_recorded_at"),
+        Index(
+            "ix_xp_ledger_entries_user_client_mutation",
+            "user_id",
+            "client_mutation_id",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(

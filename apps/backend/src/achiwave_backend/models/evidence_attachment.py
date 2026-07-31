@@ -120,6 +120,12 @@ class EvidenceAttachment(Base):
         Index("ix_evidence_attachments_user_quest_state", "user_id", "quest_id", "upload_state"),
         Index("ix_evidence_attachments_user_occurrence", "user_id", "occurrence_id"),
         Index("ix_evidence_attachments_user_digest", "user_id", "content_digest"),
+        Index(
+            "ix_evidence_attachments_completion",
+            "completion_id",
+            "user_id",
+            "occurrence_id",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(PostgreSQLUUID(as_uuid=True), primary_key=True, default=uuid4)

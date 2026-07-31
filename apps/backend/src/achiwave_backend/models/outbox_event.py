@@ -111,6 +111,7 @@ class OutboxEvent(Base):
             "aggregate_id",
             "created_at",
         ),
+        Index("ix_outbox_events_user", "user_id"),
     )
 
     id: Mapped[UUID] = mapped_column(PostgreSQLUUID(as_uuid=True), primary_key=True, default=uuid4)

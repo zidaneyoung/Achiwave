@@ -79,6 +79,11 @@ class ProgressEvent(Base):
             "source_type",
             "source_id",
         ),
+        Index(
+            "ix_progress_events_user_client_mutation",
+            "user_id",
+            "client_mutation_id",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(

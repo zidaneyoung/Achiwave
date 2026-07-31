@@ -120,6 +120,15 @@ class NotificationDelivery(Base):
             "delivery_state",
             "created_at",
         ),
+        Index("ix_notification_deliveries_device", "device_id", "user_id"),
+        Index("ix_notification_deliveries_outbox", "outbox_event_id", "user_id"),
+        Index(
+            "ix_notification_deliveries_push_token",
+            "push_token_id",
+            "user_id",
+            "device_id",
+            "provider",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(

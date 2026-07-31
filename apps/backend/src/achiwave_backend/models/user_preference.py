@@ -21,8 +21,8 @@ class UserPreference(Base):
         ),
         CheckConstraint(
             "timezone_name = 'UTC' OR timezone_name ~ "
-            "'^[A-Za-z]+(?:[_+-][A-Za-z0-9]+)*/[A-Za-z0-9_+-]+"
-            "(?:/[A-Za-z0-9_+-]+)*$'",
+            "'^[A-Za-z]+([_+-][A-Za-z0-9]+)*/[A-Za-z0-9_+-]+"
+            "(/[A-Za-z0-9_+-]+)*$'",
             name="ck_user_preferences_timezone_name_shape",
         ),
         CheckConstraint(
