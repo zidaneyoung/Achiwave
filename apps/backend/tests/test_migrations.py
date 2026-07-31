@@ -8,6 +8,7 @@ from achiwave_backend.models import (
     Campaign,
     DeviceSession,
     PushToken,
+    Quest,
     RegisteredDevice,
     User,
     UserPreference,
@@ -20,7 +21,7 @@ def test_stage3_migrations_have_one_alembic_head() -> None:
     configuration = Config(BACKEND_ROOT / "alembic.ini")
     scripts = ScriptDirectory.from_config(configuration)
 
-    assert scripts.get_heads() == ["20260731_0042"]
+    assert scripts.get_heads() == ["20260731_0043"]
 
 
 def test_stage3_metadata_registers_current_tables() -> None:
@@ -28,6 +29,7 @@ def test_stage3_metadata_registers_current_tables() -> None:
         "campaigns",
         "device_sessions",
         "push_tokens",
+        "quests",
         "registered_devices",
         "user_preferences",
         "users",
@@ -35,6 +37,7 @@ def test_stage3_metadata_registers_current_tables() -> None:
     assert Campaign.__table__ is Base.metadata.tables["campaigns"]
     assert DeviceSession.__table__ is Base.metadata.tables["device_sessions"]
     assert PushToken.__table__ is Base.metadata.tables["push_tokens"]
+    assert Quest.__table__ is Base.metadata.tables["quests"]
     assert RegisteredDevice.__table__ is Base.metadata.tables["registered_devices"]
     assert User.__table__ is Base.metadata.tables["users"]
     assert UserPreference.__table__ is Base.metadata.tables["user_preferences"]
