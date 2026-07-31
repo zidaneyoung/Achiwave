@@ -3,6 +3,7 @@
 from achiwave_backend.models.campaign import Campaign
 from achiwave_backend.models.client_mutation import ClientMutation
 from achiwave_backend.models.device_session import DeviceSession
+from achiwave_backend.models.level_definition import LevelDefinition
 from achiwave_backend.models.progress_event import ProgressEvent
 from achiwave_backend.models.push_token import PushToken
 from achiwave_backend.models.quest import Quest
@@ -22,6 +23,7 @@ __all__ = [
     "Campaign",
     "ClientMutation",
     "DeviceSession",
+    "LevelDefinition",
     "ProgressEvent",
     "PushToken",
     "Quest",

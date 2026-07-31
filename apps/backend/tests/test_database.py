@@ -18,6 +18,7 @@ from achiwave_backend.models import (
     Campaign,
     ClientMutation,
     DeviceSession,
+    LevelDefinition,
     ProgressEvent,
     PushToken,
     Quest,
@@ -86,6 +87,7 @@ def test_metadata_import_registers_models_without_connecting() -> None:
         "campaigns",
         "client_mutations",
         "device_sessions",
+        "level_definitions",
         "push_tokens",
         "progress_events",
         "quests",
@@ -102,6 +104,7 @@ def test_metadata_import_registers_models_without_connecting() -> None:
     assert Campaign.__table__ is Base.metadata.tables["campaigns"]
     assert ClientMutation.__table__ is Base.metadata.tables["client_mutations"]
     assert DeviceSession.__table__ is Base.metadata.tables["device_sessions"]
+    assert LevelDefinition.__table__ is Base.metadata.tables["level_definitions"]
     assert PushToken.__table__ is Base.metadata.tables["push_tokens"]
     assert ProgressEvent.__table__ is Base.metadata.tables["progress_events"]
     assert Quest.__table__ is Base.metadata.tables["quests"]
