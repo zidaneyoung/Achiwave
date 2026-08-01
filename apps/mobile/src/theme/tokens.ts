@@ -26,6 +26,8 @@ export const borders = {
 export const sizing = {
   minimumTouchTarget: 48,
   formControl: 52,
+  badgeRegular: 28,
+  badgeCompact: 24,
   compactViewportWidth: 320,
   compactViewportHeight: 568,
   contentMeasure: 520,
