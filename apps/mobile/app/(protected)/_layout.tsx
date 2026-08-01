@@ -28,9 +28,15 @@ export default function ProtectedLayout() {
     return <Redirect href="/(protected)/offline" />;
   }
   return (
-    <Stack>
+    <Stack
+      screenOptions={{
+        animation: "slide_from_right",
+        headerBackButtonDisplayMode: "minimal",
+      }}
+    >
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="details/[section]" options={{ title: "Details" }} />
       <Stack.Screen name="offline" options={{ title: "Offline" }} />
       <Stack.Screen name="security" options={{ title: "Devices and sessions" }} />
       <Stack.Screen name="preferences" options={{ title: "Preferences" }} />

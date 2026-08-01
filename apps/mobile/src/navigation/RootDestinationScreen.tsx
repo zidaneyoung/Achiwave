@@ -1,11 +1,14 @@
 import type { ReactNode } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Link, type Href } from "expo-router";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 interface RootDestinationScreenProps {
   title: string;
   eyebrow: string;
   description: string;
+  detailHref?: Href;
+  detailLabel?: string;
   children?: ReactNode;
 }
 
@@ -13,6 +16,8 @@ export function RootDestinationScreen({
   title,
   eyebrow,
   description,
+  detailHref,
+  detailLabel = "Open details",
   children,
 }: RootDestinationScreenProps) {
   return (
@@ -26,6 +31,19 @@ export function RootDestinationScreen({
           {title}
         </Text>
         <Text style={styles.description}>{description}</Text>
+        {detailHref ? (
+          <Link href={detailHref} asChild>
+            <Pressable
+              accessibilityRole="button"
+              style={({ pressed }) => [
+                styles.detailButton,
+                pressed && styles.detailButtonPressed,
+              ]}
+            >
+              <Text style={styles.detailButtonText}>{detailLabel}</Text>
+            </Pressable>
+          </Link>
+        ) : null}
         {children ? <View style={styles.actions}>{children}</View> : null}
       </ScrollView>
     </SafeAreaView>
@@ -61,5 +79,18 @@ const styles = StyleSheet.create({
     marginTop: 12,
     maxWidth: 520,
   },
+  detailButton: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    backgroundColor: "#2A475E",
+    borderRadius: 10,
+    justifyContent: "center",
+    marginTop: 24,
+    minHeight: 48,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+  },
+  detailButtonPressed: { backgroundColor: "#365E7A" },
+  detailButtonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
   actions: { marginTop: 24 },
 });

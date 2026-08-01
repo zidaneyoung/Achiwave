@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text } from "react-native";
 
 import { useAuthentication } from "../../../src/auth/AuthContext";
 import { RootDestinationScreen } from "../../../src/navigation/RootDestinationScreen";
+import { PROTECTED_ROUTES } from "../../../src/navigation/routes";
 
 export default function ProfileTabRoute() {
   const { state, signOut } = useAuthentication();
@@ -12,6 +13,8 @@ export default function ProfileTabRoute() {
   return (
     <RootDestinationScreen
       description={state.user.email}
+      detailHref={PROTECTED_ROUTES.detail("profile")}
+      detailLabel="Open Profile details"
       eyebrow="Account"
       title="Profile"
     >
@@ -30,7 +33,7 @@ export default function ProfileTabRoute() {
   );
 }
 
-function ProfileLink({ href, label }: { href: string; label: string }) {
+function ProfileLink({ href, label }: { href: typeof PROTECTED_ROUTES.security | typeof PROTECTED_ROUTES.preferences | typeof PROTECTED_ROUTES.account; label: string }) {
   return (
     <Link href={href} asChild>
       <Pressable
