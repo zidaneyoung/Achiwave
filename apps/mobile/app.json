@@ -4,13 +4,19 @@
     "slug": "achiwave",
     "version": "0.1.0",
     "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
     "scheme": "achiwave",
     "platforms": [
       "android",
       "ios"
     ],
     "android": {
+      "edgeToEdgeEnabled": true,
       "package": "com.zidaneyoung.achiwave.dev"
+    },
+    "androidNavigationBar": {
+      "backgroundColor": "#171A21",
+      "barStyle": "light-content"
     },
     "plugins": [
       "expo-router",

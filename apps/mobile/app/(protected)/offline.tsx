@@ -7,7 +7,7 @@ export default function OfflineLimitedRoute() {
   const { revalidate } = useAuthentication();
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView edges={["left", "right", "bottom"]} style={styles.safeArea}>
       <View style={styles.container}>
         <Text accessibilityRole="header" style={styles.title}>
           You are offline

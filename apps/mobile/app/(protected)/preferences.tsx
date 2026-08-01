@@ -177,7 +177,7 @@ export default function PreferencesRoute() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView edges={["left", "right", "bottom"]} style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
         <Text accessibilityRole="header" style={styles.title}>
           Preferences
