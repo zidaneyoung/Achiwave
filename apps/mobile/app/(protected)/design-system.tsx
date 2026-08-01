@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppButton } from "../../src/components/AppButton";
 import { AppSelector, AppTextField } from "../../src/components/FormControls";
+import { AppCard, AppListItem } from "../../src/components/ContentSurfaces";
 import { PROTECTED_ROUTES } from "../../src/navigation/routes";
 import { AppText } from "../../src/theme/AppText";
 import {
@@ -58,6 +59,20 @@ export default function DesignSystemRoute() {
             label="Theme example"
             onPress={() => setSelectorExpanded((value) => !value)}
             value="Follow system"
+          />
+        </ShowcaseSection>
+        <ShowcaseSection title="Cards and list items">
+          <AppCard metadata="Static surface" status="Example status" title="Daily focus">
+            <AppText tone="muted">Compact content keeps its hierarchy at narrow widths.</AppText>
+          </AppCard>
+          <AppCard accessibilityHint="Opens this example card." metadata="Interactive" onPress={() => undefined} title="Review progress" />
+          <AppListItem metadata="No nested action" onPress={() => undefined} title="Interactive list item" />
+          <AppListItem
+            metadata="Trailing action stops parent activation"
+            onPress={() => undefined}
+            onTrailingActionPress={() => undefined}
+            title="List item with action"
+            trailingActionLabel="More options for list item"
           />
         </ShowcaseSection>
       </ScrollView>
