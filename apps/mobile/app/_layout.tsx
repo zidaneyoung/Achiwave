@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Stack, type ErrorBoundaryProps } from "expo-router";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AuthenticationProvider } from "../src/auth/AuthContext";
@@ -12,6 +12,8 @@ import {
   useAchiwaveTheme,
   useThemeStyles,
 } from "../src/theme/ThemeProvider";
+import { AppText } from "../src/theme/AppText";
+import { radii, sizing, spacing } from "../src/theme/tokens";
 
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   const styles = useThemeStyles(createStyles);
@@ -35,12 +37,12 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.fallback}>
-        <Text accessibilityRole="header" style={styles.title}>
+        <AppText accessibilityRole="header" variant="heading1" style={styles.title}>
           Achiwave needs a moment
-        </Text>
-        <Text style={styles.message}>
+        </AppText>
+        <AppText tone="muted" style={styles.message}>
           Something unexpected happened. Your details are not shown here.
-        </Text>
+        </AppText>
         <Pressable
           accessibilityHint="Attempts to display Achiwave again."
           accessibilityRole="button"
@@ -52,9 +54,9 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
             isRetrying && styles.buttonDisabled,
           ]}
         >
-          <Text style={styles.buttonText}>
+          <AppText tone="onAction" variant="label">
             {isRetrying ? "Trying again…" : "Try again"}
-          </Text>
+          </AppText>
         </Pressable>
       </View>
     </SafeAreaView>
@@ -99,42 +101,31 @@ const createStyles = (theme: AchiwaveTheme) => StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    padding: 24,
+    padding: spacing.lg,
   },
   title: {
-    color: theme.colors.foreground,
-    fontSize: 28,
-    fontWeight: "700",
     textAlign: "center",
   },
   message: {
-    color: theme.colors.foregroundMuted,
-    fontSize: 17,
-    lineHeight: 24,
-    marginTop: 12,
+    marginTop: spacing.sm,
     maxWidth: 360,
     textAlign: "center",
   },
   button: {
     alignItems: "center",
     backgroundColor: theme.colors.action,
-    borderRadius: 10,
+    borderRadius: radii.md,
     justifyContent: "center",
-    marginTop: 24,
-    minHeight: 48,
+    marginTop: spacing.lg,
+    minHeight: sizing.minimumTouchTarget,
     minWidth: 160,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
   },
   buttonPressed: {
     backgroundColor: theme.colors.actionPressed,
   },
   buttonDisabled: {
     opacity: 0.65,
-  },
-  buttonText: {
-    color: theme.colors.onAction,
-    fontSize: 17,
-    fontWeight: "700",
   },
 });

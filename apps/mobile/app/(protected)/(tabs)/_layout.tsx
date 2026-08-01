@@ -7,6 +7,7 @@ import {
 } from "../../../src/navigation/backBehavior";
 import { ROOT_DESTINATIONS } from "../../../src/navigation/rootDestinations";
 import { useAchiwaveTheme } from "../../../src/theme/ThemeProvider";
+import { typography } from "../../../src/theme/tokens";
 
 export default function AuthenticatedTabsLayout() {
   const theme = useAchiwaveTheme();
@@ -21,7 +22,7 @@ export default function AuthenticatedTabsLayout() {
         tabBarActiveTintColor: theme.colors.foreground,
         tabBarHideOnKeyboard: true,
         tabBarInactiveTintColor: theme.colors.foregroundMuted,
-        tabBarLabelStyle: { fontSize: 12, fontWeight: "700" },
+        tabBarLabelStyle: { ...typography.caption, fontWeight: "700" },
         tabBarStyle: {
           backgroundColor: theme.colors.surface,
           borderTopColor: theme.colors.border,

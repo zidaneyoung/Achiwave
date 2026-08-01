@@ -1,12 +1,14 @@
 import type { ReactNode } from "react";
 import { router } from "expo-router";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import {
   type AchiwaveTheme,
   useThemeStyles,
 } from "../theme/ThemeProvider";
+import { AppText } from "../theme/AppText";
+import { radii, sizing, spacing } from "../theme/tokens";
 import { PROTECTED_ROUTES } from "./routes";
 
 interface ModalScreenProps {
@@ -33,10 +35,10 @@ export function ModalScreen({ title, description, children }: ModalScreenProps) 
         style={styles.surface}
       >
         <ScrollView contentContainerStyle={styles.content}>
-          <Text accessibilityRole="header" style={styles.title}>
+          <AppText accessibilityRole="header" variant="heading1">
             {title}
-          </Text>
-          <Text style={styles.description}>{description}</Text>
+          </AppText>
+          <AppText tone="muted" style={styles.description}>{description}</AppText>
           {children}
         </ScrollView>
         <Pressable
@@ -46,7 +48,7 @@ export function ModalScreen({ title, description, children }: ModalScreenProps) 
           onPress={dismiss}
           style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}
         >
-          <Text style={styles.closeButtonText}>Close</Text>
+          <AppText tone="onAction" variant="label">Close</AppText>
         </Pressable>
       </View>
     </SafeAreaView>
@@ -56,19 +58,17 @@ export function ModalScreen({ title, description, children }: ModalScreenProps) 
 const createStyles = (theme: AchiwaveTheme) => StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: theme.colors.background },
   surface: { flex: 1, backgroundColor: theme.colors.surface },
-  content: { flexGrow: 1, justifyContent: "center", padding: 24 },
-  title: { color: theme.colors.foreground, fontSize: 28, fontWeight: "700", lineHeight: 34 },
-  description: { color: theme.colors.foregroundMuted, fontSize: 16, lineHeight: 24, marginTop: 12 },
+  content: { flexGrow: 1, justifyContent: "center", padding: spacing.lg },
+  description: { marginTop: spacing.sm },
   closeButton: {
     alignItems: "center",
     alignSelf: "stretch",
     backgroundColor: theme.colors.action,
-    borderRadius: 10,
+    borderRadius: radii.md,
     justifyContent: "center",
-    margin: 24,
-    minHeight: 48,
-    paddingHorizontal: 18,
+    margin: spacing.lg,
+    minHeight: sizing.minimumTouchTarget,
+    paddingHorizontal: spacing.md,
   },
   pressed: { backgroundColor: theme.colors.actionPressed },
-  closeButtonText: { color: theme.colors.onAction, fontSize: 16, fontWeight: "700" },
 });

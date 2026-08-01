@@ -4,7 +4,6 @@ import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
-  Text,
   TextInput,
   View,
 } from "react-native";
@@ -15,6 +14,8 @@ import {
   useAchiwaveTheme,
   useThemeStyles,
 } from "../theme/ThemeProvider";
+import { AppText } from "../theme/AppText";
+import { borders, radii, sizing, spacing, typography } from "../theme/tokens";
 import { useAuthentication } from "./AuthContext";
 import { AuthenticationRequestError } from "./service";
 
@@ -67,17 +68,17 @@ export function AuthenticationForm({ mode }: AuthenticationFormProps) {
 
   return (
     <KeyboardAwareScreen contentContainerStyle={styles.container}>
-          <Text accessibilityRole="header" style={styles.title}>
+          <AppText accessibilityRole="header" variant="display">
             {isRegistration ? "Create your account" : "Welcome back"}
-          </Text>
-          <Text style={styles.introduction}>
+          </AppText>
+          <AppText tone="muted" style={styles.introduction}>
             {isRegistration
               ? "Your credentials stay in Android protected storage."
               : "Sign in to continue to your protected Achiwave account."}
-          </Text>
+          </AppText>
 
           <View style={styles.field}>
-            <Text style={styles.label}>Email</Text>
+            <AppText variant="label" style={styles.label}>Email</AppText>
             <TextInput
               accessibilityLabel="Email"
               autoCapitalize="none"
@@ -93,7 +94,7 @@ export function AuthenticationForm({ mode }: AuthenticationFormProps) {
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>Password</Text>
+            <AppText variant="label" style={styles.label}>Password</AppText>
             <TextInput
               accessibilityLabel="Password"
               autoCapitalize="none"
@@ -108,18 +109,19 @@ export function AuthenticationForm({ mode }: AuthenticationFormProps) {
               value={password}
             />
             {isRegistration ? (
-              <Text style={styles.help}>Use at least 12 characters.</Text>
+              <AppText tone="subtle" variant="caption" style={styles.help}>Use at least 12 characters.</AppText>
             ) : null}
           </View>
 
           {errorMessage ? (
-            <Text
+            <AppText
               accessibilityLiveRegion="assertive"
               accessibilityRole="alert"
+              tone="error"
               style={styles.error}
             >
               {errorMessage}
-            </Text>
+            </AppText>
           ) : null}
 
           <Pressable
@@ -143,9 +145,9 @@ export function AuthenticationForm({ mode }: AuthenticationFormProps) {
                 color={theme.colors.onAction}
               />
             ) : (
-              <Text style={styles.primaryButtonText}>
+              <AppText tone="onAction" variant="label">
                 {isRegistration ? "Create account" : "Sign in"}
-              </Text>
+              </AppText>
             )}
           </Pressable>
 
@@ -161,11 +163,11 @@ export function AuthenticationForm({ mode }: AuthenticationFormProps) {
                 pressed && styles.secondaryButtonPressed,
               ]}
             >
-              <Text style={styles.secondaryButtonText}>
+              <AppText variant="label">
                 {isRegistration
                   ? "Already have an account? Sign in"
                   : "Create an account"}
-              </Text>
+              </AppText>
             </Pressable>
           </Link>
     </KeyboardAwareScreen>
@@ -176,55 +178,49 @@ const createStyles = (theme: AchiwaveTheme) => StyleSheet.create({
   container: {
     flexGrow: 1,
     justifyContent: "center",
-    padding: 24,
+    padding: spacing.lg,
   },
-  title: { color: theme.colors.foreground, fontSize: 32, fontWeight: "700" },
   introduction: {
-    color: theme.colors.foregroundMuted,
-    fontSize: 17,
-    lineHeight: 24,
-    marginBottom: 16,
-    marginTop: 12,
+    marginBottom: spacing.md,
+    marginTop: spacing.sm,
   },
-  field: { marginTop: 16 },
-  label: { color: theme.colors.foreground, fontSize: 17, fontWeight: "600", marginBottom: 8 },
+  field: { marginTop: spacing.md },
+  label: { marginBottom: spacing.xs },
   input: {
     backgroundColor: theme.colors.surface,
     borderColor: theme.colors.border,
-    borderRadius: 10,
-    borderWidth: 1,
+    borderRadius: radii.md,
+    borderWidth: borders.thin,
     color: theme.colors.foreground,
-    fontSize: 17,
-    minHeight: 52,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    ...typography.body,
+    minHeight: sizing.formControl,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
-  help: { color: theme.colors.foregroundSubtle, fontSize: 15, marginTop: 6 },
-  error: { color: theme.colors.error, fontSize: 16, lineHeight: 22, marginTop: 16 },
+  help: { marginTop: spacing.xs },
+  error: { marginTop: spacing.md },
   primaryButton: {
     alignItems: "center",
     backgroundColor: theme.colors.action,
-    borderRadius: 10,
+    borderRadius: radii.md,
     justifyContent: "center",
-    marginTop: 24,
-    minHeight: 52,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
+    marginTop: spacing.lg,
+    minHeight: sizing.formControl,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
   },
   primaryButtonPressed: { backgroundColor: theme.colors.actionPressed },
-  primaryButtonText: { color: theme.colors.onAction, fontSize: 17, fontWeight: "700" },
   secondaryButton: {
     alignItems: "center",
     borderColor: theme.colors.borderStrong,
-    borderRadius: 10,
-    borderWidth: 2,
+    borderRadius: radii.md,
+    borderWidth: borders.selected,
     justifyContent: "center",
-    marginTop: 16,
-    minHeight: 52,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
+    marginTop: spacing.md,
+    minHeight: sizing.formControl,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
   secondaryButtonPressed: { backgroundColor: theme.colors.surfacePressed },
-  secondaryButtonText: { color: theme.colors.foreground, fontSize: 17, fontWeight: "700" },
   disabled: { opacity: 0.65 },
 });

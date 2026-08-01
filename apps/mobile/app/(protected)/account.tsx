@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
-  Text,
   TextInput,
 } from "react-native";
 
@@ -14,6 +13,8 @@ import {
   useAchiwaveTheme,
   useThemeStyles,
 } from "../../src/theme/ThemeProvider";
+import { AppText } from "../../src/theme/AppText";
+import { borders, radii, sizing, spacing, typography } from "../../src/theme/tokens";
 
 export default function AccountRoute() {
   const theme = useAchiwaveTheme();
@@ -46,14 +47,14 @@ export default function AccountRoute() {
 
   return (
     <KeyboardAwareScreen contentContainerStyle={styles.container}>
-        <Text accessibilityRole="header" style={styles.title}>
+        <AppText accessibilityRole="header" variant="heading1">
           Account
-        </Text>
-        <Text style={styles.message}>
+        </AppText>
+        <AppText tone="muted" style={styles.message}>
           Deactivation signs out every device and stops future access. It does not
           permanently delete your retained history.
-        </Text>
-        <Text style={styles.label}>Confirm password</Text>
+        </AppText>
+        <AppText variant="label" style={styles.label}>Confirm password</AppText>
         <TextInput
           accessibilityLabel="Confirm password"
           autoCapitalize="none"
@@ -66,13 +67,14 @@ export default function AccountRoute() {
           value={password}
         />
         {message ? (
-          <Text
+          <AppText
             accessibilityLiveRegion="assertive"
             accessibilityRole="alert"
+            tone="error"
             style={styles.error}
           >
             {message}
-          </Text>
+          </AppText>
         ) : null}
         <Pressable
           accessibilityHint="Deactivates this account and signs out all devices."
@@ -91,7 +93,7 @@ export default function AccountRoute() {
               color={theme.colors.onAction}
             />
           ) : (
-            <Text style={styles.dangerButtonText}>Deactivate account</Text>
+            <AppText tone="onAction" variant="label">Deactivate account</AppText>
           )}
         </Pressable>
     </KeyboardAwareScreen>
@@ -99,34 +101,32 @@ export default function AccountRoute() {
 }
 
 const createStyles = (theme: AchiwaveTheme) => StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", padding: 24 },
-  title: { color: theme.colors.foreground, fontSize: 30, fontWeight: "700" },
-  message: { color: theme.colors.foregroundMuted, fontSize: 17, lineHeight: 24, marginTop: 12 },
-  label: { color: theme.colors.foreground, fontSize: 17, fontWeight: "600", marginTop: 24 },
+  container: { flex: 1, justifyContent: "center", padding: spacing.lg },
+  message: { marginTop: spacing.sm },
+  label: { marginTop: spacing.lg },
   input: {
     backgroundColor: theme.colors.surface,
     borderColor: theme.colors.border,
-    borderRadius: 10,
-    borderWidth: 1,
+    borderRadius: radii.md,
+    borderWidth: borders.thin,
     color: theme.colors.foreground,
-    fontSize: 17,
-    marginTop: 8,
-    minHeight: 52,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    ...typography.body,
+    marginTop: spacing.xs,
+    minHeight: sizing.formControl,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
-  error: { color: theme.colors.error, fontSize: 16, lineHeight: 22, marginTop: 16 },
+  error: { marginTop: spacing.md },
   dangerButton: {
     alignItems: "center",
     backgroundColor: theme.colors.danger,
-    borderRadius: 10,
+    borderRadius: radii.md,
     justifyContent: "center",
-    marginTop: 24,
-    minHeight: 52,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    marginTop: spacing.lg,
+    minHeight: sizing.formControl,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
   dangerButtonPressed: { backgroundColor: theme.colors.dangerPressed },
-  dangerButtonText: { color: theme.colors.onAction, fontSize: 17, fontWeight: "700" },
   disabled: { opacity: 0.65 },
 });

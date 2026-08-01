@@ -1,5 +1,5 @@
 import { Link } from "expo-router";
-import { Pressable, StyleSheet, Text } from "react-native";
+import { Pressable, StyleSheet } from "react-native";
 
 import { RootDestinationScreen } from "../../../src/navigation/RootDestinationScreen";
 import { PROTECTED_ROUTES } from "../../../src/navigation/routes";
@@ -7,6 +7,8 @@ import {
   type AchiwaveTheme,
   useThemeStyles,
 } from "../../../src/theme/ThemeProvider";
+import { AppText } from "../../../src/theme/AppText";
+import { borders, radii, sizing, spacing } from "../../../src/theme/tokens";
 
 export default function HomeTabRoute() {
   const styles = useThemeStyles(createStyles);
@@ -24,7 +26,7 @@ export default function HomeTabRoute() {
           accessibilityRole="button"
           style={({ pressed }) => [styles.button, pressed && styles.pressed]}
         >
-          <Text style={styles.buttonText}>Open modal example</Text>
+          <AppText variant="label">Open modal example</AppText>
         </Pressable>
       </Link>
     </RootDestinationScreen>
@@ -35,12 +37,11 @@ const createStyles = (theme: AchiwaveTheme) => StyleSheet.create({
   button: {
     alignItems: "center",
     borderColor: theme.colors.borderStrong,
-    borderRadius: 10,
-    borderWidth: 1,
+    borderRadius: radii.md,
+    borderWidth: borders.thin,
     justifyContent: "center",
-    minHeight: 48,
-    paddingHorizontal: 18,
+    minHeight: sizing.minimumTouchTarget,
+    paddingHorizontal: spacing.md,
   },
   pressed: { backgroundColor: theme.colors.surfacePressed },
-  buttonText: { color: theme.colors.foreground, fontSize: 16, fontWeight: "700" },
 });

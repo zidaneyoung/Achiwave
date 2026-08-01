@@ -1,4 +1,4 @@
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import {
@@ -6,6 +6,8 @@ import {
   useAchiwaveTheme,
   useThemeStyles,
 } from "../theme/ThemeProvider";
+import { AppText } from "../theme/AppText";
+import { spacing } from "../theme/tokens";
 
 interface AuthStateScreenProps {
   title: string;
@@ -30,10 +32,10 @@ export function AuthStateScreen({
             size="large"
           />
         ) : null}
-        <Text accessibilityRole="header" style={styles.title}>
+        <AppText accessibilityRole="header" variant="heading1" style={styles.title}>
           {title}
-        </Text>
-        <Text style={styles.message}>{message}</Text>
+        </AppText>
+        <AppText tone="muted" style={styles.message}>{message}</AppText>
       </View>
     </SafeAreaView>
   );
@@ -48,20 +50,14 @@ const createStyles = (theme: AchiwaveTheme) => StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    padding: 24,
+    padding: spacing.lg,
   },
   title: {
-    color: theme.colors.foreground,
-    fontSize: 28,
-    fontWeight: "700",
-    marginTop: 16,
+    marginTop: spacing.md,
     textAlign: "center",
   },
   message: {
-    color: theme.colors.foregroundMuted,
-    fontSize: 17,
-    lineHeight: 24,
-    marginTop: 12,
+    marginTop: spacing.sm,
     maxWidth: 380,
     textAlign: "center",
   },

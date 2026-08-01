@@ -1,5 +1,5 @@
 import { Link } from "expo-router";
-import { Pressable, StyleSheet, Text } from "react-native";
+import { Pressable, StyleSheet } from "react-native";
 
 import { useAuthentication } from "../../../src/auth/AuthContext";
 import { RootDestinationScreen } from "../../../src/navigation/RootDestinationScreen";
@@ -8,6 +8,8 @@ import {
   type AchiwaveTheme,
   useThemeStyles,
 } from "../../../src/theme/ThemeProvider";
+import { AppText } from "../../../src/theme/AppText";
+import { borders, radii, sizing, spacing } from "../../../src/theme/tokens";
 
 export default function ProfileTabRoute() {
   const styles = useThemeStyles(createStyles);
@@ -32,7 +34,7 @@ export default function ProfileTabRoute() {
         onPress={() => void signOut()}
         style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
       >
-        <Text style={styles.buttonText}>Sign out</Text>
+        <AppText variant="label">Sign out</AppText>
       </Pressable>
     </RootDestinationScreen>
   );
@@ -45,7 +47,7 @@ function ProfileLink({ href, label, styles }: { href: typeof PROTECTED_ROUTES.se
         accessibilityRole="button"
         style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
       >
-        <Text style={styles.buttonText}>{label}</Text>
+        <AppText variant="label">{label}</AppText>
       </Pressable>
     </Link>
   );
@@ -55,14 +57,13 @@ const createStyles = (theme: AchiwaveTheme) => StyleSheet.create({
   button: {
     alignItems: "center",
     borderColor: theme.colors.borderStrong,
-    borderRadius: 10,
-    borderWidth: 1,
+    borderRadius: radii.md,
+    borderWidth: borders.thin,
     justifyContent: "center",
-    marginTop: 12,
-    minHeight: 48,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
+    marginTop: spacing.sm,
+    minHeight: sizing.minimumTouchTarget,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
   buttonPressed: { backgroundColor: theme.colors.surfacePressed },
-  buttonText: { color: theme.colors.foreground, fontSize: 16, fontWeight: "700" },
 });
