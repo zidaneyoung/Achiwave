@@ -23,9 +23,15 @@ export function resolveTheme(mode: ColorSchemeName) {
   return THEMES[mode === "light" ? "light" : "dark"];
 }
 
-export function AchiwaveThemeProvider({ children }: { children: ReactNode }) {
+export function AchiwaveThemeProvider({
+  children,
+  mode,
+}: {
+  children: ReactNode;
+  mode?: ThemeMode;
+}) {
   const systemMode = useColorScheme();
-  const theme = resolveTheme(systemMode);
+  const theme = resolveTheme(mode ?? systemMode);
   return <ThemeContext.Provider value={theme}>{children}</ThemeContext.Provider>;
 }
 

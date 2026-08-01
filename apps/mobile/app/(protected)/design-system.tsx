@@ -8,13 +8,15 @@ import { AppSelector, AppTextField } from "../../src/components/FormControls";
 import { AppCard, AppListItem } from "../../src/components/ContentSurfaces";
 import { AppBottomSheet, AppDialog } from "../../src/components/Overlays";
 import { ProgressIndicator } from "../../src/components/ProgressIndicator";
+import { StatusBadge } from "../../src/components/StatusBadge";
 import { PROTECTED_ROUTES } from "../../src/navigation/routes";
 import { AppText } from "../../src/theme/AppText";
 import {
   type AchiwaveTheme,
+  AchiwaveThemeProvider,
   useThemeStyles,
 } from "../../src/theme/ThemeProvider";
-import { spacing } from "../../src/theme/tokens";
+import { borders, radii, spacing } from "../../src/theme/tokens";
 
 export default function DesignSystemRoute() {
   const styles = useThemeStyles(createStyles);
@@ -89,6 +91,19 @@ export default function DesignSystemRoute() {
           <ProgressIndicator label="Loading example" />
           <ProgressIndicator label="Reduced-motion loading" reduceMotion />
         </ShowcaseSection>
+        <ShowcaseSection title="Status badges">
+          <View style={styles.inlineExamples}>
+            <StatusBadge label="Active" tone="success" />
+            <StatusBadge label="Attention" tone="warning" />
+            <StatusBadge label="Unavailable" tone="error" />
+            <StatusBadge compact label="Offline" tone="info" />
+            <StatusBadge label="Not selected" />
+          </View>
+        </ShowcaseSection>
+        <ShowcaseSection title="Theme previews">
+          <ThemePreview mode="dark" />
+          <ThemePreview mode="light" />
+        </ShowcaseSection>
       </ScrollView>
       <AppDialog
         confirmLabel="Remove example"
@@ -111,6 +126,26 @@ export default function DesignSystemRoute() {
   );
 }
 
+function ThemePreview({ mode }: { mode: "light" | "dark" }) {
+  return (
+    <AchiwaveThemeProvider mode={mode}>
+      <ThemePreviewSurface mode={mode} />
+    </AchiwaveThemeProvider>
+  );
+}
+
+function ThemePreviewSurface({ mode }: { mode: "light" | "dark" }) {
+  const styles = useThemeStyles(createStyles);
+  return (
+    <View style={styles.themePreview}>
+      <AppText variant="title">{mode === "dark" ? "Dark theme" : "Light theme"}</AppText>
+      <AppText tone="muted">Semantic surfaces and actions retain the same meaning.</AppText>
+      <StatusBadge label="Synchronized" tone="success" />
+      <AppButton label={`${mode} action example`} />
+    </View>
+  );
+}
+
 export function ShowcaseSection({ children, title }: { children: React.ReactNode; title: string }) {
   const styles = useThemeStyles(createStyles);
   return (
@@ -127,4 +162,13 @@ const createStyles = (theme: AchiwaveTheme) => StyleSheet.create({
   introduction: { marginTop: spacing.sm },
   section: { marginTop: spacing.xl },
   examples: { gap: spacing.sm, marginTop: spacing.md },
+  inlineExamples: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  themePreview: {
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
+    borderRadius: radii.md,
+    borderWidth: borders.thin,
+    gap: spacing.sm,
+    padding: spacing.md,
+  },
 });
