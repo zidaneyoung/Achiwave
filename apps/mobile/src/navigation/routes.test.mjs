@@ -20,3 +20,7 @@ test("detail routes accept only permitted root destinations", () => {
   assert.equal(isRootDestination(["home"]), false);
   assert.equal(isRootDestination(undefined), false);
 });
+
+test("modal route remains an explicit protected temporary surface", () => {
+  assert.equal(PROTECTED_ROUTES.modal, "/(protected)/modal");
+});

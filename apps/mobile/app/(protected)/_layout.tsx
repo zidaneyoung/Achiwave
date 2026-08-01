@@ -37,6 +37,14 @@ export default function ProtectedLayout() {
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="details/[section]" options={{ title: "Details" }} />
+      <Stack.Screen
+        name="modal"
+        options={{
+          animation: "slide_from_bottom",
+          headerShown: false,
+          presentation: "modal",
+        }}
+      />
       <Stack.Screen name="offline" options={{ title: "Offline" }} />
       <Stack.Screen name="security" options={{ title: "Devices and sessions" }} />
       <Stack.Screen name="preferences" options={{ title: "Preferences" }} />
