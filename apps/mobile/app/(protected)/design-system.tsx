@@ -10,6 +10,7 @@ import { AppBottomSheet, AppDialog } from "../../src/components/Overlays";
 import { ProgressIndicator } from "../../src/components/ProgressIndicator";
 import { StatusBadge } from "../../src/components/StatusBadge";
 import { LoadingSkeleton } from "../../src/components/LoadingSkeleton";
+import { EmptyState } from "../../src/components/EmptyState";
 import { PROTECTED_ROUTES } from "../../src/navigation/routes";
 import { AppText } from "../../src/theme/AppText";
 import {
@@ -110,6 +111,12 @@ export default function DesignSystemRoute() {
           <LoadingSkeleton layout="card" />
           <LoadingSkeleton layout="list" reduceMotion />
           <LoadingSkeleton layout="profile" />
+        </ShowcaseSection>
+        <ShowcaseSection title="Empty states">
+          <EmptyState actionLabel="Start an example" description="A concise first-use explanation with an optional safe action." kind="firstUse" onAction={() => undefined} title="Nothing here yet" />
+          <EmptyState description="Change or clear the current filters to see more." kind="filtered" title="No matches" />
+          <EmptyState description="Every available item in this example is complete." kind="completed" title="All caught up" />
+          <EmptyState description="This content is not available while offline." kind="unavailable" title="Unavailable" />
         </ShowcaseSection>
       </ScrollView>
       <AppDialog

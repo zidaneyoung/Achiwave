@@ -30,6 +30,7 @@ export const sizing = {
   badgeCompact: 24,
   skeletonAvatar: 64,
   skeletonBody: 72,
+  iconLarge: 32,
   compactViewportWidth: 320,
   compactViewportHeight: 568,
   contentMeasure: 520,
