@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { ROOT_DESTINATIONS } from "./rootDestinations.ts";
+import {
+  AUTHENTICATED_TAB_BACK_BEHAVIOR,
+  AUTHENTICATED_TAB_INITIAL_ROUTE,
+} from "./backBehavior.ts";
 import { DETAIL_COPY, isRootDestination, PROTECTED_ROUTES } from "./routes.ts";
 
 test("root destinations remain unique and complete", () => {
@@ -23,4 +27,9 @@ test("detail routes accept only permitted root destinations", () => {
 
 test("modal route remains an explicit protected temporary surface", () => {
   assert.equal(PROTECTED_ROUTES.modal, "/(protected)/modal");
+});
+
+test("Android back uses native stacks and bounded tab history", () => {
+  assert.equal(AUTHENTICATED_TAB_BACK_BEHAVIOR, "history");
+  assert.equal(AUTHENTICATED_TAB_INITIAL_ROUTE, "home");
 });

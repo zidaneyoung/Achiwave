@@ -1,12 +1,17 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { Tabs } from "expo-router";
 
+import {
+  AUTHENTICATED_TAB_BACK_BEHAVIOR,
+  AUTHENTICATED_TAB_INITIAL_ROUTE,
+} from "../../../src/navigation/backBehavior";
 import { ROOT_DESTINATIONS } from "../../../src/navigation/rootDestinations";
 
 export default function AuthenticatedTabsLayout() {
   return (
     <Tabs
-      backBehavior="history"
+      backBehavior={AUTHENTICATED_TAB_BACK_BEHAVIOR}
+      initialRouteName={AUTHENTICATED_TAB_INITIAL_ROUTE}
       screenOptions={{
         headerShown: false,
         tabBarActiveBackgroundColor: "#2A475E",

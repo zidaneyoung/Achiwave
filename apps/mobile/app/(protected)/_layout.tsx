@@ -3,6 +3,10 @@ import { Redirect, Stack, useSegments } from "expo-router";
 import { AuthStateScreen } from "../../src/auth/AuthStateScreen";
 import { useAuthentication } from "../../src/auth/AuthContext";
 
+export const unstable_settings = {
+  initialRouteName: "(tabs)",
+};
+
 export default function ProtectedLayout() {
   const { state } = useAuthentication();
   const segments = useSegments();
@@ -29,6 +33,7 @@ export default function ProtectedLayout() {
   }
   return (
     <Stack
+      initialRouteName="(tabs)"
       screenOptions={{
         animation: "slide_from_right",
         headerBackButtonDisplayMode: "minimal",
