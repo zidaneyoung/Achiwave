@@ -2,9 +2,14 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuthentication } from "../../src/auth/AuthContext";
+import {
+  type AchiwaveTheme,
+  useThemeStyles,
+} from "../../src/theme/ThemeProvider";
 
 export default function OfflineLimitedRoute() {
   const { revalidate } = useAuthentication();
+  const styles = useThemeStyles(createStyles);
 
   return (
     <SafeAreaView edges={["left", "right", "bottom"]} style={styles.safeArea}>
@@ -32,12 +37,12 @@ export default function OfflineLimitedRoute() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#f7f5ef" },
+const createStyles = (theme: AchiwaveTheme) => StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: theme.colors.background },
   container: { flex: 1, justifyContent: "center", padding: 24 },
-  title: { color: "#17221d", fontSize: 30, fontWeight: "700", textAlign: "center" },
+  title: { color: theme.colors.foreground, fontSize: 30, fontWeight: "700", textAlign: "center" },
   message: {
-    color: "#35423b",
+    color: theme.colors.foregroundMuted,
     fontSize: 17,
     lineHeight: 24,
     marginTop: 12,
@@ -45,7 +50,7 @@ const styles = StyleSheet.create({
   },
   button: {
     alignItems: "center",
-    backgroundColor: "#1d5b44",
+    backgroundColor: theme.colors.action,
     borderRadius: 10,
     justifyContent: "center",
     marginTop: 24,
@@ -53,6 +58,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
   },
-  buttonPressed: { backgroundColor: "#144432" },
-  buttonText: { color: "#ffffff", fontSize: 17, fontWeight: "700" },
+  buttonPressed: { backgroundColor: theme.colors.actionPressed },
+  buttonText: { color: theme.colors.onAction, fontSize: 17, fontWeight: "700" },
 });

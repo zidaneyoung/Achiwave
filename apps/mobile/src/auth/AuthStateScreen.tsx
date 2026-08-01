@@ -1,6 +1,12 @@
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import {
+  type AchiwaveTheme,
+  useAchiwaveTheme,
+  useThemeStyles,
+} from "../theme/ThemeProvider";
+
 interface AuthStateScreenProps {
   title: string;
   message: string;
@@ -12,13 +18,15 @@ export function AuthStateScreen({
   message,
   loading = false,
 }: AuthStateScreenProps) {
+  const theme = useAchiwaveTheme();
+  const styles = useThemeStyles(createStyles);
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         {loading ? (
           <ActivityIndicator
             accessibilityLabel="Checking authentication"
-            color="#1d5b44"
+            color={theme.colors.accent}
             size="large"
           />
         ) : null}
@@ -31,10 +39,10 @@ export function AuthStateScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AchiwaveTheme) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#f7f5ef",
+    backgroundColor: theme.colors.background,
   },
   container: {
     flex: 1,
@@ -43,14 +51,14 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   title: {
-    color: "#17221d",
+    color: theme.colors.foreground,
     fontSize: 28,
     fontWeight: "700",
     marginTop: 16,
     textAlign: "center",
   },
   message: {
-    color: "#35423b",
+    color: theme.colors.foregroundMuted,
     fontSize: 17,
     lineHeight: 24,
     marginTop: 12,

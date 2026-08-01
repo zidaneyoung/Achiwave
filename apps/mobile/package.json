@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "test:navigation": "node --experimental-strip-types --test src/navigation/routes.test.mjs",
     "test:platform": "node --experimental-strip-types --test src/platform/systemBars.test.mjs",
-    "test:security": "node --experimental-strip-types --test src/security/safeLogging.test.mjs"
+    "test:security": "node --experimental-strip-types --test src/security/safeLogging.test.mjs",
+    "test:theme": "node --experimental-strip-types --test src/theme/contrast.test.mjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",

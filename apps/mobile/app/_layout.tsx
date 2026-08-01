@@ -6,8 +6,15 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { AuthenticationProvider } from "../src/auth/AuthContext";
 import { AppSystemBars } from "../src/platform/AppSystemBars";
 import { safeConsole } from "../src/security/safeLogging";
+import {
+  AchiwaveThemeProvider,
+  type AchiwaveTheme,
+  useAchiwaveTheme,
+  useThemeStyles,
+} from "../src/theme/ThemeProvider";
 
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  const styles = useThemeStyles(createStyles);
   const [isRetrying, setIsRetrying] = useState(false);
 
   useEffect(() => {
@@ -56,9 +63,24 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 
 export default function RootLayout() {
   return (
+    <AchiwaveThemeProvider>
+      <ThemedApplication />
+    </AchiwaveThemeProvider>
+  );
+}
+
+function ThemedApplication() {
+  const theme = useAchiwaveTheme();
+  return (
     <AuthenticationProvider>
       <AppSystemBars />
-      <Stack>
+      <Stack
+        screenOptions={{
+          contentStyle: { backgroundColor: theme.colors.background },
+          headerStyle: { backgroundColor: theme.colors.surface },
+          headerTintColor: theme.colors.foreground,
+        }}
+      >
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(protected)" options={{ headerShown: false }} />
@@ -68,10 +90,10 @@ export default function RootLayout() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AchiwaveTheme) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#f7f5ef",
+    backgroundColor: theme.colors.background,
   },
   fallback: {
     flex: 1,
@@ -80,13 +102,13 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   title: {
-    color: "#17221d",
+    color: theme.colors.foreground,
     fontSize: 28,
     fontWeight: "700",
     textAlign: "center",
   },
   message: {
-    color: "#35423b",
+    color: theme.colors.foregroundMuted,
     fontSize: 17,
     lineHeight: 24,
     marginTop: 12,
@@ -95,7 +117,7 @@ const styles = StyleSheet.create({
   },
   button: {
     alignItems: "center",
-    backgroundColor: "#1d5b44",
+    backgroundColor: theme.colors.action,
     borderRadius: 10,
     justifyContent: "center",
     marginTop: 24,
@@ -105,13 +127,13 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   buttonPressed: {
-    backgroundColor: "#144432",
+    backgroundColor: theme.colors.actionPressed,
   },
   buttonDisabled: {
     opacity: 0.65,
   },
   buttonText: {
-    color: "#ffffff",
+    color: theme.colors.onAction,
     fontSize: 17,
     fontWeight: "700",
   },

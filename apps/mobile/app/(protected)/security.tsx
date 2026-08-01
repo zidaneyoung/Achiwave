@@ -14,6 +14,11 @@ import {
   type DeviceSnapshot,
   type SessionSnapshot,
 } from "../../src/devices/api";
+import {
+  type AchiwaveTheme,
+  useAchiwaveTheme,
+  useThemeStyles,
+} from "../../src/theme/ThemeProvider";
 
 function displayTimestamp(value: string | null): string {
   if (!value) {
@@ -24,6 +29,8 @@ function displayTimestamp(value: string | null): string {
 }
 
 export default function DeviceSecurityRoute() {
+  const theme = useAchiwaveTheme();
+  const styles = useThemeStyles(createStyles);
   const [devices, setDevices] = useState<DeviceSnapshot[]>([]);
   const [sessions, setSessions] = useState<SessionSnapshot[]>([]);
   const [loading, setLoading] = useState(true);
@@ -100,7 +107,7 @@ export default function DeviceSecurityRoute() {
         {loading ? (
           <ActivityIndicator
             accessibilityLabel="Loading devices and sessions"
-            color="#1d5b44"
+            color={theme.colors.accent}
             size="large"
             style={styles.loading}
           />
@@ -183,27 +190,27 @@ export default function DeviceSecurityRoute() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#f7f5ef" },
+const createStyles = (theme: AchiwaveTheme) => StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: theme.colors.background },
   container: { padding: 24, paddingBottom: 48 },
-  title: { color: "#17221d", fontSize: 30, fontWeight: "700" },
-  introduction: { color: "#35423b", fontSize: 17, lineHeight: 24, marginTop: 10 },
-  message: { color: "#6d301f", fontSize: 16, lineHeight: 22, marginTop: 16 },
+  title: { color: theme.colors.foreground, fontSize: 30, fontWeight: "700" },
+  introduction: { color: theme.colors.foregroundMuted, fontSize: 17, lineHeight: 24, marginTop: 10 },
+  message: { color: theme.colors.warning, fontSize: 16, lineHeight: 22, marginTop: 16 },
   loading: { marginTop: 32 },
-  sectionTitle: { color: "#17221d", fontSize: 23, fontWeight: "700", marginTop: 28 },
+  sectionTitle: { color: theme.colors.foreground, fontSize: 23, fontWeight: "700", marginTop: 28 },
   card: {
-    backgroundColor: "#ffffff",
-    borderColor: "#c8cec9",
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
     borderRadius: 12,
     borderWidth: 1,
     marginTop: 12,
     padding: 16,
   },
-  cardTitle: { color: "#17221d", fontSize: 18, fontWeight: "700" },
-  detail: { color: "#46534c", fontSize: 16, lineHeight: 22, marginTop: 6 },
+  cardTitle: { color: theme.colors.foreground, fontSize: 18, fontWeight: "700" },
+  detail: { color: theme.colors.foregroundSubtle, fontSize: 16, lineHeight: 22, marginTop: 6 },
   revokeButton: {
     alignItems: "center",
-    borderColor: "#9f241d",
+    borderColor: theme.colors.error,
     borderRadius: 10,
     borderWidth: 2,
     justifyContent: "center",
@@ -212,12 +219,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
-  revokeButtonPressed: { backgroundColor: "#f7e6e3" },
-  revokeButtonText: { color: "#8b1d18", fontSize: 16, fontWeight: "700" },
+  revokeButtonPressed: { backgroundColor: theme.colors.errorSurface },
+  revokeButtonText: { color: theme.colors.error, fontSize: 16, fontWeight: "700" },
   disabled: { opacity: 0.6 },
   retryButton: {
     alignItems: "center",
-    backgroundColor: "#1d5b44",
+    backgroundColor: theme.colors.action,
     borderRadius: 10,
     justifyContent: "center",
     marginTop: 20,
@@ -225,5 +232,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 10,
   },
-  retryButtonText: { color: "#ffffff", fontSize: 17, fontWeight: "700" },
+  retryButtonText: { color: theme.colors.onAction, fontSize: 17, fontWeight: "700" },
 });

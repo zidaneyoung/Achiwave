@@ -2,7 +2,13 @@ import { Link } from "expo-router";
 import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import {
+  type AchiwaveTheme,
+  useThemeStyles,
+} from "../src/theme/ThemeProvider";
+
 export default function NotFoundRoute() {
+  const styles = useThemeStyles(createStyles);
   return (
     <SafeAreaView edges={["left", "right", "bottom"]} style={styles.safeArea}>
       <View style={styles.container}>
@@ -17,10 +23,10 @@ export default function NotFoundRoute() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AchiwaveTheme) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#f7f5ef",
+    backgroundColor: theme.colors.background,
   },
   container: {
     flex: 1,
@@ -29,13 +35,13 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   title: {
-    color: "#17221d",
+    color: theme.colors.foreground,
     fontSize: 24,
     fontWeight: "700",
     textAlign: "center",
   },
   link: {
-    color: "#1d5b44",
+    color: theme.colors.action,
     fontSize: 17,
     marginTop: 20,
     textDecorationLine: "underline",

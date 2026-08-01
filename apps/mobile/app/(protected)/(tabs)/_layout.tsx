@@ -6,22 +6,25 @@ import {
   AUTHENTICATED_TAB_INITIAL_ROUTE,
 } from "../../../src/navigation/backBehavior";
 import { ROOT_DESTINATIONS } from "../../../src/navigation/rootDestinations";
+import { useAchiwaveTheme } from "../../../src/theme/ThemeProvider";
 
 export default function AuthenticatedTabsLayout() {
+  const theme = useAchiwaveTheme();
   return (
     <Tabs
       backBehavior={AUTHENTICATED_TAB_BACK_BEHAVIOR}
       initialRouteName={AUTHENTICATED_TAB_INITIAL_ROUTE}
       screenOptions={{
         headerShown: false,
-        tabBarActiveBackgroundColor: "#2A475E",
-        tabBarActiveTintColor: "#FFFFFF",
+        sceneStyle: { backgroundColor: theme.colors.background },
+        tabBarActiveBackgroundColor: theme.colors.surfaceElevated,
+        tabBarActiveTintColor: theme.colors.foreground,
         tabBarHideOnKeyboard: true,
-        tabBarInactiveTintColor: "#A7B8C6",
+        tabBarInactiveTintColor: theme.colors.foregroundMuted,
         tabBarLabelStyle: { fontSize: 12, fontWeight: "700" },
         tabBarStyle: {
-          backgroundColor: "#1B2838",
-          borderTopColor: "#36566F",
+          backgroundColor: theme.colors.surface,
+          borderTopColor: theme.colors.border,
         },
       }}
     >

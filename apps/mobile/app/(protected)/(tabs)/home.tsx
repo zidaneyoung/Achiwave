@@ -3,8 +3,13 @@ import { Pressable, StyleSheet, Text } from "react-native";
 
 import { RootDestinationScreen } from "../../../src/navigation/RootDestinationScreen";
 import { PROTECTED_ROUTES } from "../../../src/navigation/routes";
+import {
+  type AchiwaveTheme,
+  useThemeStyles,
+} from "../../../src/theme/ThemeProvider";
 
 export default function HomeTabRoute() {
+  const styles = useThemeStyles(createStyles);
   return (
     <RootDestinationScreen
       description="Your focused starting point for daily progress. Stage 6 will connect authoritative campaign and quest data."
@@ -26,16 +31,16 @@ export default function HomeTabRoute() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AchiwaveTheme) => StyleSheet.create({
   button: {
     alignItems: "center",
-    borderColor: "#66C0F4",
+    borderColor: theme.colors.borderStrong,
     borderRadius: 10,
     borderWidth: 1,
     justifyContent: "center",
     minHeight: 48,
     paddingHorizontal: 18,
   },
-  pressed: { backgroundColor: "#2A475E" },
-  buttonText: { color: "#C7D5E0", fontSize: 16, fontWeight: "700" },
+  pressed: { backgroundColor: theme.colors.surfacePressed },
+  buttonText: { color: theme.colors.foreground, fontSize: 16, fontWeight: "700" },
 });

@@ -7,8 +7,13 @@ import {
   isRootDestination,
   PROTECTED_ROUTES,
 } from "../../../src/navigation/routes";
+import {
+  type AchiwaveTheme,
+  useThemeStyles,
+} from "../../../src/theme/ThemeProvider";
 
 export default function ProtectedDetailRoute() {
+  const styles = useThemeStyles(createStyles);
   const { section } = useLocalSearchParams<{ section?: string | string[] }>();
   const copy = isRootDestination(section) ? DETAIL_COPY[section] : null;
   return (
@@ -36,21 +41,21 @@ export default function ProtectedDetailRoute() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#171A21" },
+const createStyles = (theme: AchiwaveTheme) => StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: theme.colors.background },
   container: { flex: 1, justifyContent: "center", padding: 24 },
-  title: { color: "#C7D5E0", fontSize: 28, fontWeight: "700", lineHeight: 34 },
-  description: { color: "#A7B8C6", fontSize: 16, lineHeight: 24, marginTop: 12 },
+  title: { color: theme.colors.foreground, fontSize: 28, fontWeight: "700", lineHeight: 34 },
+  description: { color: theme.colors.foregroundMuted, fontSize: 16, lineHeight: 24, marginTop: 12 },
   button: {
     alignItems: "center",
     alignSelf: "flex-start",
-    backgroundColor: "#2A475E",
+    backgroundColor: theme.colors.action,
     borderRadius: 10,
     justifyContent: "center",
     marginTop: 24,
     minHeight: 48,
     paddingHorizontal: 18,
   },
-  pressed: { backgroundColor: "#365E7A" },
-  buttonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
+  pressed: { backgroundColor: theme.colors.actionPressed },
+  buttonText: { color: theme.colors.onAction, fontSize: 16, fontWeight: "700" },
 });

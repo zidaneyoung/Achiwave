@@ -16,6 +16,11 @@ import type {
   PreferenceSnapshot,
   ReducedMotionPreference,
 } from "../../src/preferences/types";
+import {
+  type AchiwaveTheme,
+  useAchiwaveTheme,
+  useThemeStyles,
+} from "../../src/theme/ThemeProvider";
 
 const DATE_FORMAT_OPTIONS: Array<{
   value: DateFormatPreference;
@@ -46,6 +51,8 @@ const NOTIFICATION_OPTIONS: Array<{
 ];
 
 export default function PreferencesRoute() {
+  const theme = useAchiwaveTheme();
+  const styles = useThemeStyles(createStyles);
   const [preferences, setPreferences] = useState<PreferenceSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -191,7 +198,7 @@ export default function PreferencesRoute() {
         {loading ? (
           <ActivityIndicator
             accessibilityLabel="Loading preferences"
-            color="#1d5b44"
+            color={theme.colors.accent}
             size="large"
             style={styles.loading}
           />
@@ -318,18 +325,18 @@ export default function PreferencesRoute() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AchiwaveTheme) => StyleSheet.create({
   container: { padding: 24, paddingBottom: 48 },
-  title: { color: "#17221d", fontSize: 30, fontWeight: "700" },
-  introduction: { color: "#35423b", fontSize: 17, lineHeight: 24, marginTop: 10 },
-  message: { color: "#6d301f", fontSize: 16, lineHeight: 22, marginTop: 16 },
+  title: { color: theme.colors.foreground, fontSize: 30, fontWeight: "700" },
+  introduction: { color: theme.colors.foregroundMuted, fontSize: 17, lineHeight: 24, marginTop: 10 },
+  message: { color: theme.colors.warning, fontSize: 16, lineHeight: 22, marginTop: 16 },
   loading: { marginTop: 32 },
-  sectionTitle: { color: "#17221d", fontSize: 23, fontWeight: "700", marginTop: 28 },
-  preview: { color: "#46534c", fontSize: 17, marginTop: 10 },
+  sectionTitle: { color: theme.colors.foreground, fontSize: 23, fontWeight: "700", marginTop: 28 },
+  preview: { color: theme.colors.foregroundSubtle, fontSize: 17, marginTop: 10 },
   option: {
     alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderColor: "#66746c",
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
     borderRadius: 10,
     borderWidth: 1,
     flexDirection: "row",
@@ -339,14 +346,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  optionSelected: { borderColor: "#1d5b44", borderWidth: 2 },
-  optionPressed: { backgroundColor: "#e1ebe5" },
-  optionText: { color: "#17221d", flex: 1, fontSize: 17 },
-  optionState: { color: "#1d5b44", fontSize: 15, fontWeight: "700", marginLeft: 12 },
+  optionSelected: { borderColor: theme.colors.borderStrong, borderWidth: 2 },
+  optionPressed: { backgroundColor: theme.colors.surfacePressed },
+  optionText: { color: theme.colors.foreground, flex: 1, fontSize: 17 },
+  optionState: { color: theme.colors.action, fontSize: 15, fontWeight: "700", marginLeft: 12 },
   switchRow: {
     alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderColor: "#c8cec9",
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
     borderRadius: 10,
     borderWidth: 1,
     flexDirection: "row",
@@ -357,15 +364,15 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   switchCopy: { flex: 1, paddingRight: 16 },
-  help: { color: "#46534c", fontSize: 15, lineHeight: 20, marginTop: 4 },
+  help: { color: theme.colors.foregroundSubtle, fontSize: 15, lineHeight: 20, marginTop: 4 },
   retryButton: {
     alignItems: "center",
-    backgroundColor: "#1d5b44",
+    backgroundColor: theme.colors.action,
     borderRadius: 10,
     justifyContent: "center",
     marginTop: 24,
     minHeight: 48,
     paddingHorizontal: 18,
   },
-  retryButtonText: { color: "#ffffff", fontSize: 17, fontWeight: "700" },
+  retryButtonText: { color: theme.colors.onAction, fontSize: 17, fontWeight: "700" },
 });

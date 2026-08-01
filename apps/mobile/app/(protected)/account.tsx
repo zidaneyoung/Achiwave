@@ -9,8 +9,15 @@ import {
 
 import { useAuthentication } from "../../src/auth/AuthContext";
 import { KeyboardAwareScreen } from "../../src/platform/KeyboardAwareScreen";
+import {
+  type AchiwaveTheme,
+  useAchiwaveTheme,
+  useThemeStyles,
+} from "../../src/theme/ThemeProvider";
 
 export default function AccountRoute() {
+  const theme = useAchiwaveTheme();
+  const styles = useThemeStyles(createStyles);
   const { deactivateAccount } = useAuthentication();
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -81,7 +88,7 @@ export default function AccountRoute() {
           {submitting ? (
             <ActivityIndicator
               accessibilityLabel="Deactivating account"
-              color="#ffffff"
+              color={theme.colors.onAction}
             />
           ) : (
             <Text style={styles.dangerButtonText}>Deactivate account</Text>
@@ -91,27 +98,27 @@ export default function AccountRoute() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AchiwaveTheme) => StyleSheet.create({
   container: { flex: 1, justifyContent: "center", padding: 24 },
-  title: { color: "#17221d", fontSize: 30, fontWeight: "700" },
-  message: { color: "#35423b", fontSize: 17, lineHeight: 24, marginTop: 12 },
-  label: { color: "#17221d", fontSize: 17, fontWeight: "600", marginTop: 24 },
+  title: { color: theme.colors.foreground, fontSize: 30, fontWeight: "700" },
+  message: { color: theme.colors.foregroundMuted, fontSize: 17, lineHeight: 24, marginTop: 12 },
+  label: { color: theme.colors.foreground, fontSize: 17, fontWeight: "600", marginTop: 24 },
   input: {
-    backgroundColor: "#ffffff",
-    borderColor: "#66746c",
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
     borderRadius: 10,
     borderWidth: 1,
-    color: "#17221d",
+    color: theme.colors.foreground,
     fontSize: 17,
     marginTop: 8,
     minHeight: 52,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
-  error: { color: "#9f241d", fontSize: 16, lineHeight: 22, marginTop: 16 },
+  error: { color: theme.colors.error, fontSize: 16, lineHeight: 22, marginTop: 16 },
   dangerButton: {
     alignItems: "center",
-    backgroundColor: "#9f241d",
+    backgroundColor: theme.colors.danger,
     borderRadius: 10,
     justifyContent: "center",
     marginTop: 24,
@@ -119,7 +126,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
   },
-  dangerButtonPressed: { backgroundColor: "#761a16" },
-  dangerButtonText: { color: "#ffffff", fontSize: 17, fontWeight: "700" },
+  dangerButtonPressed: { backgroundColor: theme.colors.dangerPressed },
+  dangerButtonText: { color: theme.colors.onAction, fontSize: 17, fontWeight: "700" },
   disabled: { opacity: 0.65 },
 });

@@ -10,6 +10,11 @@ import {
 } from "react-native";
 
 import { KeyboardAwareScreen } from "../platform/KeyboardAwareScreen";
+import {
+  type AchiwaveTheme,
+  useAchiwaveTheme,
+  useThemeStyles,
+} from "../theme/ThemeProvider";
 import { useAuthentication } from "./AuthContext";
 import { AuthenticationRequestError } from "./service";
 
@@ -18,6 +23,8 @@ interface AuthenticationFormProps {
 }
 
 export function AuthenticationForm({ mode }: AuthenticationFormProps) {
+  const theme = useAchiwaveTheme();
+  const styles = useThemeStyles(createStyles);
   const { state, login, register } = useAuthentication();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -133,7 +140,7 @@ export function AuthenticationForm({ mode }: AuthenticationFormProps) {
             {submitting ? (
               <ActivityIndicator
                 accessibilityLabel="Authentication in progress"
-                color="#ffffff"
+                color={theme.colors.onAction}
               />
             ) : (
               <Text style={styles.primaryButtonText}>
@@ -165,38 +172,38 @@ export function AuthenticationForm({ mode }: AuthenticationFormProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AchiwaveTheme) => StyleSheet.create({
   container: {
     flexGrow: 1,
     justifyContent: "center",
     padding: 24,
   },
-  title: { color: "#17221d", fontSize: 32, fontWeight: "700" },
+  title: { color: theme.colors.foreground, fontSize: 32, fontWeight: "700" },
   introduction: {
-    color: "#35423b",
+    color: theme.colors.foregroundMuted,
     fontSize: 17,
     lineHeight: 24,
     marginBottom: 16,
     marginTop: 12,
   },
   field: { marginTop: 16 },
-  label: { color: "#17221d", fontSize: 17, fontWeight: "600", marginBottom: 8 },
+  label: { color: theme.colors.foreground, fontSize: 17, fontWeight: "600", marginBottom: 8 },
   input: {
-    backgroundColor: "#ffffff",
-    borderColor: "#66746c",
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
     borderRadius: 10,
     borderWidth: 1,
-    color: "#17221d",
+    color: theme.colors.foreground,
     fontSize: 17,
     minHeight: 52,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
-  help: { color: "#46534c", fontSize: 15, marginTop: 6 },
-  error: { color: "#9f241d", fontSize: 16, lineHeight: 22, marginTop: 16 },
+  help: { color: theme.colors.foregroundSubtle, fontSize: 15, marginTop: 6 },
+  error: { color: theme.colors.error, fontSize: 16, lineHeight: 22, marginTop: 16 },
   primaryButton: {
     alignItems: "center",
-    backgroundColor: "#1d5b44",
+    backgroundColor: theme.colors.action,
     borderRadius: 10,
     justifyContent: "center",
     marginTop: 24,
@@ -204,11 +211,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 12,
   },
-  primaryButtonPressed: { backgroundColor: "#144432" },
-  primaryButtonText: { color: "#ffffff", fontSize: 17, fontWeight: "700" },
+  primaryButtonPressed: { backgroundColor: theme.colors.actionPressed },
+  primaryButtonText: { color: theme.colors.onAction, fontSize: 17, fontWeight: "700" },
   secondaryButton: {
     alignItems: "center",
-    borderColor: "#1d5b44",
+    borderColor: theme.colors.borderStrong,
     borderRadius: 10,
     borderWidth: 2,
     justifyContent: "center",
@@ -217,7 +224,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 12,
   },
-  secondaryButtonPressed: { backgroundColor: "#e1ebe5" },
-  secondaryButtonText: { color: "#1d5b44", fontSize: 17, fontWeight: "700" },
+  secondaryButtonPressed: { backgroundColor: theme.colors.surfacePressed },
+  secondaryButtonText: { color: theme.colors.foreground, fontSize: 17, fontWeight: "700" },
   disabled: { opacity: 0.65 },
 });
