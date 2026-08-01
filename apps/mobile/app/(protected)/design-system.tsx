@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { AppButton } from "../../src/components/AppButton";
 import { AppSelector, AppTextField } from "../../src/components/FormControls";
 import { AppCard, AppListItem } from "../../src/components/ContentSurfaces";
+import { AppBottomSheet, AppDialog } from "../../src/components/Overlays";
 import { PROTECTED_ROUTES } from "../../src/navigation/routes";
 import { AppText } from "../../src/theme/AppText";
 import {
@@ -18,6 +19,8 @@ export default function DesignSystemRoute() {
   const styles = useThemeStyles(createStyles);
   const [fieldValue, setFieldValue] = useState("");
   const [selectorExpanded, setSelectorExpanded] = useState(false);
+  const [dialogVisible, setDialogVisible] = useState(false);
+  const [sheetVisible, setSheetVisible] = useState(false);
   if (!__DEV__) {
     return <Redirect href={PROTECTED_ROUTES.home} />;
   }
@@ -75,7 +78,28 @@ export default function DesignSystemRoute() {
             trailingActionLabel="More options for list item"
           />
         </ShowcaseSection>
+        <ShowcaseSection title="Dialogs and bottom sheets">
+          <AppButton label="Open confirmation dialog" onPress={() => setDialogVisible(true)} variant="secondary" />
+          <AppButton label="Open selection sheet" onPress={() => setSheetVisible(true)} variant="secondary" />
+        </ShowcaseSection>
       </ScrollView>
+      <AppDialog
+        confirmLabel="Remove example"
+        description="Destructive confirmation requires an explicit action and remains dismissible with Android back."
+        kind="destructive"
+        onConfirm={() => setDialogVisible(false)}
+        onDismiss={() => setDialogVisible(false)}
+        title="Remove this example?"
+        visible={dialogVisible}
+      />
+      <AppBottomSheet
+        description="Long selection content scrolls while the dismissal action remains reachable."
+        onDismiss={() => setSheetVisible(false)}
+        title="Choose an example"
+        visible={sheetVisible}
+      >
+        <AppListItem metadata="Selection example" onPress={() => setSheetVisible(false)} title="Focused mode" />
+      </AppBottomSheet>
     </SafeAreaView>
   );
 }
