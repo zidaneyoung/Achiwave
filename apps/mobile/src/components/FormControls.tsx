@@ -15,6 +15,7 @@ import {
   useThemeStyles,
 } from "../theme/ThemeProvider";
 import { borders, radii, sizing, spacing, typography } from "../theme/tokens";
+import { createAndroidRipple } from "../platform/touchFeedback";
 
 interface FieldCopyProps {
   label: string;
@@ -114,7 +115,7 @@ export function AppSelector({
         accessibilityRole="button"
         accessibilityState={{ disabled, expanded }}
         accessibilityValue={{ text: value }}
-        android_ripple={{ color: theme.colors.surfacePressed }}
+        android_ripple={createAndroidRipple(theme.colors.surfacePressed)}
         disabled={disabled}
         onPress={onPress}
         style={({ pressed }) => [

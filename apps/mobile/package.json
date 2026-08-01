@@ -11,7 +11,8 @@
     "test:platform": "node --experimental-strip-types --test src/platform/systemBars.test.mjs",
     "test:security": "node --experimental-strip-types --test src/security/safeLogging.test.mjs",
     "test:theme": "node --experimental-strip-types --test src/theme/*.test.mjs",
-    "test:components": "node --experimental-strip-types --test src/components/*.test.mjs"
+    "test:components": "node --experimental-strip-types --test src/components/*.test.mjs",
+    "test:feedback": "node --experimental-strip-types --test src/platform/touchFeedback.test.mjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
