@@ -3,6 +3,7 @@ import { Redirect, Stack, useSegments } from "expo-router";
 import { AuthStateScreen } from "../../src/auth/AuthStateScreen";
 import { useAuthentication } from "../../src/auth/AuthContext";
 import { useAchiwaveTheme } from "../../src/theme/ThemeProvider";
+import { useReducedMotion } from "../../src/accessibility/ReducedMotionProvider";
 
 export const unstable_settings = {
   initialRouteName: "(tabs)",
@@ -11,6 +12,7 @@ export const unstable_settings = {
 export default function ProtectedLayout() {
   const { state } = useAuthentication();
   const theme = useAchiwaveTheme();
+  const reduceMotion = useReducedMotion();
   const segments = useSegments();
   if (state.status === "loading") {
     return (
@@ -37,7 +39,7 @@ export default function ProtectedLayout() {
     <Stack
       initialRouteName="(tabs)"
       screenOptions={{
-        animation: "slide_from_right",
+        animation: reduceMotion ? "none" : "slide_from_right",
         contentStyle: { backgroundColor: theme.colors.background },
         headerBackButtonDisplayMode: "minimal",
         headerStyle: { backgroundColor: theme.colors.surface },
@@ -50,7 +52,7 @@ export default function ProtectedLayout() {
       <Stack.Screen
         name="modal"
         options={{
-          animation: "slide_from_bottom",
+          animation: reduceMotion ? "none" : "slide_from_bottom",
           headerShown: false,
           presentation: "modal",
         }}

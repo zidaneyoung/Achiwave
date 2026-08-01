@@ -8,6 +8,7 @@ import {
 } from "../theme/ThemeProvider";
 import { radii, spacing } from "../theme/tokens";
 import { clampProgress } from "./progress";
+import { useReducedMotion } from "../accessibility/ReducedMotionProvider";
 
 export interface ProgressIndicatorProps {
   value?: number;
@@ -23,6 +24,8 @@ export function ProgressIndicator({
   value,
 }: ProgressIndicatorProps) {
   const theme = useAchiwaveTheme();
+  const systemReducedMotion = useReducedMotion();
+  const shouldReduceMotion = reduceMotion ?? systemReducedMotion;
   const styles = useThemeStyles(createStyles);
   const determinate = value !== undefined;
   const progress = clampProgress(value ?? 0);
@@ -42,7 +45,7 @@ export function ProgressIndicator({
           {determinate ? <AppText tone="muted" variant="caption">{Math.round(progress)}%</AppText> : null}
         </View>
       ) : null}
-      {determinate || reduceMotion ? (
+      {determinate || shouldReduceMotion ? (
         <View accessibilityElementsHidden style={[styles.track, compact && styles.compactTrack]}>
           <View
             style={[

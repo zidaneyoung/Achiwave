@@ -14,6 +14,7 @@ import {
   useThemeStyles,
 } from "../theme/ThemeProvider";
 import { borders, radii, sizing, spacing } from "../theme/tokens";
+import { useReducedMotion } from "../accessibility/ReducedMotionProvider";
 
 interface OverlayProps {
   visible: boolean;
@@ -40,9 +41,10 @@ export function AppDialog({
   visible,
 }: AppDialogProps) {
   const styles = useThemeStyles(createStyles);
+  const reduceMotion = useReducedMotion();
   return (
     <Modal
-      animationType="fade"
+      animationType={reduceMotion ? "none" : "fade"}
       onRequestClose={onDismiss}
       statusBarTranslucent
       transparent
@@ -84,9 +86,10 @@ export function AppBottomSheet({
   visible,
 }: AppBottomSheetProps) {
   const styles = useThemeStyles(createStyles);
+  const reduceMotion = useReducedMotion();
   return (
     <Modal
-      animationType="slide"
+      animationType={reduceMotion ? "none" : "slide"}
       onRequestClose={onDismiss}
       statusBarTranslucent
       transparent

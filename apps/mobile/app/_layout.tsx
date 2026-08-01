@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AuthenticationProvider } from "../src/auth/AuthContext";
+import { ReducedMotionProvider } from "../src/accessibility/ReducedMotionProvider";
 import { AppSystemBars } from "../src/platform/AppSystemBars";
 import { safeConsole } from "../src/security/safeLogging";
 import {
@@ -74,7 +75,9 @@ function RootErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 export default function RootLayout() {
   return (
     <AchiwaveThemeProvider>
-      <ThemedApplication />
+      <ReducedMotionProvider>
+        <ThemedApplication />
+      </ReducedMotionProvider>
     </AchiwaveThemeProvider>
   );
 }

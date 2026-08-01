@@ -6,12 +6,13 @@ import {
   useThemeStyles,
 } from "../theme/ThemeProvider";
 import { radii, sizing, spacing } from "../theme/tokens";
+import { useReducedMotion } from "../accessibility/ReducedMotionProvider";
 
 export type SkeletonLayout = "text" | "card" | "list" | "profile";
 
 export function LoadingSkeleton({
   layout = "card",
-  reduceMotion = false,
+  reduceMotion,
   label = "Loading content",
 }: {
   layout?: SkeletonLayout;
@@ -19,10 +20,12 @@ export function LoadingSkeleton({
   label?: string;
 }) {
   const styles = useThemeStyles(createStyles);
+  const systemReducedMotion = useReducedMotion();
+  const shouldReduceMotion = reduceMotion ?? systemReducedMotion;
   const opacity = useRef(new Animated.Value(0.55)).current;
 
   useEffect(() => {
-    if (reduceMotion) {
+    if (shouldReduceMotion) {
       opacity.setValue(0.7);
       return;
     }
@@ -34,7 +37,7 @@ export function LoadingSkeleton({
     );
     animation.start();
     return () => animation.stop();
-  }, [opacity, reduceMotion]);
+  }, [opacity, shouldReduceMotion]);
 
   return (
     <View
