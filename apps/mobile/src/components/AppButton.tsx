@@ -15,8 +15,9 @@ import {
   useAchiwaveTheme,
   useThemeStyles,
 } from "../theme/ThemeProvider";
-import { borders, radii, sizing, spacing } from "../theme/tokens";
+import { borders, radii, spacing } from "../theme/tokens";
 import { createAndroidRipple } from "../platform/touchFeedback";
+import { minimumTouchTargetStyle } from "../accessibility/touchTargets";
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>["name"];
 export type ButtonVariant =
@@ -104,18 +105,17 @@ export function AppButton({
 
 const createStyles = (theme: AchiwaveTheme) => StyleSheet.create({
   base: {
+    ...minimumTouchTargetStyle,
     alignItems: "center",
     borderRadius: radii.md,
     borderWidth: borders.thin,
     justifyContent: "center",
-    minHeight: sizing.minimumTouchTarget,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
   content: { alignItems: "center", flexDirection: "row", gap: spacing.xs },
   label: { flexShrink: 1, textAlign: "center" },
   iconOnly: {
-    minWidth: sizing.minimumTouchTarget,
     paddingHorizontal: spacing.sm,
   },
   primary: { backgroundColor: theme.colors.action, borderColor: theme.colors.action },
