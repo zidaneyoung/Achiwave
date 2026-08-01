@@ -15,7 +15,15 @@ import {
 import { AppText } from "../src/theme/AppText";
 import { radii, sizing, spacing } from "../src/theme/tokens";
 
-export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+export function ErrorBoundary(props: ErrorBoundaryProps) {
+  return (
+    <AchiwaveThemeProvider>
+      <RootErrorBoundary {...props} />
+    </AchiwaveThemeProvider>
+  );
+}
+
+function RootErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   const styles = useThemeStyles(createStyles);
   const [isRetrying, setIsRetrying] = useState(false);
 

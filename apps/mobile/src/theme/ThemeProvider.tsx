@@ -31,8 +31,10 @@ export function AchiwaveThemeProvider({ children }: { children: ReactNode }) {
 
 export function useAchiwaveTheme(): AchiwaveTheme {
   const context = useContext(ThemeContext);
-  const systemMode = useColorScheme();
-  return context ?? resolveTheme(systemMode);
+  if (!context) {
+    throw new Error("useAchiwaveTheme must be used within AchiwaveThemeProvider.");
+  }
+  return context;
 }
 
 export function useThemeStyles<T>(factory: (theme: AchiwaveTheme) => T): T {
