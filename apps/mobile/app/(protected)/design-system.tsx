@@ -7,6 +7,7 @@ import { AppButton } from "../../src/components/AppButton";
 import { AppSelector, AppTextField } from "../../src/components/FormControls";
 import { AppCard, AppListItem } from "../../src/components/ContentSurfaces";
 import { AppBottomSheet, AppDialog } from "../../src/components/Overlays";
+import { ProgressIndicator } from "../../src/components/ProgressIndicator";
 import { PROTECTED_ROUTES } from "../../src/navigation/routes";
 import { AppText } from "../../src/theme/AppText";
 import {
@@ -81,6 +82,12 @@ export default function DesignSystemRoute() {
         <ShowcaseSection title="Dialogs and bottom sheets">
           <AppButton label="Open confirmation dialog" onPress={() => setDialogVisible(true)} variant="secondary" />
           <AppButton label="Open selection sheet" onPress={() => setSheetVisible(true)} variant="secondary" />
+        </ShowcaseSection>
+        <ShowcaseSection title="Progress indicators">
+          <ProgressIndicator label="Campaign readiness" value={68} />
+          <ProgressIndicator compact label="Compact progress" value={32} />
+          <ProgressIndicator label="Loading example" />
+          <ProgressIndicator label="Reduced-motion loading" reduceMotion />
         </ShowcaseSection>
       </ScrollView>
       <AppDialog
