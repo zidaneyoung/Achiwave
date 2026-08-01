@@ -28,6 +28,8 @@ export const sizing = {
   formControl: 52,
   badgeRegular: 28,
   badgeCompact: 24,
+  skeletonAvatar: 64,
+  skeletonBody: 72,
   compactViewportWidth: 320,
   compactViewportHeight: 568,
   contentMeasure: 520,

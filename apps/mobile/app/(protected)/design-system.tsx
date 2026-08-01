@@ -9,6 +9,7 @@ import { AppCard, AppListItem } from "../../src/components/ContentSurfaces";
 import { AppBottomSheet, AppDialog } from "../../src/components/Overlays";
 import { ProgressIndicator } from "../../src/components/ProgressIndicator";
 import { StatusBadge } from "../../src/components/StatusBadge";
+import { LoadingSkeleton } from "../../src/components/LoadingSkeleton";
 import { PROTECTED_ROUTES } from "../../src/navigation/routes";
 import { AppText } from "../../src/theme/AppText";
 import {
@@ -103,6 +104,12 @@ export default function DesignSystemRoute() {
         <ShowcaseSection title="Theme previews">
           <ThemePreview mode="dark" />
           <ThemePreview mode="light" />
+        </ShowcaseSection>
+        <ShowcaseSection title="Loading skeletons">
+          <LoadingSkeleton layout="text" />
+          <LoadingSkeleton layout="card" />
+          <LoadingSkeleton layout="list" reduceMotion />
+          <LoadingSkeleton layout="profile" />
         </ShowcaseSection>
       </ScrollView>
       <AppDialog
