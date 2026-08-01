@@ -1,7 +1,14 @@
 import type { ReactNode } from "react";
 import { Link, type Href } from "expo-router";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+import {
+  type AchiwaveTheme,
+  useThemeStyles,
+} from "../theme/ThemeProvider";
+import { AppText } from "../theme/AppText";
+import { radii, sizing, spacing } from "../theme/tokens";
 
 interface RootDestinationScreenProps {
   title: string;
@@ -20,17 +27,18 @@ export function RootDestinationScreen({
   detailLabel = "Open details",
   children,
 }: RootDestinationScreenProps) {
+  const styles = useThemeStyles(createStyles);
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={styles.safeArea}>
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.eyebrow}>{eyebrow}</Text>
-        <Text accessibilityRole="header" style={styles.title}>
+        <AppText tone="accent" variant="label" style={styles.eyebrow}>{eyebrow}</AppText>
+        <AppText accessibilityRole="header" variant="display" style={styles.title}>
           {title}
-        </Text>
-        <Text style={styles.description}>{description}</Text>
+        </AppText>
+        <AppText tone="muted" style={styles.description}>{description}</AppText>
         {detailHref ? (
           <Link href={detailHref} asChild>
             <Pressable
@@ -40,7 +48,7 @@ export function RootDestinationScreen({
                 pressed && styles.detailButtonPressed,
               ]}
             >
-              <Text style={styles.detailButtonText}>{detailLabel}</Text>
+              <AppText tone="onAction" variant="label">{detailLabel}</AppText>
             </Pressable>
           </Link>
         ) : null}
@@ -50,47 +58,36 @@ export function RootDestinationScreen({
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#171A21" },
+const createStyles = (theme: AchiwaveTheme) => StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: theme.colors.background },
   content: {
     flexGrow: 1,
     justifyContent: "center",
-    padding: 24,
-    paddingBottom: 40,
+    padding: spacing.lg,
+    paddingBottom: spacing.xxl,
   },
   eyebrow: {
-    color: "#66C0F4",
-    fontSize: 14,
-    fontWeight: "700",
     letterSpacing: 1.2,
     textTransform: "uppercase",
   },
   title: {
-    color: "#C7D5E0",
-    fontSize: 32,
-    fontWeight: "700",
-    lineHeight: 38,
-    marginTop: 8,
+    marginTop: spacing.xs,
   },
   description: {
-    color: "#A7B8C6",
-    fontSize: 16,
-    lineHeight: 24,
-    marginTop: 12,
-    maxWidth: 520,
+    marginTop: spacing.sm,
+    maxWidth: sizing.contentMeasure,
   },
   detailButton: {
     alignItems: "center",
     alignSelf: "flex-start",
-    backgroundColor: "#2A475E",
-    borderRadius: 10,
+    backgroundColor: theme.colors.action,
+    borderRadius: radii.md,
     justifyContent: "center",
-    marginTop: 24,
-    minHeight: 48,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
+    marginTop: spacing.lg,
+    minHeight: sizing.minimumTouchTarget,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
-  detailButtonPressed: { backgroundColor: "#365E7A" },
-  detailButtonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
-  actions: { marginTop: 24 },
+  detailButtonPressed: { backgroundColor: theme.colors.actionPressed },
+  actions: { marginTop: spacing.lg },
 });

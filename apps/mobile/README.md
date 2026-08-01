@@ -38,6 +38,14 @@ stable installation ID remain. See the
 [Stage 4 authentication design](../../docs/security/stage-4-authentication.md)
 and [acceptance audit](../../docs/testing/stage-4-acceptance.md).
 
+## Stage 5 design foundations
+
+The app follows the system light/dark appearance through centralized semantic
+colour tokens. Typography, 4-point spacing, radii, elevation, viewport, and
+touch-target values are shared rather than restated per screen. See the
+[Stage 5 visual direction](../../docs/design/stage-5-visual-direction.md) and
+[mobile design system](../../docs/design/stage-5-design-system.md).
+
 ## Android identity
 
 Stage 2 development builds use `com.zidaneyoung.achiwave.dev` and the `achiwave`
@@ -61,6 +69,7 @@ Run local acceptance checks with a configured non-secret development API URL:
 npm ci
 npm run typecheck
 npm run test:security
+npm run test:theme
 npx expo-doctor
 npx expo export --platform android
 ```

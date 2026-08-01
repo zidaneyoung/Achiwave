@@ -1,5 +1,13 @@
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+import {
+  type AchiwaveTheme,
+  useAchiwaveTheme,
+  useThemeStyles,
+} from "../theme/ThemeProvider";
+import { AppText } from "../theme/AppText";
+import { spacing } from "../theme/tokens";
 
 interface AuthStateScreenProps {
   title: string;
@@ -12,48 +20,44 @@ export function AuthStateScreen({
   message,
   loading = false,
 }: AuthStateScreenProps) {
+  const theme = useAchiwaveTheme();
+  const styles = useThemeStyles(createStyles);
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         {loading ? (
           <ActivityIndicator
             accessibilityLabel="Checking authentication"
-            color="#1d5b44"
+            color={theme.colors.accent}
             size="large"
           />
         ) : null}
-        <Text accessibilityRole="header" style={styles.title}>
+        <AppText accessibilityRole="header" variant="heading1" style={styles.title}>
           {title}
-        </Text>
-        <Text style={styles.message}>{message}</Text>
+        </AppText>
+        <AppText tone="muted" style={styles.message}>{message}</AppText>
       </View>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AchiwaveTheme) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#f7f5ef",
+    backgroundColor: theme.colors.background,
   },
   container: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    padding: 24,
+    padding: spacing.lg,
   },
   title: {
-    color: "#17221d",
-    fontSize: 28,
-    fontWeight: "700",
-    marginTop: 16,
+    marginTop: spacing.md,
     textAlign: "center",
   },
   message: {
-    color: "#35423b",
-    fontSize: 17,
-    lineHeight: 24,
-    marginTop: 12,
+    marginTop: spacing.sm,
     maxWidth: 380,
     textAlign: "center",
   },

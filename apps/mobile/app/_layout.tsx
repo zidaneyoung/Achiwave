@@ -1,13 +1,30 @@
 import { useCallback, useEffect, useState } from "react";
 import { Stack, type ErrorBoundaryProps } from "expo-router";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AuthenticationProvider } from "../src/auth/AuthContext";
 import { AppSystemBars } from "../src/platform/AppSystemBars";
 import { safeConsole } from "../src/security/safeLogging";
+import {
+  AchiwaveThemeProvider,
+  type AchiwaveTheme,
+  useAchiwaveTheme,
+  useThemeStyles,
+} from "../src/theme/ThemeProvider";
+import { AppText } from "../src/theme/AppText";
+import { radii, sizing, spacing } from "../src/theme/tokens";
 
-export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+export function ErrorBoundary(props: ErrorBoundaryProps) {
+  return (
+    <AchiwaveThemeProvider>
+      <RootErrorBoundary {...props} />
+    </AchiwaveThemeProvider>
+  );
+}
+
+function RootErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  const styles = useThemeStyles(createStyles);
   const [isRetrying, setIsRetrying] = useState(false);
 
   useEffect(() => {
@@ -28,12 +45,12 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.fallback}>
-        <Text accessibilityRole="header" style={styles.title}>
+        <AppText accessibilityRole="header" variant="heading1" style={styles.title}>
           Achiwave needs a moment
-        </Text>
-        <Text style={styles.message}>
+        </AppText>
+        <AppText tone="muted" style={styles.message}>
           Something unexpected happened. Your details are not shown here.
-        </Text>
+        </AppText>
         <Pressable
           accessibilityHint="Attempts to display Achiwave again."
           accessibilityRole="button"
@@ -45,9 +62,9 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
             isRetrying && styles.buttonDisabled,
           ]}
         >
-          <Text style={styles.buttonText}>
+          <AppText tone="onAction" variant="label">
             {isRetrying ? "Trying again…" : "Try again"}
-          </Text>
+          </AppText>
         </Pressable>
       </View>
     </SafeAreaView>
@@ -56,9 +73,24 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 
 export default function RootLayout() {
   return (
+    <AchiwaveThemeProvider>
+      <ThemedApplication />
+    </AchiwaveThemeProvider>
+  );
+}
+
+function ThemedApplication() {
+  const theme = useAchiwaveTheme();
+  return (
     <AuthenticationProvider>
       <AppSystemBars />
-      <Stack>
+      <Stack
+        screenOptions={{
+          contentStyle: { backgroundColor: theme.colors.background },
+          headerStyle: { backgroundColor: theme.colors.surface },
+          headerTintColor: theme.colors.foreground,
+        }}
+      >
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(protected)" options={{ headerShown: false }} />
@@ -68,51 +100,40 @@ export default function RootLayout() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AchiwaveTheme) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#f7f5ef",
+    backgroundColor: theme.colors.background,
   },
   fallback: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    padding: 24,
+    padding: spacing.lg,
   },
   title: {
-    color: "#17221d",
-    fontSize: 28,
-    fontWeight: "700",
     textAlign: "center",
   },
   message: {
-    color: "#35423b",
-    fontSize: 17,
-    lineHeight: 24,
-    marginTop: 12,
+    marginTop: spacing.sm,
     maxWidth: 360,
     textAlign: "center",
   },
   button: {
     alignItems: "center",
-    backgroundColor: "#1d5b44",
-    borderRadius: 10,
+    backgroundColor: theme.colors.action,
+    borderRadius: radii.md,
     justifyContent: "center",
-    marginTop: 24,
-    minHeight: 48,
+    marginTop: spacing.lg,
+    minHeight: sizing.minimumTouchTarget,
     minWidth: 160,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
   },
   buttonPressed: {
-    backgroundColor: "#144432",
+    backgroundColor: theme.colors.actionPressed,
   },
   buttonDisabled: {
     opacity: 0.65,
-  },
-  buttonText: {
-    color: "#ffffff",
-    fontSize: 17,
-    fontWeight: "700",
   },
 });

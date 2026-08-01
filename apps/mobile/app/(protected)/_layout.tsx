@@ -2,6 +2,7 @@ import { Redirect, Stack, useSegments } from "expo-router";
 
 import { AuthStateScreen } from "../../src/auth/AuthStateScreen";
 import { useAuthentication } from "../../src/auth/AuthContext";
+import { useAchiwaveTheme } from "../../src/theme/ThemeProvider";
 
 export const unstable_settings = {
   initialRouteName: "(tabs)",
@@ -9,6 +10,7 @@ export const unstable_settings = {
 
 export default function ProtectedLayout() {
   const { state } = useAuthentication();
+  const theme = useAchiwaveTheme();
   const segments = useSegments();
   if (state.status === "loading") {
     return (
@@ -36,7 +38,10 @@ export default function ProtectedLayout() {
       initialRouteName="(tabs)"
       screenOptions={{
         animation: "slide_from_right",
+        contentStyle: { backgroundColor: theme.colors.background },
         headerBackButtonDisplayMode: "minimal",
+        headerStyle: { backgroundColor: theme.colors.surface },
+        headerTintColor: theme.colors.foreground,
       }}
     >
       <Stack.Screen name="index" options={{ headerShown: false }} />

@@ -1,14 +1,22 @@
 import { Link } from "expo-router";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import {
+  type AchiwaveTheme,
+  useThemeStyles,
+} from "../src/theme/ThemeProvider";
+import { AppText } from "../src/theme/AppText";
+import { spacing, typography } from "../src/theme/tokens";
+
 export default function NotFoundRoute() {
+  const styles = useThemeStyles(createStyles);
   return (
     <SafeAreaView edges={["left", "right", "bottom"]} style={styles.safeArea}>
       <View style={styles.container}>
-        <Text accessibilityRole="header" style={styles.title}>
+        <AppText accessibilityRole="header" variant="heading2" style={styles.title}>
           This route does not exist.
-        </Text>
+        </AppText>
         <Link accessibilityRole="link" href="/" style={styles.link}>
           Return to Achiwave
         </Link>
@@ -17,27 +25,24 @@ export default function NotFoundRoute() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: AchiwaveTheme) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#f7f5ef",
+    backgroundColor: theme.colors.background,
   },
   container: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    padding: 24,
+    padding: spacing.lg,
   },
   title: {
-    color: "#17221d",
-    fontSize: 24,
-    fontWeight: "700",
     textAlign: "center",
   },
   link: {
-    color: "#1d5b44",
-    fontSize: 17,
-    marginTop: 20,
+    color: theme.colors.action,
+    ...typography.body,
+    marginTop: spacing.md,
     textDecorationLine: "underline",
   },
 });

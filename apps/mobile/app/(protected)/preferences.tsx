@@ -16,6 +16,12 @@ import type {
   PreferenceSnapshot,
   ReducedMotionPreference,
 } from "../../src/preferences/types";
+import {
+  type AchiwaveTheme,
+  useAchiwaveTheme,
+  useThemeStyles,
+} from "../../src/theme/ThemeProvider";
+import { borders, radii, sizing, spacing, typography } from "../../src/theme/tokens";
 
 const DATE_FORMAT_OPTIONS: Array<{
   value: DateFormatPreference;
@@ -46,6 +52,8 @@ const NOTIFICATION_OPTIONS: Array<{
 ];
 
 export default function PreferencesRoute() {
+  const theme = useAchiwaveTheme();
+  const styles = useThemeStyles(createStyles);
   const [preferences, setPreferences] = useState<PreferenceSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -191,7 +199,7 @@ export default function PreferencesRoute() {
         {loading ? (
           <ActivityIndicator
             accessibilityLabel="Loading preferences"
-            color="#1d5b44"
+            color={theme.colors.accent}
             size="large"
             style={styles.loading}
           />
@@ -318,54 +326,54 @@ export default function PreferencesRoute() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { padding: 24, paddingBottom: 48 },
-  title: { color: "#17221d", fontSize: 30, fontWeight: "700" },
-  introduction: { color: "#35423b", fontSize: 17, lineHeight: 24, marginTop: 10 },
-  message: { color: "#6d301f", fontSize: 16, lineHeight: 22, marginTop: 16 },
-  loading: { marginTop: 32 },
-  sectionTitle: { color: "#17221d", fontSize: 23, fontWeight: "700", marginTop: 28 },
-  preview: { color: "#46534c", fontSize: 17, marginTop: 10 },
+const createStyles = (theme: AchiwaveTheme) => StyleSheet.create({
+  container: { padding: spacing.lg, paddingBottom: spacing.xxxl },
+  title: { color: theme.colors.foreground, ...typography.heading1 },
+  introduction: { color: theme.colors.foregroundMuted, ...typography.body, marginTop: spacing.sm },
+  message: { color: theme.colors.warning, ...typography.body, marginTop: spacing.md },
+  loading: { marginTop: spacing.xl },
+  sectionTitle: { color: theme.colors.foreground, ...typography.heading2, marginTop: spacing.xl },
+  preview: { color: theme.colors.foregroundSubtle, ...typography.body, marginTop: spacing.sm },
   option: {
     alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderColor: "#66746c",
-    borderRadius: 10,
-    borderWidth: 1,
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
+    borderRadius: radii.md,
+    borderWidth: borders.thin,
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 12,
-    minHeight: 52,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    marginTop: spacing.sm,
+    minHeight: sizing.formControl,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
-  optionSelected: { borderColor: "#1d5b44", borderWidth: 2 },
-  optionPressed: { backgroundColor: "#e1ebe5" },
-  optionText: { color: "#17221d", flex: 1, fontSize: 17 },
-  optionState: { color: "#1d5b44", fontSize: 15, fontWeight: "700", marginLeft: 12 },
+  optionSelected: { borderColor: theme.colors.borderStrong, borderWidth: borders.selected },
+  optionPressed: { backgroundColor: theme.colors.surfacePressed },
+  optionText: { color: theme.colors.foreground, flex: 1, ...typography.body },
+  optionState: { color: theme.colors.action, ...typography.label, marginLeft: spacing.sm },
   switchRow: {
     alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderColor: "#c8cec9",
-    borderRadius: 10,
-    borderWidth: 1,
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
+    borderRadius: radii.md,
+    borderWidth: borders.thin,
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 12,
-    minHeight: 64,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    marginTop: spacing.sm,
+    minHeight: sizing.formControl,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
-  switchCopy: { flex: 1, paddingRight: 16 },
-  help: { color: "#46534c", fontSize: 15, lineHeight: 20, marginTop: 4 },
+  switchCopy: { flex: 1, paddingRight: spacing.md },
+  help: { color: theme.colors.foregroundSubtle, ...typography.label, fontWeight: "400", marginTop: spacing.xxs },
   retryButton: {
     alignItems: "center",
-    backgroundColor: "#1d5b44",
-    borderRadius: 10,
+    backgroundColor: theme.colors.action,
+    borderRadius: radii.md,
     justifyContent: "center",
-    marginTop: 24,
-    minHeight: 48,
-    paddingHorizontal: 18,
+    marginTop: spacing.lg,
+    minHeight: sizing.minimumTouchTarget,
+    paddingHorizontal: spacing.md,
   },
-  retryButtonText: { color: "#ffffff", fontSize: 17, fontWeight: "700" },
+  retryButtonText: { color: theme.colors.onAction, ...typography.label },
 });

@@ -14,6 +14,12 @@ import {
   type DeviceSnapshot,
   type SessionSnapshot,
 } from "../../src/devices/api";
+import {
+  type AchiwaveTheme,
+  useAchiwaveTheme,
+  useThemeStyles,
+} from "../../src/theme/ThemeProvider";
+import { borders, radii, sizing, spacing, typography } from "../../src/theme/tokens";
 
 function displayTimestamp(value: string | null): string {
   if (!value) {
@@ -24,6 +30,8 @@ function displayTimestamp(value: string | null): string {
 }
 
 export default function DeviceSecurityRoute() {
+  const theme = useAchiwaveTheme();
+  const styles = useThemeStyles(createStyles);
   const [devices, setDevices] = useState<DeviceSnapshot[]>([]);
   const [sessions, setSessions] = useState<SessionSnapshot[]>([]);
   const [loading, setLoading] = useState(true);
@@ -100,7 +108,7 @@ export default function DeviceSecurityRoute() {
         {loading ? (
           <ActivityIndicator
             accessibilityLabel="Loading devices and sessions"
-            color="#1d5b44"
+            color={theme.colors.accent}
             size="large"
             style={styles.loading}
           />
@@ -183,47 +191,47 @@ export default function DeviceSecurityRoute() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#f7f5ef" },
-  container: { padding: 24, paddingBottom: 48 },
-  title: { color: "#17221d", fontSize: 30, fontWeight: "700" },
-  introduction: { color: "#35423b", fontSize: 17, lineHeight: 24, marginTop: 10 },
-  message: { color: "#6d301f", fontSize: 16, lineHeight: 22, marginTop: 16 },
-  loading: { marginTop: 32 },
-  sectionTitle: { color: "#17221d", fontSize: 23, fontWeight: "700", marginTop: 28 },
+const createStyles = (theme: AchiwaveTheme) => StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: theme.colors.background },
+  container: { padding: spacing.lg, paddingBottom: spacing.xxxl },
+  title: { color: theme.colors.foreground, ...typography.heading1 },
+  introduction: { color: theme.colors.foregroundMuted, ...typography.body, marginTop: spacing.sm },
+  message: { color: theme.colors.warning, ...typography.body, marginTop: spacing.md },
+  loading: { marginTop: spacing.xl },
+  sectionTitle: { color: theme.colors.foreground, ...typography.heading2, marginTop: spacing.xl },
   card: {
-    backgroundColor: "#ffffff",
-    borderColor: "#c8cec9",
-    borderRadius: 12,
-    borderWidth: 1,
-    marginTop: 12,
-    padding: 16,
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
+    borderRadius: radii.md,
+    borderWidth: borders.thin,
+    marginTop: spacing.sm,
+    padding: spacing.md,
   },
-  cardTitle: { color: "#17221d", fontSize: 18, fontWeight: "700" },
-  detail: { color: "#46534c", fontSize: 16, lineHeight: 22, marginTop: 6 },
+  cardTitle: { color: theme.colors.foreground, ...typography.title },
+  detail: { color: theme.colors.foregroundSubtle, ...typography.body, marginTop: spacing.xs },
   revokeButton: {
     alignItems: "center",
-    borderColor: "#9f241d",
-    borderRadius: 10,
-    borderWidth: 2,
+    borderColor: theme.colors.error,
+    borderRadius: radii.md,
+    borderWidth: borders.selected,
     justifyContent: "center",
-    marginTop: 16,
-    minHeight: 48,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    marginTop: spacing.md,
+    minHeight: sizing.minimumTouchTarget,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
   },
-  revokeButtonPressed: { backgroundColor: "#f7e6e3" },
-  revokeButtonText: { color: "#8b1d18", fontSize: 16, fontWeight: "700" },
+  revokeButtonPressed: { backgroundColor: theme.colors.errorSurface },
+  revokeButtonText: { color: theme.colors.error, ...typography.label },
   disabled: { opacity: 0.6 },
   retryButton: {
     alignItems: "center",
-    backgroundColor: "#1d5b44",
-    borderRadius: 10,
+    backgroundColor: theme.colors.action,
+    borderRadius: radii.md,
     justifyContent: "center",
-    marginTop: 20,
-    minHeight: 48,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
+    marginTop: spacing.md,
+    minHeight: sizing.minimumTouchTarget,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
   },
-  retryButtonText: { color: "#ffffff", fontSize: 17, fontWeight: "700" },
+  retryButtonText: { color: theme.colors.onAction, ...typography.label },
 });

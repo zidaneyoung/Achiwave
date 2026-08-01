@@ -1,15 +1,16 @@
 import { useEffect, useMemo } from "react";
 import * as NavigationBar from "expo-navigation-bar";
-import { Platform, StatusBar, useColorScheme } from "react-native";
+import { Platform, StatusBar } from "react-native";
 
 import { safeConsole } from "../security/safeLogging";
+import { useAchiwaveTheme } from "../theme/ThemeProvider";
 import { resolveSystemBarAppearance } from "./systemBars";
 
 export function AppSystemBars() {
-  const colorScheme = useColorScheme();
+  const theme = useAchiwaveTheme();
   const appearance = useMemo(
-    () => resolveSystemBarAppearance(colorScheme),
-    [colorScheme],
+    () => resolveSystemBarAppearance(theme.mode),
+    [theme.mode],
   );
 
   useEffect(() => {
