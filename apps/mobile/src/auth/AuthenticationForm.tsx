@@ -2,17 +2,14 @@ import { useState } from "react";
 import { Link } from "expo-router";
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
+import { KeyboardAwareScreen } from "../platform/KeyboardAwareScreen";
 import { useAuthentication } from "./AuthContext";
 import { AuthenticationRequestError } from "./service";
 
@@ -62,15 +59,7 @@ export function AuthenticationForm({ mode }: AuthenticationFormProps) {
   }
 
   return (
-    <SafeAreaView edges={["left", "right", "bottom"]} style={styles.safeArea}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={styles.flex}
-      >
-        <ScrollView
-          contentContainerStyle={styles.container}
-          keyboardShouldPersistTaps="handled"
-        >
+    <KeyboardAwareScreen contentContainerStyle={styles.container}>
           <Text accessibilityRole="header" style={styles.title}>
             {isRegistration ? "Create your account" : "Welcome back"}
           </Text>
@@ -172,15 +161,11 @@ export function AuthenticationForm({ mode }: AuthenticationFormProps) {
               </Text>
             </Pressable>
           </Link>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+    </KeyboardAwareScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#f7f5ef" },
-  flex: { flex: 1 },
   container: {
     flexGrow: 1,
     justifyContent: "center",

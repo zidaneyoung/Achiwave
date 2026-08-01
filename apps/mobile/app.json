@@ -12,7 +12,8 @@
     ],
     "android": {
       "edgeToEdgeEnabled": true,
-      "package": "com.zidaneyoung.achiwave.dev"
+      "package": "com.zidaneyoung.achiwave.dev",
+      "softwareKeyboardLayoutMode": "resize"
     },
     "androidNavigationBar": {
       "backgroundColor": "#171A21",

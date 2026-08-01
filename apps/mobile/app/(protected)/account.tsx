@@ -5,11 +5,10 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuthentication } from "../../src/auth/AuthContext";
+import { KeyboardAwareScreen } from "../../src/platform/KeyboardAwareScreen";
 
 export default function AccountRoute() {
   const { deactivateAccount } = useAuthentication();
@@ -39,8 +38,7 @@ export default function AccountRoute() {
   }
 
   return (
-    <SafeAreaView edges={["left", "right", "bottom"]} style={styles.safeArea}>
-      <View style={styles.container}>
+    <KeyboardAwareScreen contentContainerStyle={styles.container}>
         <Text accessibilityRole="header" style={styles.title}>
           Account
         </Text>
@@ -89,13 +87,11 @@ export default function AccountRoute() {
             <Text style={styles.dangerButtonText}>Deactivate account</Text>
           )}
         </Pressable>
-      </View>
-    </SafeAreaView>
+    </KeyboardAwareScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#f7f5ef" },
   container: { flex: 1, justifyContent: "center", padding: 24 },
   title: { color: "#17221d", fontSize: 30, fontWeight: "700" },
   message: { color: "#35423b", fontSize: 17, lineHeight: 24, marginTop: 12 },
