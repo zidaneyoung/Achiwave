@@ -44,7 +44,9 @@ The app follows the system light/dark appearance through centralized semantic
 colour tokens. Typography, 4-point spacing, radii, elevation, viewport, and
 touch-target values are shared rather than restated per screen. See the
 [Stage 5 visual direction](../../docs/design/stage-5-visual-direction.md) and
-[mobile design system](../../docs/design/stage-5-design-system.md).
+[mobile design system](../../docs/design/stage-5-design-system.md). Verification
+evidence is recorded in the
+[Stage 5 acceptance audit](../../docs/testing/stage-5-acceptance.md).
 
 ## Android identity
 

@@ -10,6 +10,7 @@
 - [Stage 4 acceptance audit](testing/stage-4-acceptance.md)
 - [Stage 5 visual direction](design/stage-5-visual-direction.md)
 - [Stage 5 mobile design system](design/stage-5-design-system.md)
+- [Stage 5 acceptance audit](testing/stage-5-acceptance.md)
 
 This index is the normative entry point for Stage 1 product rules. If a later
 implementation conflicts with these documents, the implementation is wrong until
