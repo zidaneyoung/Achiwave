@@ -89,6 +89,7 @@ export function AppButton({
           ) : null}
           {iconOnly ? null : (
             <AppText
+              style={styles.label}
               tone={variant === "primary" || variant === "destructive" ? "onAction" : "default"}
               variant="label"
             >
@@ -112,6 +113,7 @@ const createStyles = (theme: AchiwaveTheme) => StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   content: { alignItems: "center", flexDirection: "row", gap: spacing.xs },
+  label: { flexShrink: 1, textAlign: "center" },
   iconOnly: {
     minWidth: sizing.minimumTouchTarget,
     paddingHorizontal: spacing.sm,
