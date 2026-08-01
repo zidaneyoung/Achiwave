@@ -11,17 +11,13 @@
       "ios"
     ],
     "android": {
-      "edgeToEdgeEnabled": true,
       "package": "com.zidaneyoung.achiwave.dev",
       "softwareKeyboardLayoutMode": "resize"
     },
-    "androidNavigationBar": {
-      "backgroundColor": "#171A21",
-      "barStyle": "light-content"
-    },
     "plugins": [
       "expo-router",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true
