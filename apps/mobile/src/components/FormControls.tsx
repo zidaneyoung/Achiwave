@@ -49,7 +49,7 @@ export function AppTextField({
       <TextInput
         {...inputProps}
         accessibilityHint={description}
-        accessibilityLabel={label}
+        accessibilityLabel={`${label}${required ? ", required" : ""}`}
         accessibilityState={{ disabled: !editable }}
         editable={editable}
         onBlur={(event) => {
@@ -110,7 +110,7 @@ export function AppSelector({
       </AppText>
       <Pressable
         accessibilityHint={description ?? "Opens available choices."}
-        accessibilityLabel={label}
+        accessibilityLabel={`${label}${required ? ", required" : ""}`}
         accessibilityRole="button"
         accessibilityState={{ disabled, expanded }}
         accessibilityValue={{ text: value }}
