@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AuthenticationProvider } from "../src/auth/AuthContext";
+import { ReducedMotionProvider } from "../src/accessibility/ReducedMotionProvider";
 import { AppSystemBars } from "../src/platform/AppSystemBars";
 import { safeConsole } from "../src/security/safeLogging";
 import {
@@ -83,19 +84,21 @@ function ThemedApplication() {
   const theme = useAchiwaveTheme();
   return (
     <AuthenticationProvider>
-      <AppSystemBars />
-      <Stack
+      <ReducedMotionProvider>
+        <AppSystemBars />
+        <Stack
         screenOptions={{
           contentStyle: { backgroundColor: theme.colors.background },
           headerStyle: { backgroundColor: theme.colors.surface },
           headerTintColor: theme.colors.foreground,
         }}
-      >
+        >
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(protected)" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" options={{ title: "Not found" }} />
-      </Stack>
+        </Stack>
+      </ReducedMotionProvider>
     </AuthenticationProvider>
   );
 }

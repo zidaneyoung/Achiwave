@@ -22,6 +22,7 @@ import {
   useThemeStyles,
 } from "../../src/theme/ThemeProvider";
 import { borders, radii, sizing, spacing, typography } from "../../src/theme/tokens";
+import { publishReducedMotionPreference } from "../../src/accessibility/reducedMotion";
 
 const DATE_FORMAT_OPTIONS: Array<{
   value: DateFormatPreference;
@@ -140,9 +141,9 @@ export default function PreferencesRoute() {
     setSaving(true);
     setMessage(null);
     try {
-      setPreferences(
-        await preferenceApi.updateReducedMotion(value, preferences.recordVersion),
-      );
+      const updated = await preferenceApi.updateReducedMotion(value, preferences.recordVersion);
+      setPreferences(updated);
+      publishReducedMotionPreference(updated.reducedMotion);
       setMessage("Motion preference saved.");
     } catch (error) {
       setMessage(

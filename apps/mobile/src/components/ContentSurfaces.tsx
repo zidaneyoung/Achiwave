@@ -10,6 +10,10 @@ import {
 } from "../theme/ThemeProvider";
 import { borders, radii, sizing, spacing } from "../theme/tokens";
 import { createAndroidRipple } from "../platform/touchFeedback";
+import {
+  compactControlHitSlop,
+  minimumTouchTargetStyle,
+} from "../accessibility/touchTargets";
 
 interface SurfaceCopy {
   title: string;
@@ -92,7 +96,7 @@ export function AppListItem({
         <Pressable
           accessibilityLabel={trailingActionLabel}
           accessibilityRole="button"
-          hitSlop={spacing.xs}
+          hitSlop={compactControlHitSlop}
           onPress={(event) => {
             event.stopPropagation();
             onTrailingActionPress();
@@ -147,10 +151,9 @@ const createStyles = (theme: AchiwaveTheme) => StyleSheet.create({
   body: { marginTop: spacing.sm },
   pressed: { backgroundColor: theme.colors.surfacePressed },
   trailingAction: {
+    ...minimumTouchTargetStyle,
     alignItems: "center",
     justifyContent: "center",
     marginLeft: spacing.xs,
-    minHeight: sizing.minimumTouchTarget,
-    minWidth: sizing.minimumTouchTarget,
   },
 });

@@ -66,3 +66,10 @@ export const typography: Readonly<Record<TypographyVariant, TextStyle>> = {
   label: { fontSize: 14, fontWeight: "700", lineHeight: 20 },
   caption: { fontSize: 12, fontWeight: "400", lineHeight: 16 },
 };
+
+export const supportedFontScales = [1, 1.3, 1.5, 2] as const;
+export const supportedViewports = [
+  { width: 320, height: 568 },
+  { width: 360, height: 640 },
+  { width: 412, height: 915 },
+] as const;

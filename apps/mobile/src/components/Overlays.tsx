@@ -14,6 +14,7 @@ import {
   useThemeStyles,
 } from "../theme/ThemeProvider";
 import { borders, radii, sizing, spacing } from "../theme/tokens";
+import { useReducedMotion } from "../accessibility/ReducedMotionProvider";
 
 interface OverlayProps {
   visible: boolean;
@@ -40,16 +41,17 @@ export function AppDialog({
   visible,
 }: AppDialogProps) {
   const styles = useThemeStyles(createStyles);
+  const reduceMotion = useReducedMotion();
   return (
     <Modal
-      animationType="fade"
+      animationType={reduceMotion ? "none" : "fade"}
       onRequestClose={onDismiss}
       statusBarTranslucent
       transparent
       visible={visible}
     >
       <SafeAreaView style={styles.overlay}>
-        <View accessibilityViewIsModal style={styles.dialog}>
+        <View accessibilityLabel={title} accessibilityViewIsModal style={styles.dialog}>
           <ScrollView contentContainerStyle={styles.scrollContent}>
             <AppText accessibilityRole="header" variant="heading2">{title}</AppText>
             {description ? <AppText tone="muted" style={styles.description}>{description}</AppText> : null}
@@ -84,16 +86,17 @@ export function AppBottomSheet({
   visible,
 }: AppBottomSheetProps) {
   const styles = useThemeStyles(createStyles);
+  const reduceMotion = useReducedMotion();
   return (
     <Modal
-      animationType="slide"
+      animationType={reduceMotion ? "none" : "slide"}
       onRequestClose={onDismiss}
       statusBarTranslucent
       transparent
       visible={visible}
     >
       <SafeAreaView style={[styles.overlay, styles.sheetOverlay]}>
-        <View accessibilityViewIsModal style={styles.sheet}>
+        <View accessibilityLabel={title} accessibilityViewIsModal style={styles.sheet}>
           <View accessibilityElementsHidden style={styles.handle} />
           <ScrollView contentContainerStyle={styles.scrollContent}>
             <AppText accessibilityRole="header" variant="heading2">{title}</AppText>

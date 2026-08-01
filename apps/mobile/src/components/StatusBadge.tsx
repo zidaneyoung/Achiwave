@@ -37,6 +37,7 @@ export function StatusBadge({
   };
   return (
     <View
+      accessible
       accessibilityLabel={label}
       accessibilityRole="text"
       style={[
@@ -53,7 +54,7 @@ export function StatusBadge({
         size={compact ? 14 : 16}
       />
       <AppText
-        style={{ color: colors[tone] }}
+        style={[styles.label, { color: colors[tone] }]}
         variant="caption"
       >
         {label}
@@ -75,4 +76,5 @@ const createStyles = () => StyleSheet.create({
     paddingVertical: spacing.xxs,
   },
   compact: { gap: spacing.xxs, minHeight: sizing.badgeCompact, paddingHorizontal: spacing.xs },
+  label: { flexShrink: 1 },
 });
