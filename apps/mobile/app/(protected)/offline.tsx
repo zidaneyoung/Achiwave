@@ -7,6 +7,7 @@ import {
   useThemeStyles,
 } from "../../src/theme/ThemeProvider";
 import { AppText } from "../../src/theme/AppText";
+import { SyncIndicator } from "../../src/components/SyncIndicator";
 import { radii, sizing, spacing } from "../../src/theme/tokens";
 
 export default function OfflineLimitedRoute() {
@@ -16,6 +17,7 @@ export default function OfflineLimitedRoute() {
   return (
     <SafeAreaView edges={["left", "right", "bottom"]} style={styles.safeArea}>
       <View style={styles.container}>
+        <SyncIndicator state={{ status: "offline" }} />
         <AppText accessibilityRole="header" variant="heading1" style={styles.title}>
           You are offline
         </AppText>

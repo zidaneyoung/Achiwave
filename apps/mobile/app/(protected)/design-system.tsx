@@ -12,6 +12,7 @@ import { StatusBadge } from "../../src/components/StatusBadge";
 import { LoadingSkeleton } from "../../src/components/LoadingSkeleton";
 import { EmptyState } from "../../src/components/EmptyState";
 import { ErrorState } from "../../src/components/ErrorState";
+import { SyncIndicator } from "../../src/components/SyncIndicator";
 import { PROTECTED_ROUTES } from "../../src/navigation/routes";
 import { AppText } from "../../src/theme/AppText";
 import {
@@ -126,6 +127,14 @@ export default function DesignSystemRoute() {
           <ErrorState kind="authentication" onRetry={() => undefined} />
           <ErrorState kind="network" onRetry={() => undefined} />
           <ErrorState kind="fullScreen" onRetry={() => undefined} />
+        </ShowcaseSection>
+        <ShowcaseSection title="Offline and synchronization indicators">
+          <SyncIndicator state={{ status: "offline" }} />
+          <SyncIndicator state={{ status: "reconnecting" }} />
+          <SyncIndicator state={{ status: "pending", pendingCount: 2 }} />
+          <SyncIndicator state={{ status: "synchronizing" }} />
+          <SyncIndicator state={{ status: "synchronized", confirmedAt: "showcase-confirmation" }} />
+          <SyncIndicator state={{ status: "failed" }} />
         </ShowcaseSection>
       </ScrollView>
       <AppDialog
