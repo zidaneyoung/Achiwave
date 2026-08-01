@@ -9,6 +9,7 @@ import {
   useThemeStyles,
 } from "../theme/ThemeProvider";
 import { borders, radii, sizing, spacing } from "../theme/tokens";
+import { createAndroidRipple } from "../platform/touchFeedback";
 
 interface SurfaceCopy {
   title: string;
@@ -53,7 +54,7 @@ export function AppCard({
       accessibilityHint={accessibilityHint}
       accessibilityLabel={[title, metadata, status].filter(Boolean).join(", ")}
       accessibilityRole="button"
-      android_ripple={{ color: theme.colors.surfacePressed }}
+      android_ripple={createAndroidRipple(theme.colors.surfacePressed)}
       onPress={onPress}
       style={({ pressed }) => [styles.surface, styles.card, pressed && styles.pressed]}
     >
@@ -116,7 +117,7 @@ export function AppListItem({
     <Pressable
       accessibilityLabel={[title, metadata, status].filter(Boolean).join(", ")}
       accessibilityRole="button"
-      android_ripple={{ color: theme.colors.surfacePressed }}
+      android_ripple={createAndroidRipple(theme.colors.surfacePressed)}
       onPress={onPress}
       style={({ pressed }) => [styles.surface, styles.listItem, pressed && styles.pressed]}
     >

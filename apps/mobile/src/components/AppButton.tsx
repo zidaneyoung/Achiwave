@@ -16,6 +16,7 @@ import {
   useThemeStyles,
 } from "../theme/ThemeProvider";
 import { borders, radii, sizing, spacing } from "../theme/tokens";
+import { createAndroidRipple } from "../platform/touchFeedback";
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>["name"];
 export type ButtonVariant =
@@ -60,7 +61,7 @@ export function AppButton({
       accessibilityLabel={label}
       accessibilityRole="button"
       accessibilityState={{ busy: loading, disabled: unavailable }}
-      android_ripple={{ color: theme.colors.surfacePressed }}
+      android_ripple={createAndroidRipple(theme.colors.surfacePressed, iconOnly)}
       disabled={unavailable}
       onBlur={(event) => {
         setFocused(false);
