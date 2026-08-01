@@ -31,6 +31,7 @@ export const sizing = {
   skeletonAvatar: 64,
   skeletonBody: 72,
   iconLarge: 32,
+  iconMedium: 24,
   compactViewportWidth: 320,
   compactViewportHeight: 568,
   contentMeasure: 520,

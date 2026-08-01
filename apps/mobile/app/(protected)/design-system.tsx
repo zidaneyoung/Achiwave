@@ -11,6 +11,7 @@ import { ProgressIndicator } from "../../src/components/ProgressIndicator";
 import { StatusBadge } from "../../src/components/StatusBadge";
 import { LoadingSkeleton } from "../../src/components/LoadingSkeleton";
 import { EmptyState } from "../../src/components/EmptyState";
+import { ErrorState } from "../../src/components/ErrorState";
 import { PROTECTED_ROUTES } from "../../src/navigation/routes";
 import { AppText } from "../../src/theme/AppText";
 import {
@@ -117,6 +118,14 @@ export default function DesignSystemRoute() {
           <EmptyState description="Change or clear the current filters to see more." kind="filtered" title="No matches" />
           <EmptyState description="Every available item in this example is complete." kind="completed" title="All caught up" />
           <EmptyState description="This content is not available while offline." kind="unavailable" title="Unavailable" />
+        </ShowcaseSection>
+        <ShowcaseSection title="Error states">
+          <ErrorState kind="inline" />
+          <ErrorState kind="section" onRetry={() => undefined} />
+          <ErrorState kind="validation" />
+          <ErrorState kind="authentication" onRetry={() => undefined} />
+          <ErrorState kind="network" onRetry={() => undefined} />
+          <ErrorState kind="fullScreen" onRetry={() => undefined} />
         </ShowcaseSection>
       </ScrollView>
       <AppDialog
