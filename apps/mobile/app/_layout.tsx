@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AuthenticationProvider } from "../src/auth/AuthContext";
+import { AppSystemBars } from "../src/platform/AppSystemBars";
 import { safeConsole } from "../src/security/safeLogging";
 
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
@@ -56,6 +57,7 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 export default function RootLayout() {
   return (
     <AuthenticationProvider>
+      <AppSystemBars />
       <Stack>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />

@@ -2,14 +2,13 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
-  ScrollView,
   StyleSheet,
   Switch,
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
+import { KeyboardAwareScreen } from "../../src/platform/KeyboardAwareScreen";
 import { preferenceApi } from "../../src/preferences/api";
 import { formatPreferenceDate } from "../../src/preferences/formatDate";
 import type {
@@ -177,8 +176,7 @@ export default function PreferencesRoute() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container}>
+    <KeyboardAwareScreen contentContainerStyle={styles.container}>
         <Text accessibilityRole="header" style={styles.title}>
           Preferences
         </Text>
@@ -316,13 +314,11 @@ export default function PreferencesRoute() {
             <Text style={styles.retryButtonText}>Try again</Text>
           </Pressable>
         )}
-      </ScrollView>
-    </SafeAreaView>
+    </KeyboardAwareScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#f7f5ef" },
   container: { padding: 24, paddingBottom: 48 },
   title: { color: "#17221d", fontSize: 30, fontWeight: "700" },
   introduction: { color: "#35423b", fontSize: 17, lineHeight: 24, marginTop: 10 },

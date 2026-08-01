@@ -3,6 +3,10 @@ import { Redirect, Stack, useSegments } from "expo-router";
 import { AuthStateScreen } from "../../src/auth/AuthStateScreen";
 import { useAuthentication } from "../../src/auth/AuthContext";
 
+export const unstable_settings = {
+  initialRouteName: "(tabs)",
+};
+
 export default function ProtectedLayout() {
   const { state } = useAuthentication();
   const segments = useSegments();
@@ -28,8 +32,24 @@ export default function ProtectedLayout() {
     return <Redirect href="/(protected)/offline" />;
   }
   return (
-    <Stack>
-      <Stack.Screen name="index" options={{ title: "Achiwave" }} />
+    <Stack
+      initialRouteName="(tabs)"
+      screenOptions={{
+        animation: "slide_from_right",
+        headerBackButtonDisplayMode: "minimal",
+      }}
+    >
+      <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="details/[section]" options={{ title: "Details" }} />
+      <Stack.Screen
+        name="modal"
+        options={{
+          animation: "slide_from_bottom",
+          headerShown: false,
+          presentation: "modal",
+        }}
+      />
       <Stack.Screen name="offline" options={{ title: "Offline" }} />
       <Stack.Screen name="security" options={{ title: "Devices and sessions" }} />
       <Stack.Screen name="preferences" options={{ title: "Preferences" }} />

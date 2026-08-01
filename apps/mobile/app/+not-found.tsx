@@ -4,7 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function NotFoundRoute() {
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView edges={["left", "right", "bottom"]} style={styles.safeArea}>
       <View style={styles.container}>
         <Text accessibilityRole="header" style={styles.title}>
           This route does not exist.
