@@ -75,9 +75,7 @@ function RootErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 export default function RootLayout() {
   return (
     <AchiwaveThemeProvider>
-      <ReducedMotionProvider>
-        <ThemedApplication />
-      </ReducedMotionProvider>
+      <ThemedApplication />
     </AchiwaveThemeProvider>
   );
 }
@@ -86,19 +84,21 @@ function ThemedApplication() {
   const theme = useAchiwaveTheme();
   return (
     <AuthenticationProvider>
-      <AppSystemBars />
-      <Stack
+      <ReducedMotionProvider>
+        <AppSystemBars />
+        <Stack
         screenOptions={{
           contentStyle: { backgroundColor: theme.colors.background },
           headerStyle: { backgroundColor: theme.colors.surface },
           headerTintColor: theme.colors.foreground,
         }}
-      >
+        >
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(protected)" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" options={{ title: "Not found" }} />
-      </Stack>
+        </Stack>
+      </ReducedMotionProvider>
     </AuthenticationProvider>
   );
 }

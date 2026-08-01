@@ -4,6 +4,7 @@ import { AccessibilityInfo } from "react-native";
 
 import { loadCachedPreferences } from "../preferences/cache";
 import type { ReducedMotionPreference } from "../preferences/types";
+import { useAuthentication } from "../auth/AuthContext";
 import {
   resolveReducedMotion,
   subscribeReducedMotionPreference,
@@ -12,6 +13,7 @@ import {
 const ReducedMotionContext = createContext(false);
 
 export function ReducedMotionProvider({ children }: { children: ReactNode }) {
+  const { state } = useAuthentication();
   const [preference, setPreference] = useState<ReducedMotionPreference>("system");
   const [systemReduceMotion, setSystemReduceMotion] = useState(false);
 
@@ -22,14 +24,25 @@ export function ReducedMotionProvider({ children }: { children: ReactNode }) {
       setSystemReduceMotion,
     );
     const preferenceSubscription = subscribeReducedMotionPreference(setPreference);
-    void loadCachedPreferences().then((cached) => {
-      if (cached) setPreference(cached.reducedMotion);
-    });
     return () => {
       systemSubscription.remove();
       preferenceSubscription();
     };
   }, []);
+
+  const ownerId =
+    state.status === "authenticated" || state.status === "offline_limited"
+      ? state.user.id
+      : null;
+  useEffect(() => {
+    if (!ownerId) {
+      setPreference("system");
+      return;
+    }
+    void loadCachedPreferences().then((cached) => {
+      setPreference(cached?.reducedMotion ?? "system");
+    });
+  }, [ownerId]);
 
   const reduced = useMemo(
     () => resolveReducedMotion(preference, systemReduceMotion),
