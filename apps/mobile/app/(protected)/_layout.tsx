@@ -59,6 +59,7 @@ export default function ProtectedLayout() {
       <Stack.Screen name="security" options={{ title: "Devices and sessions" }} />
       <Stack.Screen name="preferences" options={{ title: "Preferences" }} />
       <Stack.Screen name="account" options={{ title: "Account" }} />
+      <Stack.Screen name="design-system" options={{ title: "Components" }} />
     </Stack>
   );
 }

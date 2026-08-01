@@ -28,6 +28,9 @@ export default function ProfileTabRoute() {
       <ProfileLink href="/(protected)/security" label="Devices and sessions" styles={styles} />
       <ProfileLink href="/(protected)/preferences" label="Preferences" styles={styles} />
       <ProfileLink href="/(protected)/account" label="Account security" styles={styles} />
+      {__DEV__ ? (
+        <ProfileLink href={PROTECTED_ROUTES.designSystem} label="Component showcase" styles={styles} />
+      ) : null}
       <Pressable
         accessibilityHint="Ends this session and removes local credentials."
         accessibilityRole="button"
@@ -40,7 +43,7 @@ export default function ProfileTabRoute() {
   );
 }
 
-function ProfileLink({ href, label, styles }: { href: typeof PROTECTED_ROUTES.security | typeof PROTECTED_ROUTES.preferences | typeof PROTECTED_ROUTES.account; label: string; styles: ReturnType<typeof createStyles> }) {
+function ProfileLink({ href, label, styles }: { href: typeof PROTECTED_ROUTES.security | typeof PROTECTED_ROUTES.preferences | typeof PROTECTED_ROUTES.account | typeof PROTECTED_ROUTES.designSystem; label: string; styles: ReturnType<typeof createStyles> }) {
   return (
     <Link href={href} asChild>
       <Pressable

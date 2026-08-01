@@ -10,6 +10,7 @@ export const PROTECTED_ROUTES = {
   security: "/(protected)/security" as const satisfies Href,
   preferences: "/(protected)/preferences" as const satisfies Href,
   account: "/(protected)/account" as const satisfies Href,
+  designSystem: "/(protected)/design-system" as const satisfies Href,
   modal: "/(protected)/modal" as const satisfies Href,
   detail(section: RootDestinationName) {
     return {
