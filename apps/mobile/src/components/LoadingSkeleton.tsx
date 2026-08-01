@@ -37,7 +37,12 @@ export function LoadingSkeleton({
   }, [opacity, reduceMotion]);
 
   return (
-    <View accessibilityLabel={label} accessibilityRole="progressbar">
+    <View
+      accessible
+      accessibilityLabel={label}
+      accessibilityRole="progressbar"
+      accessibilityValue={{ text: "In progress" }}
+    >
       <Animated.View
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"

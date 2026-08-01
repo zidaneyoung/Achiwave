@@ -49,7 +49,7 @@ export function AppDialog({
       visible={visible}
     >
       <SafeAreaView style={styles.overlay}>
-        <View accessibilityViewIsModal style={styles.dialog}>
+        <View accessibilityLabel={title} accessibilityViewIsModal style={styles.dialog}>
           <ScrollView contentContainerStyle={styles.scrollContent}>
             <AppText accessibilityRole="header" variant="heading2">{title}</AppText>
             {description ? <AppText tone="muted" style={styles.description}>{description}</AppText> : null}
@@ -93,7 +93,7 @@ export function AppBottomSheet({
       visible={visible}
     >
       <SafeAreaView style={[styles.overlay, styles.sheetOverlay]}>
-        <View accessibilityViewIsModal style={styles.sheet}>
+        <View accessibilityLabel={title} accessibilityViewIsModal style={styles.sheet}>
           <View accessibilityElementsHidden style={styles.handle} />
           <ScrollView contentContainerStyle={styles.scrollContent}>
             <AppText accessibilityRole="header" variant="heading2">{title}</AppText>

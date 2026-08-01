@@ -33,7 +33,9 @@ export function SyncIndicator({ state }: { state: SynchronizationState }) {
       : baseDescription;
   return (
     <View
+      accessible
       accessibilityLiveRegion={state.status === "synchronized" ? "polite" : "assertive"}
+      accessibilityRole="alert"
       style={[styles.base, styles[state.status]]}
     >
       <AppText variant="label">{title}</AppText>

@@ -37,6 +37,7 @@ export function StatusBadge({
   };
   return (
     <View
+      accessible
       accessibilityLabel={label}
       accessibilityRole="text"
       style={[

@@ -30,6 +30,7 @@ export function ProgressIndicator({
 
   return (
     <View
+      accessible
       accessibilityLabel={spokenLabel}
       accessibilityRole="progressbar"
       accessibilityValue={determinate ? { min: 0, max: 100, now: progress } : { text: "In progress" }}
