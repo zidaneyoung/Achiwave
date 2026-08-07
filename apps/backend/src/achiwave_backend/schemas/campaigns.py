@@ -63,6 +63,40 @@ class CampaignListResponse(BaseModel):
     offset: int
 
 
+class CampaignQuestResponse(BaseModel):
+    id: UUID
+    campaign_id: UUID
+    quest_type: Literal["one_time", "recurring"]
+    definition_state: Literal["active", "archived"]
+    status: Literal[
+        "active",
+        "archived",
+        "scheduled",
+        "available",
+        "completed",
+        "reversed",
+        "expired",
+        "voided",
+    ]
+    title: str
+    description: str | None
+    reward_xp: int
+    display_order: int
+    available_from: datetime | None
+    due_at: datetime | None
+    timezone_name: str | None
+    record_version: int
+    archived_at: datetime | None
+    restored_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class CampaignDetailResponse(CampaignResponse):
+    quest_summary: CampaignQuestSummaryResponse
+    quests: list[CampaignQuestResponse]
+
+
 class CreateCampaignRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

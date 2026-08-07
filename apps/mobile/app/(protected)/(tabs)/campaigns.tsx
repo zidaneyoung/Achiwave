@@ -27,13 +27,20 @@ import {
 } from "../../../src/theme/ThemeProvider";
 import { spacing } from "../../../src/theme/tokens";
 
-function CampaignListRow({ campaign }: { campaign: CampaignListItem }) {
+function CampaignListRow({
+  campaign,
+  onPress,
+}: {
+  campaign: CampaignListItem;
+  onPress: () => void;
+}) {
   const questCopy =
     campaign.questSummary.total === 0
       ? "No quests"
       : `${campaign.questSummary.active} active, ${campaign.questSummary.archived} archived quests`;
   return (
     <AppListItem
+      onPress={onPress}
       leading={
         <StatusBadge
           compact
@@ -180,7 +187,12 @@ export default function CampaignsTabRoute() {
               </AppText>
             ) : null
           }
-          renderItem={({ item }) => <CampaignListRow campaign={item} />}
+          renderItem={({ item }) => (
+            <CampaignListRow
+              campaign={item}
+              onPress={() => router.push(PROTECTED_ROUTES.campaignDetail(item.id))}
+            />
+          )}
         />
       ) : null}
     </SafeAreaView>

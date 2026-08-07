@@ -6,6 +6,12 @@ export const PROTECTED_ROUTES = {
   home: "/(protected)/(tabs)/home" as const satisfies Href,
   campaigns: "/(protected)/(tabs)/campaigns" as const satisfies Href,
   campaignCreate: "/(protected)/campaigns/new" as const satisfies Href,
+  campaignDetail(campaignId: string) {
+    return {
+      pathname: "/(protected)/campaigns/[campaignId]",
+      params: { campaignId },
+    } as const satisfies Href;
+  },
   progress: "/(protected)/(tabs)/progress" as const satisfies Href,
   profile: "/(protected)/(tabs)/profile" as const satisfies Href,
   security: "/(protected)/security" as const satisfies Href,

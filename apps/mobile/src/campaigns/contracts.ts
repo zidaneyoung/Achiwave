@@ -1,8 +1,11 @@
 import type {
   Campaign,
+  CampaignDetail,
+  CampaignQuest,
   CampaignListItem,
   CampaignListPage,
   CampaignStatus,
+  QuestDisplayStatus,
 } from "./types";
 
 export function isObject(value: unknown): value is Record<string, unknown> {
@@ -92,5 +95,93 @@ export function parseCampaignList(value: unknown): CampaignListPage | null {
     total,
     limit,
     offset,
+  };
+}
+
+function isQuestStatus(value: unknown): value is QuestDisplayStatus {
+  return (
+    value === "active" ||
+    value === "archived" ||
+    value === "scheduled" ||
+    value === "available" ||
+    value === "completed" ||
+    value === "reversed" ||
+    value === "expired" ||
+    value === "voided"
+  );
+}
+
+function parseCampaignQuest(value: unknown): CampaignQuest | null {
+  if (!isObject(value)) return null;
+  const description = nullableString(value.description);
+  const availableFrom = nullableString(value.available_from);
+  const dueAt = nullableString(value.due_at);
+  const timezoneName = nullableString(value.timezone_name);
+  const archivedAt = nullableString(value.archived_at);
+  const restoredAt = nullableString(value.restored_at);
+  if (
+    typeof value.id !== "string" ||
+    typeof value.campaign_id !== "string" ||
+    (value.quest_type !== "one_time" && value.quest_type !== "recurring") ||
+    (value.definition_state !== "active" && value.definition_state !== "archived") ||
+    !isQuestStatus(value.status) ||
+    typeof value.title !== "string" ||
+    description === undefined ||
+    parseNonnegativeInteger(value.reward_xp) === null ||
+    parseNonnegativeInteger(value.display_order) === null ||
+    availableFrom === undefined ||
+    dueAt === undefined ||
+    timezoneName === undefined ||
+    parseNonnegativeInteger(value.record_version) === null ||
+    archivedAt === undefined ||
+    restoredAt === undefined ||
+    typeof value.created_at !== "string" ||
+    typeof value.updated_at !== "string"
+  ) {
+    return null;
+  }
+  return {
+    id: value.id,
+    campaignId: value.campaign_id,
+    questType: value.quest_type,
+    definitionState: value.definition_state,
+    status: value.status,
+    title: value.title,
+    description,
+    rewardXp: value.reward_xp as number,
+    displayOrder: value.display_order as number,
+    availableFrom,
+    dueAt,
+    timezoneName,
+    recordVersion: value.record_version as number,
+    archivedAt,
+    restoredAt,
+    createdAt: value.created_at,
+    updatedAt: value.updated_at,
+  };
+}
+
+export function parseCampaignDetail(value: unknown): CampaignDetail | null {
+  const campaign = parseCampaign(value);
+  if (!campaign || !isObject(value) || !isObject(value.quest_summary) || !Array.isArray(value.quests)) {
+    return null;
+  }
+  const active = parseNonnegativeInteger(value.quest_summary.active);
+  const archived = parseNonnegativeInteger(value.quest_summary.archived);
+  const total = parseNonnegativeInteger(value.quest_summary.total);
+  const quests = value.quests.map(parseCampaignQuest);
+  if (
+    active === null ||
+    archived === null ||
+    total === null ||
+    total !== active + archived ||
+    quests.some((quest) => quest === null)
+  ) {
+    return null;
+  }
+  return {
+    ...campaign,
+    questSummary: { active, archived, total },
+    quests: quests as CampaignQuest[],
   };
 }

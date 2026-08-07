@@ -6,7 +6,11 @@ from sqlalchemy.orm import Session
 from achiwave_backend.api.dependencies import AuthenticationDependencies
 from achiwave_backend.api.errors import ApiError, ErrorResponse
 from achiwave_backend.models import Campaign, User
+from uuid import UUID
+
 from achiwave_backend.schemas.campaigns import (
+    CampaignDetailResponse,
+    CampaignQuestResponse,
     CampaignListItemResponse,
     CampaignListResponse,
     CampaignQuestSummaryResponse,
@@ -14,6 +18,7 @@ from achiwave_backend.schemas.campaigns import (
     CreateCampaignRequest,
 )
 from achiwave_backend.services.campaigns import (
+    CampaignNotFoundError,
     CampaignService,
     ClientMutationConflictError,
 )
@@ -40,6 +45,67 @@ def create_campaigns_router(
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1/campaigns", tags=["campaigns"])
     service = CampaignService()
+
+    @router.get(
+        "/{campaign_id}",
+        response_model=CampaignDetailResponse,
+        responses={status.HTTP_404_NOT_FOUND: {"model": ErrorResponse}},
+    )
+    def get_campaign(
+        campaign_id: UUID,
+        include_archived_quests: bool = False,
+        user: User = Depends(authentication.current_user),
+        database_session: Session = Depends(authentication.database_session),
+    ) -> CampaignDetailResponse:
+        try:
+            result = service.get_detail(
+                database_session,
+                user,
+                campaign_id,
+                include_archived_quests=include_archived_quests,
+            )
+        except CampaignNotFoundError as error:
+            raise ApiError(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="campaign_not_found",
+                message="The campaign was not found.",
+            ) from error
+        active_count = sum(
+            quest.definition_state == "active" for quest, _ in result.quests
+        )
+        archived_count = sum(
+            quest.definition_state == "archived" for quest, _ in result.quests
+        )
+        return CampaignDetailResponse(
+            **campaign_response(result.campaign).model_dump(),
+            quest_summary=CampaignQuestSummaryResponse(
+                active=active_count,
+                archived=archived_count,
+                total=active_count + archived_count,
+            ),
+            quests=[
+                CampaignQuestResponse(
+                    id=quest.id,
+                    campaign_id=quest.campaign_id,
+                    quest_type=quest.quest_type,
+                    definition_state=quest.definition_state,
+                    status=quest_status,
+                    title=quest.title,
+                    description=quest.description,
+                    reward_xp=quest.reward_xp,
+                    display_order=quest.display_order,
+                    available_from=quest.available_from,
+                    due_at=quest.due_at,
+                    timezone_name=quest.one_time_timezone_name,
+                    record_version=quest.record_version,
+                    archived_at=quest.archived_at,
+                    restored_at=quest.restored_at,
+                    created_at=quest.created_at,
+                    updated_at=quest.updated_at,
+                )
+                for quest, quest_status in result.visible_quests
+            ],
+        )
 
     @router.get("", response_model=CampaignListResponse)
     def list_campaigns(

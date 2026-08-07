@@ -3,10 +3,16 @@ import json
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
-from achiwave_backend.models import Campaign, ClientMutation, Quest, User
+from achiwave_backend.models import (
+    Campaign,
+    ClientMutation,
+    Quest,
+    QuestOccurrence,
+    User,
+)
 from achiwave_backend.schemas.campaigns import CreateCampaignRequest
 
 
@@ -29,6 +35,27 @@ class CampaignListResult:
         self.offset = offset
 
 
+class CampaignNotFoundError(Exception):
+    """No owner-visible campaign matches the supplied identifier."""
+
+
+class CampaignDetailResult:
+    def __init__(
+        self,
+        campaign: Campaign,
+        quests: list[tuple[Quest, str]],
+        *,
+        include_archived_quests: bool,
+    ) -> None:
+        self.campaign = campaign
+        self.quests = quests
+        self.visible_quests = (
+            quests
+            if include_archived_quests
+            else [row for row in quests if row[0].definition_state == "active"]
+        )
+
+
 def _payload_hash(payload: dict[str, object]) -> bytes:
     canonical = json.dumps(
         payload,
@@ -48,6 +75,57 @@ def _commit(database_session: Session) -> None:
 
 
 class CampaignService:
+    def get_detail(
+        self,
+        database_session: Session,
+        current_user: User,
+        campaign_id: UUID,
+        *,
+        include_archived_quests: bool,
+    ) -> CampaignDetailResult:
+        campaign = database_session.scalar(
+            select(Campaign).where(
+                Campaign.id == campaign_id,
+                Campaign.user_id == current_user.id,
+                Campaign.deleted_at.is_(None),
+            )
+        )
+        if campaign is None:
+            raise CampaignNotFoundError
+        occurrence_state = (
+            select(QuestOccurrence.occurrence_state)
+            .where(
+                QuestOccurrence.quest_id == Quest.id,
+                QuestOccurrence.user_id == current_user.id,
+            )
+            .order_by(QuestOccurrence.generated_at.desc(), QuestOccurrence.id)
+            .limit(1)
+            .correlate(Quest)
+            .scalar_subquery()
+        )
+        product_status = case(
+            (Quest.definition_state == "archived", "archived"),
+            (Quest.quest_type == "recurring", "active"),
+            else_=func.coalesce(occurrence_state, "active"),
+        )
+        quests = [
+            (quest, str(status))
+            for quest, status in database_session.execute(
+                select(Quest, product_status)
+                .where(
+                    Quest.campaign_id == campaign.id,
+                    Quest.user_id == current_user.id,
+                    Quest.deleted_at.is_(None),
+                )
+                .order_by(Quest.display_order, Quest.id)
+            )
+        ]
+        return CampaignDetailResult(
+            campaign,
+            quests,
+            include_archived_quests=include_archived_quests,
+        )
+
     def list(
         self,
         database_session: Session,

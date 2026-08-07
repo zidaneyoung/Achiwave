@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parseCampaignList } from "./contracts.ts";
+import { parseCampaignDetail, parseCampaignList } from "./contracts.ts";
 
 const campaign = {
   id: "10000000-0000-4000-8000-000000000001",
@@ -34,4 +34,32 @@ test("campaign list parser rejects contradictory summaries", () => {
     }),
     null,
   );
+});
+
+test("campaign detail parser preserves canonical quest status", () => {
+  const parsed = parseCampaignDetail({
+    ...campaign,
+    quests: [
+      {
+        id: "20000000-0000-4000-8000-000000000002",
+        campaign_id: campaign.id,
+        quest_type: "one_time",
+        definition_state: "active",
+        status: "available",
+        title: "First quest",
+        description: null,
+        reward_xp: 10,
+        display_order: 0,
+        available_from: null,
+        due_at: null,
+        timezone_name: null,
+        record_version: 1,
+        archived_at: null,
+        restored_at: null,
+        created_at: campaign.created_at,
+        updated_at: campaign.updated_at,
+      },
+    ],
+  });
+  assert.equal(parsed?.quests[0].status, "available");
 });

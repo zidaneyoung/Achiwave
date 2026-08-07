@@ -1,8 +1,18 @@
 import * as Crypto from "expo-crypto";
 
 import { authenticationService } from "../auth/service";
-import { isObject, parseCampaign, parseCampaignList } from "./contracts";
-import type { Campaign, CampaignListPage, CampaignListView } from "./types";
+import {
+  isObject,
+  parseCampaign,
+  parseCampaignDetail,
+  parseCampaignList,
+} from "./contracts";
+import type {
+  Campaign,
+  CampaignDetail,
+  CampaignListPage,
+  CampaignListView,
+} from "./types";
 
 export type CampaignRequestErrorCode =
   | "conflict"
@@ -105,6 +115,34 @@ async function requestCampaignList(view: CampaignListView): Promise<CampaignList
   }
 }
 
+async function requestCampaignDetail(
+  campaignId: string,
+  includeArchivedQuests: boolean,
+): Promise<CampaignDetail> {
+  try {
+    const suffix = includeArchivedQuests ? "?include_archived_quests=true" : "";
+    const response = await authenticationService.request(
+      `/api/v1/campaigns/${encodeURIComponent(campaignId)}${suffix}`,
+    );
+    const body = await readJson(response);
+    if (!response.ok) throw errorFromResponse(response, body);
+    const detail = parseCampaignDetail(body);
+    if (!detail) {
+      throw new CampaignRequestError(
+        "invalid_response",
+        "Campaign data is temporarily unavailable.",
+      );
+    }
+    return detail;
+  } catch (error) {
+    if (error instanceof CampaignRequestError) throw error;
+    throw new CampaignRequestError(
+      "offline",
+      "Reconnect to refresh this campaign.",
+    );
+  }
+}
+
 export const campaignApi = {
   createMutationId(): string {
     return Crypto.randomUUID();
@@ -128,5 +166,9 @@ export const campaignApi = {
 
   list(view: CampaignListView): Promise<CampaignListPage> {
     return requestCampaignList(view);
+  },
+
+  get(campaignId: string, includeArchivedQuests = false): Promise<CampaignDetail> {
+    return requestCampaignDetail(campaignId, includeArchivedQuests);
   },
 };
