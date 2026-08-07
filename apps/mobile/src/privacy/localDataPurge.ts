@@ -1,5 +1,6 @@
 import { secureCredentialStore } from "../auth/secureCredentials";
 import { clearCachedPreferences } from "../preferences/cache";
+import { clearCachedCampaigns } from "../campaigns/cache";
 
 export interface ProtectedLocalStore {
   id: string;
@@ -40,5 +41,9 @@ export const purgeProtectedLocalData = createProtectedDataPurger([
   {
     id: "presentation_preferences",
     purge: clearCachedPreferences,
+  },
+  {
+    id: "campaigns",
+    purge: clearCachedCampaigns,
   },
 ]);

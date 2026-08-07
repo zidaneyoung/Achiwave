@@ -6,12 +6,27 @@ from uuid import UUID, uuid4
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from achiwave_backend.models import Campaign, ClientMutation, User
+from achiwave_backend.models import Campaign, ClientMutation, Quest, User
 from achiwave_backend.schemas.campaigns import CreateCampaignRequest
 
 
 class ClientMutationConflictError(Exception):
     """A mutation identifier was already bound to another canonical payload."""
+
+
+class CampaignListResult:
+    def __init__(
+        self,
+        *,
+        items: list[tuple[Campaign, int, int]],
+        total: int,
+        limit: int,
+        offset: int,
+    ) -> None:
+        self.items = items
+        self.total = total
+        self.limit = limit
+        self.offset = offset
 
 
 def _payload_hash(payload: dict[str, object]) -> bytes:
@@ -33,6 +48,74 @@ def _commit(database_session: Session) -> None:
 
 
 class CampaignService:
+    def list(
+        self,
+        database_session: Session,
+        current_user: User,
+        *,
+        view: str,
+        limit: int,
+        offset: int,
+    ) -> CampaignListResult:
+        state_filter = (
+            Campaign.campaign_state == "archived"
+            if view == "archived"
+            else Campaign.campaign_state.in_(("active", "completed"))
+        )
+        filters = (
+            Campaign.user_id == current_user.id,
+            Campaign.deleted_at.is_(None),
+            state_filter,
+        )
+        active_quests = (
+            select(func.count())
+            .select_from(Quest)
+            .where(
+                Quest.user_id == current_user.id,
+                Quest.campaign_id == Campaign.id,
+                Quest.definition_state == "active",
+                Quest.deleted_at.is_(None),
+            )
+            .correlate(Campaign)
+            .scalar_subquery()
+        )
+        archived_quests = (
+            select(func.count())
+            .select_from(Quest)
+            .where(
+                Quest.user_id == current_user.id,
+                Quest.campaign_id == Campaign.id,
+                Quest.definition_state == "archived",
+                Quest.deleted_at.is_(None),
+            )
+            .correlate(Campaign)
+            .scalar_subquery()
+        )
+        ordering = (
+            (Campaign.archived_at.desc(), Campaign.id)
+            if view == "archived"
+            else (Campaign.display_order, Campaign.id)
+        )
+        rows = database_session.execute(
+            select(Campaign, active_quests, archived_quests)
+            .where(*filters)
+            .order_by(*ordering)
+            .limit(limit)
+            .offset(offset)
+        ).all()
+        total = database_session.scalar(
+            select(func.count()).select_from(Campaign).where(*filters)
+        )
+        return CampaignListResult(
+            items=[
+                (campaign, int(active_count), int(archived_count))
+                for campaign, active_count, archived_count in rows
+            ],
+            total=int(total or 0),
+            limit=limit,
+            offset=offset,
+        )
+
     def create(
         self,
         database_session: Session,

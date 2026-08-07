@@ -46,6 +46,23 @@ class CampaignResponse(BaseModel):
     updated_at: datetime
 
 
+class CampaignQuestSummaryResponse(BaseModel):
+    active: int
+    archived: int
+    total: int
+
+
+class CampaignListItemResponse(CampaignResponse):
+    quest_summary: CampaignQuestSummaryResponse
+
+
+class CampaignListResponse(BaseModel):
+    items: list[CampaignListItemResponse]
+    total: int
+    limit: int
+    offset: int
+
+
 class CreateCampaignRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

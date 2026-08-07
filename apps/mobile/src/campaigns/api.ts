@@ -1,8 +1,8 @@
 import * as Crypto from "expo-crypto";
 
 import { authenticationService } from "../auth/service";
-import { isObject, parseCampaign } from "./contracts";
-import type { Campaign } from "./types";
+import { isObject, parseCampaign, parseCampaignList } from "./contracts";
+import type { Campaign, CampaignListPage, CampaignListView } from "./types";
 
 export type CampaignRequestErrorCode =
   | "conflict"
@@ -81,6 +81,30 @@ async function requestCampaign(path: string, init?: RequestInit): Promise<Campai
   }
 }
 
+async function requestCampaignList(view: CampaignListView): Promise<CampaignListPage> {
+  try {
+    const response = await authenticationService.request(
+      `/api/v1/campaigns?view=${view}&limit=100`,
+    );
+    const body = await readJson(response);
+    if (!response.ok) throw errorFromResponse(response, body);
+    const page = parseCampaignList(body);
+    if (!page) {
+      throw new CampaignRequestError(
+        "invalid_response",
+        "Campaign data is temporarily unavailable.",
+      );
+    }
+    return page;
+  } catch (error) {
+    if (error instanceof CampaignRequestError) throw error;
+    throw new CampaignRequestError(
+      "offline",
+      "Reconnect to refresh campaigns.",
+    );
+  }
+}
+
 export const campaignApi = {
   createMutationId(): string {
     return Crypto.randomUUID();
@@ -100,5 +124,9 @@ export const campaignApi = {
       headers: { "Content-Type": "application/json" },
       method: "POST",
     });
+  },
+
+  list(view: CampaignListView): Promise<CampaignListPage> {
+    return requestCampaignList(view);
   },
 };

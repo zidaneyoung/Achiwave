@@ -1,10 +1,15 @@
-from fastapi import APIRouter, Depends, status
+from typing import Literal
+
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from achiwave_backend.api.dependencies import AuthenticationDependencies
 from achiwave_backend.api.errors import ApiError, ErrorResponse
 from achiwave_backend.models import Campaign, User
 from achiwave_backend.schemas.campaigns import (
+    CampaignListItemResponse,
+    CampaignListResponse,
+    CampaignQuestSummaryResponse,
     CampaignResponse,
     CreateCampaignRequest,
 )
@@ -35,6 +40,38 @@ def create_campaigns_router(
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1/campaigns", tags=["campaigns"])
     service = CampaignService()
+
+    @router.get("", response_model=CampaignListResponse)
+    def list_campaigns(
+        view: Literal["active", "archived"] = "active",
+        limit: int = Query(default=50, ge=1, le=100),
+        offset: int = Query(default=0, ge=0),
+        user: User = Depends(authentication.current_user),
+        database_session: Session = Depends(authentication.database_session),
+    ) -> CampaignListResponse:
+        result = service.list(
+            database_session,
+            user,
+            view=view,
+            limit=limit,
+            offset=offset,
+        )
+        return CampaignListResponse(
+            items=[
+                CampaignListItemResponse(
+                    **campaign_response(campaign).model_dump(),
+                    quest_summary=CampaignQuestSummaryResponse(
+                        active=active_count,
+                        archived=archived_count,
+                        total=active_count + archived_count,
+                    ),
+                )
+                for campaign, active_count, archived_count in result.items
+            ],
+            total=result.total,
+            limit=result.limit,
+            offset=result.offset,
+        )
 
     @router.post(
         "",
