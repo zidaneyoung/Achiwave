@@ -343,6 +343,7 @@ class QuestService:
             {
                 "quest_id": str(quest.id),
                 "record_version": request.record_version,
+                "description": request.description if "description" in fields else "<omitted>",
                 "reward_xp": request.reward_xp if "reward_xp" in fields else "<omitted>",
                 "title": request.title if "title" in fields else "<omitted>",
             }
@@ -369,6 +370,9 @@ class QuestService:
         changed = False
         if "title" in fields and quest.title != request.title:
             quest.title = request.title or quest.title
+            changed = True
+        if "description" in fields and quest.description != request.description:
+            quest.description = request.description
             changed = True
         if "reward_xp" in fields and quest.reward_xp != request.reward_xp:
             quest.reward_xp = request.reward_xp if request.reward_xp is not None else quest.reward_xp
@@ -428,6 +432,7 @@ class QuestService:
             {
                 "campaign_id": str(campaign_id),
                 "campaign_record_version": request.campaign_record_version,
+                "description": request.description,
                 "reward_xp": request.reward_xp,
                 "title": request.title,
             }
@@ -487,6 +492,7 @@ class QuestService:
             campaign_id=campaign.id,
             quest_type="one_time",
             title=request.title,
+            description=request.description,
             reward_xp=request.reward_xp,
             display_order=int(display_order or 0),
         )

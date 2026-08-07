@@ -63,6 +63,7 @@ export const questApi = {
     campaignId: string;
     campaignRecordVersion: number;
     title: string;
+    description: string | null;
     rewardXp: number;
     clientMutationId: string;
   }): Promise<Quest> {
@@ -71,6 +72,7 @@ export const questApi = {
       {
         body: JSON.stringify({
           title: input.title,
+          description: input.description,
           reward_xp: input.rewardXp,
           campaign_record_version: input.campaignRecordVersion,
           client_mutation_id: input.clientMutationId,
@@ -89,6 +91,7 @@ export const questApi = {
     questId: string,
     input: {
       title: string;
+      description: string | null;
       rewardXp: number;
       recordVersion: number;
       clientMutationId: string;
@@ -97,6 +100,7 @@ export const questApi = {
     return requestQuest(`/api/v1/quests/${encodeURIComponent(questId)}`, {
       body: JSON.stringify({
         title: input.title,
+        description: input.description,
         reward_xp: input.rewardXp,
         record_version: input.recordVersion,
         client_mutation_id: input.clientMutationId,

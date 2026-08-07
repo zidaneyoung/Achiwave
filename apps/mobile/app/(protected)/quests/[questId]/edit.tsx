@@ -20,24 +20,26 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 
 function QuestEditForm({ quest, ownerId, onSaved }: { quest: Quest; ownerId: string; onSaved: (quest: Quest) => void }) {
   const [title, setTitle] = useState(quest.title);
+  const [description, setDescription] = useState(quest.description ?? "");
   const [reward, setReward] = useState(String(quest.rewardXp));
   const [attempted, setAttempted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [staleCurrent, setStaleCurrent] = useState<Quest | null>(null);
   const identity = useRef<{ payload: string; mutationId: string } | null>(null);
-  const validation = validateOneTimeQuestForm(title, reward);
+  const validation = validateOneTimeQuestForm(title, reward, description);
 
   async function submit() {
     setAttempted(true);
     setSubmissionError(null);
-    if (validation.titleError || validation.rewardError || submitting || staleCurrent) return;
-    const payload = JSON.stringify({ title: validation.title, rewardXp: validation.rewardXp, version: quest.recordVersion });
+    if (validation.titleError || validation.rewardError || validation.descriptionError || submitting || staleCurrent) return;
+    const payload = JSON.stringify({ title: validation.title, description: validation.description, rewardXp: validation.rewardXp, version: quest.recordVersion });
     if (identity.current?.payload !== payload) identity.current = { payload, mutationId: questApi.createMutationId() };
     setSubmitting(true);
     try {
       const updated = await questApi.update(quest.id, {
         title: validation.title,
+        description: validation.description,
         rewardXp: validation.rewardXp,
         recordVersion: quest.recordVersion,
         clientMutationId: identity.current.mutationId,
@@ -61,6 +63,18 @@ function QuestEditForm({ quest, ownerId, onSaved }: { quest: Quest; ownerId: str
       <AppText tone="muted">Generated occurrence snapshots never change. This occurrence remains {quest.occurrence?.rewardXp ?? 0} XP.</AppText>
       <View style={styles.fields}>
         <AppTextField editable={!submitting && !staleCurrent} errorText={attempted ? validation.titleError ?? undefined : undefined} label="Title" maxLength={121} onChangeText={setTitle} required value={title} />
+        <AppTextField
+          editable={!submitting && !staleCurrent}
+          errorText={attempted ? validation.descriptionError ?? undefined : undefined}
+          helperText="Optional planning context. It is not completion evidence."
+          label="Description"
+          maxLength={4_001}
+          multiline
+          numberOfLines={5}
+          onChangeText={setDescription}
+          textAlignVertical="top"
+          value={description}
+        />
         <AppTextField editable={!submitting && !staleCurrent} errorText={attempted ? validation.rewardError ?? undefined : undefined} keyboardType="number-pad" label="Configured XP reward" onChangeText={setReward} required value={reward} />
       </View>
       {submissionError ? (

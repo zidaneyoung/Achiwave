@@ -6,6 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 QUEST_TITLE_MAX_LENGTH = 120
+QUEST_DESCRIPTION_MAX_LENGTH = 4_000
 
 
 def _trimmed_quest_title(value: str) -> str:
@@ -16,26 +17,43 @@ def _trimmed_quest_title(value: str) -> str:
     return normalized
 
 
+def _trimmed_quest_description(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    has_control = any(
+        unicodedata.category(character) == "Cc" and character not in {"\n", "\t"}
+        for character in normalized
+    )
+    if not normalized or has_control:
+        raise ValueError("Quest description is invalid.")
+    return normalized
+
+
 class CreateOneTimeQuestRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     title: str = Field(min_length=1, max_length=QUEST_TITLE_MAX_LENGTH)
+    description: str | None = Field(default=None, max_length=QUEST_DESCRIPTION_MAX_LENGTH)
     reward_xp: int = Field(default=0, ge=0, le=2_147_483_647)
     campaign_record_version: int = Field(ge=1)
     client_mutation_id: UUID
 
     _validate_title = field_validator("title")(_trimmed_quest_title)
+    _validate_description = field_validator("description")(_trimmed_quest_description)
 
 
 class UpdateOneTimeQuestRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     title: str | None = Field(default=None, min_length=1, max_length=QUEST_TITLE_MAX_LENGTH)
+    description: str | None = Field(default=None, max_length=QUEST_DESCRIPTION_MAX_LENGTH)
     reward_xp: int | None = Field(default=None, ge=0, le=2_147_483_647)
     record_version: int = Field(ge=1)
     client_mutation_id: UUID
 
     _validate_title = field_validator("title")(_trimmed_quest_title)
+    _validate_description = field_validator("description")(_trimmed_quest_description)
 
     @model_validator(mode="after")
     def require_edit(self) -> "UpdateOneTimeQuestRequest":

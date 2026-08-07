@@ -22,18 +22,19 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 function QuestForm({ campaign, ownerId }: { campaign: CampaignDetail; ownerId: string }) {
   const router = useRouter();
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [reward, setReward] = useState("0");
   const [attempted, setAttempted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const submissionIdentity = useRef<{ payload: string; mutationId: string } | null>(null);
-  const validation = validateOneTimeQuestForm(title, reward);
+  const validation = validateOneTimeQuestForm(title, reward, description);
 
   async function submit() {
     setAttempted(true);
     setSubmissionError(null);
-    if (validation.titleError || validation.rewardError || submitting) return;
-    const payload = JSON.stringify({ title: validation.title, rewardXp: validation.rewardXp, version: campaign.recordVersion });
+    if (validation.titleError || validation.rewardError || validation.descriptionError || submitting) return;
+    const payload = JSON.stringify({ title: validation.title, description: validation.description, rewardXp: validation.rewardXp, version: campaign.recordVersion });
     if (submissionIdentity.current?.payload !== payload) {
       submissionIdentity.current = { payload, mutationId: questApi.createMutationId() };
     }
@@ -43,6 +44,7 @@ function QuestForm({ campaign, ownerId }: { campaign: CampaignDetail; ownerId: s
         campaignId: campaign.id,
         campaignRecordVersion: campaign.recordVersion,
         title: validation.title,
+        description: validation.description,
         rewardXp: validation.rewardXp,
         clientMutationId: submissionIdentity.current.mutationId,
       });
@@ -71,6 +73,18 @@ function QuestForm({ campaign, ownerId }: { campaign: CampaignDetail; ownerId: s
           onChangeText={setTitle}
           required
           value={title}
+        />
+        <AppTextField
+          editable={!submitting}
+          errorText={attempted ? validation.descriptionError ?? undefined : undefined}
+          helperText="Optional planning context. It is not completion evidence."
+          label="Description"
+          maxLength={4_001}
+          multiline
+          numberOfLines={5}
+          onChangeText={setDescription}
+          textAlignVertical="top"
+          value={description}
         />
         <AppTextField
           editable={!submitting}
