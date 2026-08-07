@@ -2,6 +2,7 @@ import hashlib
 import json
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
@@ -11,6 +12,7 @@ from achiwave_backend.models import (
     ClientMutation,
     Quest,
     QuestOccurrence,
+    QuestRecurrence,
     ProgressEvent,
     User,
 )
@@ -42,6 +44,10 @@ class CampaignListResult:
 
 class CampaignNotFoundError(Exception):
     """No owner-visible campaign matches the supplied identifier."""
+
+
+class InvalidCampaignStructureError(Exception):
+    """A campaign cannot be restored because its obligations are inconsistent."""
 
 
 class StaleCampaignVersionError(Exception):
@@ -84,7 +90,160 @@ def _commit(database_session: Session) -> None:
         raise
 
 
+def _derived_campaign_state(
+    database_session: Session,
+    campaign: Campaign,
+    now: datetime,
+) -> str:
+    quests = database_session.scalars(
+        select(Quest).where(
+            Quest.campaign_id == campaign.id,
+            Quest.user_id == campaign.user_id,
+            Quest.definition_state == "active",
+            Quest.deleted_at.is_(None),
+        )
+    ).all()
+    if not quests:
+        return "active"
+
+    for quest in quests:
+        occurrences = database_session.scalars(
+            select(QuestOccurrence).where(
+                QuestOccurrence.quest_id == quest.id,
+                QuestOccurrence.user_id == campaign.user_id,
+            )
+        ).all()
+        if quest.quest_type == "one_time":
+            if len(occurrences) != 1:
+                raise InvalidCampaignStructureError
+            if occurrences[0].occurrence_state != "completed":
+                return "active"
+            continue
+
+        recurrence = database_session.get(QuestRecurrence, quest.id)
+        if recurrence is None:
+            raise InvalidCampaignStructureError
+        if recurrence.end_local_date is None and recurrence.max_occurrences is None:
+            return "active"
+        if any(
+            occurrence.occurrence_state not in {"completed", "voided"}
+            for occurrence in occurrences
+        ):
+            return "active"
+        if recurrence.max_occurrences is not None:
+            if len(occurrences) < recurrence.max_occurrences:
+                return "active"
+            continue
+        try:
+            local_date = now.astimezone(ZoneInfo(recurrence.timezone_name)).date()
+        except ZoneInfoNotFoundError as error:
+            raise InvalidCampaignStructureError from error
+        if recurrence.end_local_date is None or local_date <= recurrence.end_local_date:
+            return "active"
+    return "completed"
+
+
 class CampaignService:
+    def restore(
+        self,
+        database_session: Session,
+        current_user: User,
+        campaign_id: UUID,
+        request: CampaignTransitionRequest,
+    ) -> Campaign:
+        user = database_session.scalar(
+            select(User).where(User.id == current_user.id).with_for_update()
+        )
+        if user is None:
+            raise RuntimeError("Authenticated user record is missing.")
+        campaign = database_session.scalar(
+            select(Campaign)
+            .where(
+                Campaign.id == campaign_id,
+                Campaign.user_id == user.id,
+                Campaign.deleted_at.is_(None),
+            )
+            .with_for_update()
+        )
+        if campaign is None:
+            raise CampaignNotFoundError
+        payload_hash = _payload_hash(
+            {
+                "campaign_id": str(campaign.id),
+                "record_version": request.record_version,
+            }
+        )
+        existing_mutation = database_session.scalar(
+            select(ClientMutation).where(
+                ClientMutation.user_id == user.id,
+                ClientMutation.client_mutation_id == request.client_mutation_id,
+            )
+        )
+        if existing_mutation is not None:
+            if (
+                existing_mutation.operation_type != "campaign_restore"
+                or existing_mutation.target_id != campaign.id
+                or existing_mutation.payload_hash != payload_hash
+                or existing_mutation.result_id != campaign.id
+            ):
+                raise ClientMutationConflictError
+            return campaign
+        if campaign.record_version != request.record_version:
+            raise StaleCampaignVersionError(campaign)
+
+        now = datetime.now(UTC)
+        restored_state = (
+            _derived_campaign_state(database_session, campaign, now)
+            if campaign.campaign_state == "archived"
+            else campaign.campaign_state
+        )
+        mutation = ClientMutation(
+            id=uuid4(),
+            user_id=user.id,
+            client_mutation_id=request.client_mutation_id,
+            operation_type="campaign_restore",
+            payload_hash=payload_hash,
+            target_type="campaign",
+            target_id=campaign.id,
+            processing_status="succeeded",
+            result_type="campaign",
+            result_id=campaign.id,
+            processed_at=now,
+            updated_at=now,
+        )
+        database_session.add(mutation)
+        if campaign.campaign_state == "archived":
+            campaign.campaign_state = restored_state
+            campaign.restored_at = now
+            campaign.record_version += 1
+            campaign.updated_at = now
+            if restored_state == "completed" and campaign.completed_at is None:
+                campaign.completed_at = now
+                campaign.completion_reason = "restored_satisfied"
+            event_sequence = user.next_event_sequence
+            user.next_event_sequence += 1
+            user.updated_at = now
+            database_session.add(
+                ProgressEvent(
+                    id=uuid4(),
+                    user_id=user.id,
+                    event_sequence=event_sequence,
+                    event_type="campaign_restored",
+                    source_type="client_mutation",
+                    source_id=mutation.id,
+                    client_mutation_id=request.client_mutation_id,
+                    server_received_at=now,
+                    server_processed_at=now,
+                    rule_version=1,
+                    event_metadata={
+                        "campaign_id": str(campaign.id),
+                        "restored_state": restored_state,
+                    },
+                )
+            )
+        _commit(database_session)
+        return campaign
+
     def archive(
         self,
         database_session: Session,

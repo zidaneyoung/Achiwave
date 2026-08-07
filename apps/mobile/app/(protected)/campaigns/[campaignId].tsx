@@ -69,6 +69,9 @@ export default function CampaignDetailRoute() {
   const [archiving, setArchiving] = useState(false);
   const [archiveError, setArchiveError] = useState<string | null>(null);
   const archiveMutationId = useRef<string | null>(null);
+  const [restoring, setRestoring] = useState(false);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
+  const restoreMutationId = useRef<string | null>(null);
   const requestSequence = useRef(0);
 
   const load = useCallback(async () => {
@@ -191,11 +194,45 @@ export default function CampaignDetailRoute() {
                   }}
                   variant="destructive"
                 />
-              ) : null}
+              ) : (
+                <AppButton
+                  label="Restore campaign"
+                  loading={restoring}
+                  onPress={() => {
+                    if (restoring) return;
+                    restoreMutationId.current ??= campaignApi.createMutationId();
+                    setRestoring(true);
+                    setRestoreError(null);
+                    void campaignApi
+                      .restore(detail.id, detail.recordVersion, restoreMutationId.current)
+                      .then(() => {
+                        AccessibilityInfo.announceForAccessibility("Campaign restored.");
+                        invalidateCachedCampaign(ownerId, detail.id);
+                        router.replace(PROTECTED_ROUTES.campaigns);
+                      })
+                      .catch((caught) => {
+                        const message =
+                          caught instanceof CampaignRequestError
+                            ? caught.message
+                            : "The campaign could not be restored.";
+                        setRestoreError(message);
+                        AccessibilityInfo.announceForAccessibility(message);
+                      })
+                      .finally(() => setRestoring(false));
+                  }}
+                  variant="primary"
+                />
+              )}
               {archiveError ? (
                 <View style={styles.footer}>
                   <ErrorState kind="inline" />
                   <AppText accessibilityLiveRegion="assertive" tone="error">{archiveError}</AppText>
+                </View>
+              ) : null}
+              {restoreError ? (
+                <View style={styles.footer}>
+                  <ErrorState kind="inline" />
+                  <AppText accessibilityLiveRegion="assertive" tone="error">{restoreError}</AppText>
                 </View>
               ) : null}
               <AppText accessibilityRole="header" variant="heading2">Quests</AppText>

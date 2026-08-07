@@ -1,4 +1,5 @@
 from typing import Literal
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
@@ -6,7 +7,6 @@ from sqlalchemy.orm import Session
 from achiwave_backend.api.dependencies import AuthenticationDependencies
 from achiwave_backend.api.errors import ApiError, ErrorResponse
 from achiwave_backend.models import Campaign, User
-from uuid import UUID
 
 from achiwave_backend.schemas.campaigns import (
     CampaignDetailResponse,
@@ -24,6 +24,7 @@ from achiwave_backend.services.campaigns import (
     CampaignNotFoundError,
     CampaignService,
     ClientMutationConflictError,
+    InvalidCampaignStructureError,
     StaleCampaignVersionError,
 )
 
@@ -49,6 +50,51 @@ def create_campaigns_router(
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1/campaigns", tags=["campaigns"])
     service = CampaignService()
+
+    @router.post(
+        "/{campaign_id}/restore",
+        response_model=CampaignResponse,
+        responses={
+            status.HTTP_404_NOT_FOUND: {"model": ErrorResponse},
+            status.HTTP_409_CONFLICT: {"model": CampaignConflictResponse},
+        },
+    )
+    def restore_campaign(
+        campaign_id: UUID,
+        request: CampaignTransitionRequest,
+        user: User = Depends(authentication.current_user),
+        database_session: Session = Depends(authentication.database_session),
+    ) -> CampaignResponse:
+        try:
+            campaign = service.restore(database_session, user, campaign_id, request)
+        except CampaignNotFoundError as error:
+            raise ApiError(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="campaign_not_found",
+                message="The campaign was not found.",
+            ) from error
+        except InvalidCampaignStructureError as error:
+            raise ApiError(
+                status_code=status.HTTP_409_CONFLICT,
+                code="campaign_restore_invalid",
+                message="The campaign has invalid quest data and cannot be restored.",
+            ) from error
+        except StaleCampaignVersionError as error:
+            raise ApiError(
+                status_code=status.HTTP_409_CONFLICT,
+                code="stale_record_version",
+                message="The campaign changed before restoration was applied.",
+                details={
+                    "current": campaign_response(error.campaign).model_dump(mode="json")
+                },
+            ) from error
+        except ClientMutationConflictError as error:
+            raise ApiError(
+                status_code=status.HTTP_409_CONFLICT,
+                code="client_mutation_conflict",
+                message="This request identifier was already used for another action.",
+            ) from error
+        return campaign_response(campaign)
 
     @router.post(
         "/{campaign_id}/archive",
