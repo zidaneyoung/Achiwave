@@ -189,6 +189,24 @@ export const campaignApi = {
     });
   },
 
+  archive(
+    campaignId: string,
+    recordVersion: number,
+    clientMutationId: string,
+  ): Promise<Campaign> {
+    return requestCampaign(
+      `/api/v1/campaigns/${encodeURIComponent(campaignId)}/archive`,
+      {
+        body: JSON.stringify({
+          record_version: recordVersion,
+          client_mutation_id: clientMutationId,
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      },
+    );
+  },
+
   list(view: CampaignListView): Promise<CampaignListPage> {
     return requestCampaignList(view);
   },

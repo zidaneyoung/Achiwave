@@ -51,6 +51,20 @@ export function setCachedCampaignDetail(
   ownerCampaignDetails.set(ownerId, ownerDetails);
 }
 
+export function invalidateCachedCampaign(
+  ownerId: string,
+  campaignId: string,
+): void {
+  const lists = ownerCampaigns.get(ownerId);
+  if (lists) {
+    ownerCampaigns.set(ownerId, {
+      active: lists.active?.filter((campaign) => campaign.id !== campaignId),
+      archived: undefined,
+    });
+  }
+  ownerCampaignDetails.get(ownerId)?.delete(campaignId);
+}
+
 export async function clearCachedCampaigns(): Promise<void> {
   ownerCampaigns.clear();
   ownerCampaignDetails.clear();

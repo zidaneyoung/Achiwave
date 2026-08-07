@@ -134,3 +134,10 @@ class CampaignConflictResponse(BaseModel):
     code: str
     message: str
     current: CampaignResponse
+
+
+class CampaignTransitionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    record_version: int = Field(ge=1)
+    client_mutation_id: UUID

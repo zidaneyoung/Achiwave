@@ -11,9 +11,11 @@ from achiwave_backend.models import (
     ClientMutation,
     Quest,
     QuestOccurrence,
+    ProgressEvent,
     User,
 )
 from achiwave_backend.schemas.campaigns import (
+    CampaignTransitionRequest,
     CreateCampaignRequest,
     UpdateCampaignRequest,
 )
@@ -83,6 +85,99 @@ def _commit(database_session: Session) -> None:
 
 
 class CampaignService:
+    def archive(
+        self,
+        database_session: Session,
+        current_user: User,
+        campaign_id: UUID,
+        request: CampaignTransitionRequest,
+    ) -> Campaign:
+        user = database_session.scalar(
+            select(User).where(User.id == current_user.id).with_for_update()
+        )
+        if user is None:
+            raise RuntimeError("Authenticated user record is missing.")
+        campaign = database_session.scalar(
+            select(Campaign)
+            .where(
+                Campaign.id == campaign_id,
+                Campaign.user_id == user.id,
+                Campaign.deleted_at.is_(None),
+            )
+            .with_for_update()
+        )
+        if campaign is None:
+            raise CampaignNotFoundError
+        payload_hash = _payload_hash(
+            {
+                "campaign_id": str(campaign.id),
+                "record_version": request.record_version,
+            }
+        )
+        existing_mutation = database_session.scalar(
+            select(ClientMutation).where(
+                ClientMutation.user_id == user.id,
+                ClientMutation.client_mutation_id == request.client_mutation_id,
+            )
+        )
+        if existing_mutation is not None:
+            if (
+                existing_mutation.operation_type != "campaign_archive"
+                or existing_mutation.target_id != campaign.id
+                or existing_mutation.payload_hash != payload_hash
+                or existing_mutation.result_id != campaign.id
+            ):
+                raise ClientMutationConflictError
+            return campaign
+        if campaign.record_version != request.record_version:
+            raise StaleCampaignVersionError(campaign)
+
+        now = datetime.now(UTC)
+        mutation = ClientMutation(
+            id=uuid4(),
+            user_id=user.id,
+            client_mutation_id=request.client_mutation_id,
+            operation_type="campaign_archive",
+            payload_hash=payload_hash,
+            target_type="campaign",
+            target_id=campaign.id,
+            processing_status="succeeded",
+            result_type="campaign",
+            result_id=campaign.id,
+            processed_at=now,
+            updated_at=now,
+        )
+        database_session.add(mutation)
+        if campaign.campaign_state != "archived":
+            previous_state = campaign.campaign_state
+            campaign.campaign_state = "archived"
+            campaign.archived_at = now
+            campaign.record_version += 1
+            campaign.updated_at = now
+            event_sequence = user.next_event_sequence
+            user.next_event_sequence += 1
+            user.updated_at = now
+            database_session.add(
+                ProgressEvent(
+                    id=uuid4(),
+                    user_id=user.id,
+                    event_sequence=event_sequence,
+                    event_type="campaign_archived",
+                    source_type="client_mutation",
+                    source_id=mutation.id,
+                    client_mutation_id=request.client_mutation_id,
+                    server_received_at=now,
+                    server_processed_at=now,
+                    rule_version=1,
+                    event_metadata={
+                        "campaign_id": str(campaign.id),
+                        "previous_state": previous_state,
+                    },
+                )
+            )
+        _commit(database_session)
+        return campaign
+
     def update(
         self,
         database_session: Session,

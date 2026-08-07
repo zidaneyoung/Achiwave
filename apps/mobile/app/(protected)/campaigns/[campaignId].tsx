@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { FlatList, StyleSheet, View } from "react-native";
+import { AccessibilityInfo, FlatList, StyleSheet, View } from "react-native";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -7,6 +7,7 @@ import { useAuthentication } from "../../../src/auth/AuthContext";
 import { campaignApi, CampaignRequestError } from "../../../src/campaigns/api";
 import {
   getCachedCampaignDetail,
+  invalidateCachedCampaign,
   setCachedCampaignDetail,
 } from "../../../src/campaigns/cache";
 import type {
@@ -65,6 +66,9 @@ export default function CampaignDetailRoute() {
   );
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [archiving, setArchiving] = useState(false);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
+  const archiveMutationId = useRef<string | null>(null);
   const requestSequence = useRef(0);
 
   const load = useCallback(async () => {
@@ -159,6 +163,41 @@ export default function CampaignDetailRoute() {
                 }}
                 variant="secondary"
               />
+              {detail.status !== "archived" ? (
+                <AppButton
+                  label="Archive campaign"
+                  loading={archiving}
+                  onPress={() => {
+                    if (archiving) return;
+                    archiveMutationId.current ??= campaignApi.createMutationId();
+                    setArchiving(true);
+                    setArchiveError(null);
+                    void campaignApi
+                      .archive(detail.id, detail.recordVersion, archiveMutationId.current)
+                      .then(() => {
+                        AccessibilityInfo.announceForAccessibility("Campaign archived.");
+                        invalidateCachedCampaign(ownerId, detail.id);
+                        router.replace(PROTECTED_ROUTES.campaigns);
+                      })
+                      .catch((caught) => {
+                        const message =
+                          caught instanceof CampaignRequestError
+                            ? caught.message
+                            : "The campaign could not be archived.";
+                        setArchiveError(message);
+                        AccessibilityInfo.announceForAccessibility(message);
+                      })
+                      .finally(() => setArchiving(false));
+                  }}
+                  variant="destructive"
+                />
+              ) : null}
+              {archiveError ? (
+                <View style={styles.footer}>
+                  <ErrorState kind="inline" />
+                  <AppText accessibilityLiveRegion="assertive" tone="error">{archiveError}</AppText>
+                </View>
+              ) : null}
               <AppText accessibilityRole="header" variant="heading2">Quests</AppText>
             </View>
           }

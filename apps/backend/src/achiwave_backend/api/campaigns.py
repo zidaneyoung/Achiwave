@@ -16,6 +16,7 @@ from achiwave_backend.schemas.campaigns import (
     CampaignListResponse,
     CampaignQuestSummaryResponse,
     CampaignResponse,
+    CampaignTransitionRequest,
     CreateCampaignRequest,
     UpdateCampaignRequest,
 )
@@ -48,6 +49,45 @@ def create_campaigns_router(
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1/campaigns", tags=["campaigns"])
     service = CampaignService()
+
+    @router.post(
+        "/{campaign_id}/archive",
+        response_model=CampaignResponse,
+        responses={
+            status.HTTP_404_NOT_FOUND: {"model": ErrorResponse},
+            status.HTTP_409_CONFLICT: {"model": CampaignConflictResponse},
+        },
+    )
+    def archive_campaign(
+        campaign_id: UUID,
+        request: CampaignTransitionRequest,
+        user: User = Depends(authentication.current_user),
+        database_session: Session = Depends(authentication.database_session),
+    ) -> CampaignResponse:
+        try:
+            campaign = service.archive(database_session, user, campaign_id, request)
+        except CampaignNotFoundError as error:
+            raise ApiError(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="campaign_not_found",
+                message="The campaign was not found.",
+            ) from error
+        except StaleCampaignVersionError as error:
+            raise ApiError(
+                status_code=status.HTTP_409_CONFLICT,
+                code="stale_record_version",
+                message="The campaign changed before archival was applied.",
+                details={
+                    "current": campaign_response(error.campaign).model_dump(mode="json")
+                },
+            ) from error
+        except ClientMutationConflictError as error:
+            raise ApiError(
+                status_code=status.HTTP_409_CONFLICT,
+                code="client_mutation_conflict",
+                message="This request identifier was already used for another action.",
+            ) from error
+        return campaign_response(campaign)
 
     @router.patch(
         "/{campaign_id}",
