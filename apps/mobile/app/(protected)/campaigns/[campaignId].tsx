@@ -236,6 +236,13 @@ export default function CampaignDetailRoute() {
                 </View>
               ) : null}
               <AppText accessibilityRole="header" variant="heading2">Quests</AppText>
+              {detail.status === "active" ? (
+                <AppButton
+                  icon="plus"
+                  label="Create one-time quest"
+                  onPress={() => router.push(PROTECTED_ROUTES.questCreate(detail.id))}
+                />
+              ) : null}
             </View>
           }
           ListEmptyComponent={

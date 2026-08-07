@@ -65,6 +65,7 @@ export default function ProtectedLayout() {
       <Stack.Screen name="campaigns/new" options={{ title: "Create campaign" }} />
       <Stack.Screen name="campaigns/[campaignId]" options={{ title: "Campaign" }} />
       <Stack.Screen name="campaigns/[campaignId]/edit" options={{ title: "Edit campaign" }} />
+      <Stack.Screen name="campaigns/[campaignId]/quests/new" options={{ title: "Create quest" }} />
     </Stack>
   );
 }
