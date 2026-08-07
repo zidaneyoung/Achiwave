@@ -13,7 +13,10 @@ from achiwave_backend.models import (
     QuestOccurrence,
     User,
 )
-from achiwave_backend.schemas.campaigns import CreateCampaignRequest
+from achiwave_backend.schemas.campaigns import (
+    CreateCampaignRequest,
+    UpdateCampaignRequest,
+)
 
 
 class ClientMutationConflictError(Exception):
@@ -37,6 +40,11 @@ class CampaignListResult:
 
 class CampaignNotFoundError(Exception):
     """No owner-visible campaign matches the supplied identifier."""
+
+
+class StaleCampaignVersionError(Exception):
+    def __init__(self, campaign: Campaign) -> None:
+        self.campaign = campaign
 
 
 class CampaignDetailResult:
@@ -75,6 +83,86 @@ def _commit(database_session: Session) -> None:
 
 
 class CampaignService:
+    def update(
+        self,
+        database_session: Session,
+        current_user: User,
+        campaign_id: UUID,
+        request: UpdateCampaignRequest,
+    ) -> Campaign:
+        user = database_session.scalar(
+            select(User).where(User.id == current_user.id).with_for_update()
+        )
+        if user is None:
+            raise RuntimeError("Authenticated user record is missing.")
+        campaign = database_session.scalar(
+            select(Campaign)
+            .where(
+                Campaign.id == campaign_id,
+                Campaign.user_id == user.id,
+                Campaign.deleted_at.is_(None),
+            )
+            .with_for_update()
+        )
+        if campaign is None:
+            raise CampaignNotFoundError
+        fields = request.model_fields_set - {"record_version", "client_mutation_id"}
+        payload_hash = _payload_hash(
+            {
+                "campaign_id": str(campaign_id),
+                "description": request.description if "description" in fields else "<omitted>",
+                "record_version": request.record_version,
+                "title": request.title if "title" in fields else "<omitted>",
+            }
+        )
+        existing_mutation = database_session.scalar(
+            select(ClientMutation).where(
+                ClientMutation.user_id == user.id,
+                ClientMutation.client_mutation_id == request.client_mutation_id,
+            )
+        )
+        if existing_mutation is not None:
+            if (
+                existing_mutation.operation_type != "campaign_update"
+                or existing_mutation.target_id != campaign.id
+                or existing_mutation.payload_hash != payload_hash
+                or existing_mutation.result_id != campaign.id
+            ):
+                raise ClientMutationConflictError
+            return campaign
+        if campaign.record_version != request.record_version:
+            raise StaleCampaignVersionError(campaign)
+
+        changed = False
+        if "title" in fields and campaign.title != request.title:
+            campaign.title = request.title or campaign.title
+            changed = True
+        if "description" in fields and campaign.description != request.description:
+            campaign.description = request.description
+            changed = True
+        now = datetime.now(UTC)
+        if changed:
+            campaign.record_version += 1
+            campaign.updated_at = now
+        database_session.add(
+            ClientMutation(
+                id=uuid4(),
+                user_id=user.id,
+                client_mutation_id=request.client_mutation_id,
+                operation_type="campaign_update",
+                payload_hash=payload_hash,
+                target_type="campaign",
+                target_id=campaign.id,
+                processing_status="succeeded",
+                result_type="campaign",
+                result_id=campaign.id,
+                processed_at=now,
+                updated_at=now,
+            )
+        )
+        _commit(database_session)
+        return campaign
+
     def get_detail(
         self,
         database_session: Session,

@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 CAMPAIGN_TITLE_MAX_LENGTH = 120
 CAMPAIGN_DESCRIPTION_MAX_LENGTH = 4_000
@@ -109,3 +109,28 @@ class CreateCampaignRequest(BaseModel):
 
     _validate_title = field_validator("title")(_trimmed_title)
     _validate_description = field_validator("description")(_trimmed_description)
+
+
+class UpdateCampaignRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    title: str | None = Field(default=None, min_length=1, max_length=CAMPAIGN_TITLE_MAX_LENGTH)
+    description: str | None = Field(default=None, max_length=CAMPAIGN_DESCRIPTION_MAX_LENGTH)
+    record_version: int = Field(ge=1)
+    client_mutation_id: UUID
+
+    _validate_title = field_validator("title")(_trimmed_title)
+    _validate_description = field_validator("description")(_trimmed_description)
+
+    @model_validator(mode="after")
+    def require_content_update(self) -> "UpdateCampaignRequest":
+        update_fields = self.model_fields_set - {"record_version", "client_mutation_id"}
+        if not update_fields or ("title" in update_fields and self.title is None):
+            raise ValueError("At least one supported campaign field is required.")
+        return self
+
+
+class CampaignConflictResponse(BaseModel):
+    code: str
+    message: str
+    current: CampaignResponse

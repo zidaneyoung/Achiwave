@@ -26,6 +26,7 @@ export class CampaignRequestError extends Error {
   constructor(
     public readonly code: CampaignRequestErrorCode,
     message: string,
+    public readonly currentCampaign: Campaign | null = null,
   ) {
     super(message);
     this.name = "CampaignRequestError";
@@ -43,11 +44,14 @@ async function readJson(response: Response): Promise<unknown> {
 function errorFromResponse(response: Response, body: unknown): CampaignRequestError {
   const code = isObject(body) && typeof body.code === "string" ? body.code : null;
   if (response.status === 409) {
+    const currentCampaign =
+      isObject(body) && "current" in body ? parseCampaign(body.current) : null;
     return new CampaignRequestError(
       "conflict",
       code === "client_mutation_conflict"
         ? "This submission was already used for different campaign details."
         : "Campaign data changed elsewhere. Refresh before trying again.",
+      currentCampaign,
     );
   }
   if (response.status === 404) {
@@ -161,6 +165,27 @@ export const campaignApi = {
       }),
       headers: { "Content-Type": "application/json" },
       method: "POST",
+    });
+  },
+
+  update(
+    campaignId: string,
+    input: {
+      title: string;
+      description: string | null;
+      recordVersion: number;
+      clientMutationId: string;
+    },
+  ): Promise<Campaign> {
+    return requestCampaign(`/api/v1/campaigns/${encodeURIComponent(campaignId)}`, {
+      body: JSON.stringify({
+        title: input.title,
+        description: input.description,
+        record_version: input.recordVersion,
+        client_mutation_id: input.clientMutationId,
+      }),
+      headers: { "Content-Type": "application/json" },
+      method: "PATCH",
     });
   },
 

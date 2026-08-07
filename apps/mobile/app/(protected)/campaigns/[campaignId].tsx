@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { FlatList, StyleSheet, View } from "react-native";
-import { Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuthentication } from "../../../src/auth/AuthContext";
@@ -20,6 +20,7 @@ import { EmptyState } from "../../../src/components/EmptyState";
 import { ErrorState } from "../../../src/components/ErrorState";
 import { LoadingSkeleton } from "../../../src/components/LoadingSkeleton";
 import { StatusBadge, type StatusTone } from "../../../src/components/StatusBadge";
+import { PROTECTED_ROUTES } from "../../../src/navigation/routes";
 import { AppText } from "../../../src/theme/AppText";
 import {
   type AchiwaveTheme,
@@ -51,6 +52,7 @@ function QuestRow({ quest }: { quest: CampaignQuest }) {
 }
 
 export default function CampaignDetailRoute() {
+  const router = useRouter();
   const parameters = useLocalSearchParams<{ campaignId?: string | string[] }>();
   const rawCampaignId = parameters.campaignId;
   const campaignId = typeof rawCampaignId === "string" && UUID.test(rawCampaignId) ? rawCampaignId : null;
@@ -142,6 +144,12 @@ export default function CampaignDetailRoute() {
               <AppText variant="label">
                 {detail.questSummary.active} active · {detail.questSummary.archived} archived quests
               </AppText>
+              <AppButton
+                icon="pencil-outline"
+                label="Edit campaign"
+                onPress={() => router.push(PROTECTED_ROUTES.campaignEdit(detail.id))}
+                variant="secondary"
+              />
               <AppButton
                 label={includeArchived ? "Hide archived quests" : "Show archived quests"}
                 onPress={() => {
