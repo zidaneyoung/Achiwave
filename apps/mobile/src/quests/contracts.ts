@@ -66,6 +66,7 @@ export function parseQuest(value: unknown): Quest | null {
     typeof value.campaign_id !== "string" ||
     !nonnegativeInteger(value.campaign_record_version) ||
     value.campaign_record_version < 1 ||
+    (value.campaign_status !== "active" && value.campaign_status !== "completed" && value.campaign_status !== "archived") ||
     (value.quest_type !== "one_time" && value.quest_type !== "recurring") ||
     (value.definition_state !== "active" && value.definition_state !== "archived") ||
     typeof value.title !== "string" ||
@@ -87,6 +88,7 @@ export function parseQuest(value: unknown): Quest | null {
     id: value.id,
     campaignId: value.campaign_id,
     campaignRecordVersion: value.campaign_record_version,
+    campaignStatus: value.campaign_status,
     questType: value.quest_type,
     definitionState: value.definition_state,
     title: value.title,

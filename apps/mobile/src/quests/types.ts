@@ -13,6 +13,7 @@ export interface Quest {
   id: string;
   campaignId: string;
   campaignRecordVersion: number;
+  campaignStatus: "active" | "completed" | "archived";
   questType: "one_time" | "recurring";
   definitionState: "active" | "archived";
   title: string;

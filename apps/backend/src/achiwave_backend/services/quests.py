@@ -16,7 +16,10 @@ from achiwave_backend.models import (
     User,
     UserPreference,
 )
-from achiwave_backend.schemas.quests import CreateOneTimeQuestRequest
+from achiwave_backend.schemas.quests import (
+    CreateOneTimeQuestRequest,
+    UpdateOneTimeQuestRequest,
+)
 
 
 class CampaignUnavailableError(Exception):
@@ -32,7 +35,16 @@ class StaleCampaignVersionError(Exception):
         self.campaign = campaign
 
 
-class QuestCreateResult:
+class QuestNotFoundError(Exception):
+    """No owner-visible one-time quest matches the supplied identifier."""
+
+
+class StaleQuestVersionError(Exception):
+    def __init__(self, result: "QuestResult") -> None:
+        self.result = result
+
+
+class QuestResult:
     def __init__(
         self,
         quest: Quest,
@@ -64,13 +76,150 @@ def _preference_zone(preference: UserPreference) -> tuple[str, ZoneInfo]:
 
 
 class QuestService:
+    def get_detail(
+        self,
+        database_session: Session,
+        current_user: User,
+        quest_id: UUID,
+    ) -> QuestResult:
+        quest = database_session.scalar(
+            select(Quest).where(
+                Quest.id == quest_id,
+                Quest.user_id == current_user.id,
+                Quest.quest_type == "one_time",
+                Quest.deleted_at.is_(None),
+            )
+        )
+        if quest is None:
+            raise QuestNotFoundError
+        campaign = database_session.scalar(
+            select(Campaign).where(
+                Campaign.id == quest.campaign_id,
+                Campaign.user_id == current_user.id,
+                Campaign.deleted_at.is_(None),
+            )
+        )
+        occurrence = database_session.scalar(
+            select(QuestOccurrence).where(
+                QuestOccurrence.quest_id == quest.id,
+                QuestOccurrence.user_id == current_user.id,
+            )
+        )
+        if campaign is None or occurrence is None:
+            raise QuestNotFoundError
+        return QuestResult(quest, occurrence, campaign)
+
+    def update_one_time(
+        self,
+        database_session: Session,
+        current_user: User,
+        quest_id: UUID,
+        request: UpdateOneTimeQuestRequest,
+    ) -> QuestResult:
+        user = database_session.scalar(
+            select(User).where(User.id == current_user.id).with_for_update()
+        )
+        if user is None:
+            raise RuntimeError("Authenticated user record is missing.")
+        quest = database_session.scalar(
+            select(Quest)
+            .where(
+                Quest.id == quest_id,
+                Quest.user_id == user.id,
+                Quest.quest_type == "one_time",
+                Quest.definition_state == "active",
+                Quest.deleted_at.is_(None),
+            )
+            .with_for_update()
+        )
+        if quest is None:
+            raise QuestNotFoundError
+        campaign = database_session.scalar(
+            select(Campaign).where(
+                Campaign.id == quest.campaign_id,
+                Campaign.user_id == user.id,
+                Campaign.deleted_at.is_(None),
+            )
+        )
+        occurrence = database_session.scalar(
+            select(QuestOccurrence).where(
+                QuestOccurrence.quest_id == quest.id,
+                QuestOccurrence.user_id == user.id,
+            )
+        )
+        if campaign is None or occurrence is None:
+            raise QuestNotFoundError
+        if campaign.campaign_state != "active":
+            raise QuestNotFoundError
+        fields = request.model_fields_set - {"record_version", "client_mutation_id"}
+        payload_hash = _payload_hash(
+            {
+                "quest_id": str(quest.id),
+                "record_version": request.record_version,
+                "reward_xp": request.reward_xp if "reward_xp" in fields else "<omitted>",
+                "title": request.title if "title" in fields else "<omitted>",
+            }
+        )
+        existing_mutation = database_session.scalar(
+            select(ClientMutation).where(
+                ClientMutation.user_id == user.id,
+                ClientMutation.client_mutation_id == request.client_mutation_id,
+            )
+        )
+        if existing_mutation is not None:
+            if (
+                existing_mutation.operation_type != "one_time_quest_update"
+                or existing_mutation.target_id != quest.id
+                or existing_mutation.payload_hash != payload_hash
+                or existing_mutation.result_id != quest.id
+            ):
+                raise QuestMutationConflictError
+            return QuestResult(quest, occurrence, campaign)
+        result = QuestResult(quest, occurrence, campaign)
+        if quest.record_version != request.record_version:
+            raise StaleQuestVersionError(result)
+
+        changed = False
+        if "title" in fields and quest.title != request.title:
+            quest.title = request.title or quest.title
+            changed = True
+        if "reward_xp" in fields and quest.reward_xp != request.reward_xp:
+            quest.reward_xp = request.reward_xp if request.reward_xp is not None else quest.reward_xp
+            changed = True
+        now = datetime.now(UTC)
+        if changed:
+            quest.record_version += 1
+            quest.updated_at = now
+        database_session.add(
+            ClientMutation(
+                id=uuid4(),
+                user_id=user.id,
+                client_mutation_id=request.client_mutation_id,
+                operation_type="one_time_quest_update",
+                payload_hash=payload_hash,
+                target_type="quest",
+                target_id=quest.id,
+                processing_status="succeeded",
+                result_type="quest",
+                result_id=quest.id,
+                processed_at=now,
+                updated_at=now,
+            )
+        )
+        try:
+            database_session.commit()
+        except Exception:
+            database_session.rollback()
+            raise
+        return result
+
     def create_one_time(
         self,
         database_session: Session,
         current_user: User,
         campaign_id: UUID,
         request: CreateOneTimeQuestRequest,
-    ) -> QuestCreateResult:
+    ) -> QuestResult:
         user = database_session.scalar(
             select(User).where(User.id == current_user.id).with_for_update()
         )
@@ -125,7 +274,7 @@ class QuestService:
             )
             if quest is None or occurrence is None:
                 raise RuntimeError("Quest mutation result is incomplete.")
-            return QuestCreateResult(quest, occurrence, campaign)
+            return QuestResult(quest, occurrence, campaign)
         if campaign.campaign_state != "active":
             raise CampaignUnavailableError
         if campaign.record_version != request.campaign_record_version:
@@ -190,4 +339,4 @@ class QuestService:
         except Exception:
             database_session.rollback()
             raise
-        return QuestCreateResult(quest, occurrence, campaign)
+        return QuestResult(quest, occurrence, campaign)

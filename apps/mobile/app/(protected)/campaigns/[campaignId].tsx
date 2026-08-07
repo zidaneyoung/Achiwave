@@ -40,10 +40,11 @@ function statusPresentation(status: QuestDisplayStatus): { label: string; tone: 
   return { label, tone: "neutral" };
 }
 
-function QuestRow({ quest }: { quest: CampaignQuest }) {
+function QuestRow({ quest, onPress }: { quest: CampaignQuest; onPress: () => void }) {
   const presentation = statusPresentation(quest.status);
   return (
     <AppListItem
+      onPress={onPress}
       leading={<StatusBadge compact label={presentation.label} tone={presentation.tone} />}
       metadata={`${quest.questType === "one_time" ? "One-time" : "Recurring"} · ${quest.rewardXp} XP configured`}
       status={quest.description ?? undefined}
@@ -262,7 +263,12 @@ export default function CampaignDetailRoute() {
               <AppText accessibilityLiveRegion="polite" tone="muted" style={styles.center}>Refreshing campaign…</AppText>
             ) : null
           }
-          renderItem={({ item }) => <QuestRow quest={item} />}
+          renderItem={({ item }) => (
+            <QuestRow
+              quest={item}
+              onPress={() => router.push(PROTECTED_ROUTES.questDetail(item.id))}
+            />
+          )}
         />
       ) : null}
     </SafeAreaView>

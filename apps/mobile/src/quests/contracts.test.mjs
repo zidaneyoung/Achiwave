@@ -5,7 +5,7 @@ import { parseQuest } from "./contracts.ts";
 
 test("quest parser accepts canonical one-time occurrence snapshot", () => {
   const quest = parseQuest({
-    id: "quest", campaign_id: "campaign", campaign_record_version: 2,
+    id: "quest", campaign_id: "campaign", campaign_record_version: 2, campaign_status: "active",
     quest_type: "one_time", definition_state: "active", title: "Write brief",
     description: null, reward_xp: 20, display_order: 0, available_from: null,
     due_at: null, timezone_name: null, record_version: 1, archived_at: null,

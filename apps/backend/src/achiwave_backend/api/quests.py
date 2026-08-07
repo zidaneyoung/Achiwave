@@ -10,15 +10,19 @@ from achiwave_backend.models import Quest, QuestOccurrence, User
 from achiwave_backend.schemas.campaigns import CampaignConflictResponse
 from achiwave_backend.schemas.quests import (
     CreateOneTimeQuestRequest,
+    QuestConflictResponse,
     QuestOccurrenceResponse,
     QuestResponse,
+    UpdateOneTimeQuestRequest,
 )
 from achiwave_backend.services.quests import (
     CampaignUnavailableError,
-    QuestCreateResult,
     QuestMutationConflictError,
+    QuestNotFoundError,
+    QuestResult,
     QuestService,
     StaleCampaignVersionError,
+    StaleQuestVersionError,
 )
 
 
@@ -35,12 +39,13 @@ def _occurrence_response(occurrence: QuestOccurrence) -> QuestOccurrenceResponse
     )
 
 
-def quest_response(result: QuestCreateResult) -> QuestResponse:
+def quest_response(result: QuestResult) -> QuestResponse:
     quest: Quest = result.quest
     return QuestResponse(
         id=quest.id,
         campaign_id=quest.campaign_id,
         campaign_record_version=result.campaign.record_version,
+        campaign_status=result.campaign.campaign_state,
         quest_type=quest.quest_type,
         definition_state=quest.definition_state,
         title=quest.title,
@@ -64,6 +69,63 @@ def create_quests_router(
 ) -> APIRouter:
     router = APIRouter(tags=["quests"])
     service = QuestService()
+
+    @router.patch(
+        "/api/v1/quests/{quest_id}",
+        response_model=QuestResponse,
+        responses={
+            status.HTTP_404_NOT_FOUND: {"model": ErrorResponse},
+            status.HTTP_409_CONFLICT: {"model": QuestConflictResponse},
+        },
+    )
+    def update_one_time_quest(
+        quest_id: UUID,
+        request: UpdateOneTimeQuestRequest,
+        user: User = Depends(authentication.current_user),
+        database_session: Session = Depends(authentication.database_session),
+    ) -> QuestResponse:
+        try:
+            result = service.update_one_time(database_session, user, quest_id, request)
+        except QuestNotFoundError as error:
+            raise ApiError(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="quest_not_found",
+                message="The quest was not found.",
+            ) from error
+        except StaleQuestVersionError as error:
+            raise ApiError(
+                status_code=status.HTTP_409_CONFLICT,
+                code="stale_record_version",
+                message="The quest changed before this update was applied.",
+                details={"current": quest_response(error.result).model_dump(mode="json")},
+            ) from error
+        except QuestMutationConflictError as error:
+            raise ApiError(
+                status_code=status.HTTP_409_CONFLICT,
+                code="client_mutation_conflict",
+                message="This request identifier was already used for another action.",
+            ) from error
+        return quest_response(result)
+
+    @router.get(
+        "/api/v1/quests/{quest_id}",
+        response_model=QuestResponse,
+        responses={status.HTTP_404_NOT_FOUND: {"model": ErrorResponse}},
+    )
+    def get_one_time_quest(
+        quest_id: UUID,
+        user: User = Depends(authentication.current_user),
+        database_session: Session = Depends(authentication.database_session),
+    ) -> QuestResponse:
+        try:
+            result = service.get_detail(database_session, user, quest_id)
+        except QuestNotFoundError as error:
+            raise ApiError(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="quest_not_found",
+                message="The quest was not found.",
+            ) from error
+        return quest_response(result)
 
     @router.post(
         "/api/v1/campaigns/{campaign_id}/quests",

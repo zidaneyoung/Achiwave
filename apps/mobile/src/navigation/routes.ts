@@ -24,6 +24,18 @@ export const PROTECTED_ROUTES = {
       params: { campaignId },
     } as const satisfies Href;
   },
+  questDetail(questId: string) {
+    return {
+      pathname: "/(protected)/quests/[questId]",
+      params: { questId },
+    } as const satisfies Href;
+  },
+  questEdit(questId: string) {
+    return {
+      pathname: "/(protected)/quests/[questId]/edit",
+      params: { questId },
+    } as const satisfies Href;
+  },
   progress: "/(protected)/(tabs)/progress" as const satisfies Href,
   profile: "/(protected)/(tabs)/profile" as const satisfies Href,
   security: "/(protected)/security" as const satisfies Href,

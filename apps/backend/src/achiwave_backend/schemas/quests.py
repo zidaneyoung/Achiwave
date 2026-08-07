@@ -3,7 +3,7 @@ from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 QUEST_TITLE_MAX_LENGTH = 120
 
@@ -27,6 +27,26 @@ class CreateOneTimeQuestRequest(BaseModel):
     _validate_title = field_validator("title")(_trimmed_quest_title)
 
 
+class UpdateOneTimeQuestRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    title: str | None = Field(default=None, min_length=1, max_length=QUEST_TITLE_MAX_LENGTH)
+    reward_xp: int | None = Field(default=None, ge=0, le=2_147_483_647)
+    record_version: int = Field(ge=1)
+    client_mutation_id: UUID
+
+    _validate_title = field_validator("title")(_trimmed_quest_title)
+
+    @model_validator(mode="after")
+    def require_edit(self) -> "UpdateOneTimeQuestRequest":
+        fields = self.model_fields_set - {"record_version", "client_mutation_id"}
+        if not fields or ("title" in fields and self.title is None) or (
+            "reward_xp" in fields and self.reward_xp is None
+        ):
+            raise ValueError("At least one supported quest field is required.")
+        return self
+
+
 class QuestOccurrenceResponse(BaseModel):
     id: UUID
     status: Literal["scheduled", "available", "completed", "reversed", "expired", "voided"]
@@ -42,6 +62,7 @@ class QuestResponse(BaseModel):
     id: UUID
     campaign_id: UUID
     campaign_record_version: int
+    campaign_status: Literal["active", "completed", "archived"]
     quest_type: Literal["one_time", "recurring"]
     definition_state: Literal["active", "archived"]
     title: str
@@ -57,3 +78,9 @@ class QuestResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     occurrence: QuestOccurrenceResponse | None
+
+
+class QuestConflictResponse(BaseModel):
+    code: str
+    message: str
+    current: QuestResponse
