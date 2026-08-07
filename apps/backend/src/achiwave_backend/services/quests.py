@@ -13,13 +13,16 @@ from achiwave_backend.models import (
     ClientMutation,
     Quest,
     QuestOccurrence,
+    ProgressEvent,
     User,
     UserPreference,
 )
 from achiwave_backend.schemas.quests import (
     CreateOneTimeQuestRequest,
+    QuestTransitionRequest,
     UpdateOneTimeQuestRequest,
 )
+from achiwave_backend.services.campaigns import _derived_campaign_state
 
 
 class CampaignUnavailableError(Exception):
@@ -76,6 +79,190 @@ def _preference_zone(preference: UserPreference) -> tuple[str, ZoneInfo]:
 
 
 class QuestService:
+    def _transition_one_time(
+        self,
+        database_session: Session,
+        current_user: User,
+        quest_id: UUID,
+        request: QuestTransitionRequest,
+        *,
+        restore: bool,
+    ) -> QuestResult:
+        user = database_session.scalar(
+            select(User).where(User.id == current_user.id).with_for_update()
+        )
+        if user is None:
+            raise RuntimeError("Authenticated user record is missing.")
+        quest = database_session.scalar(
+            select(Quest)
+            .where(
+                Quest.id == quest_id,
+                Quest.user_id == user.id,
+                Quest.quest_type == "one_time",
+                Quest.deleted_at.is_(None),
+            )
+            .with_for_update()
+        )
+        if quest is None:
+            raise QuestNotFoundError
+        campaign = database_session.scalar(
+            select(Campaign)
+            .where(
+                Campaign.id == quest.campaign_id,
+                Campaign.user_id == user.id,
+                Campaign.deleted_at.is_(None),
+            )
+            .with_for_update()
+        )
+        occurrence = database_session.scalar(
+            select(QuestOccurrence).where(
+                QuestOccurrence.quest_id == quest.id,
+                QuestOccurrence.user_id == user.id,
+            )
+        )
+        if campaign is None or occurrence is None or campaign.campaign_state == "archived":
+            raise QuestNotFoundError
+        operation = "one_time_quest_restore" if restore else "one_time_quest_archive"
+        payload_hash = _payload_hash(
+            {"quest_id": str(quest.id), "record_version": request.record_version}
+        )
+        existing_mutation = database_session.scalar(
+            select(ClientMutation).where(
+                ClientMutation.user_id == user.id,
+                ClientMutation.client_mutation_id == request.client_mutation_id,
+            )
+        )
+        if existing_mutation is not None:
+            if (
+                existing_mutation.operation_type != operation
+                or existing_mutation.target_id != quest.id
+                or existing_mutation.payload_hash != payload_hash
+                or existing_mutation.result_id != quest.id
+            ):
+                raise QuestMutationConflictError
+            return QuestResult(quest, occurrence, campaign)
+        result = QuestResult(quest, occurrence, campaign)
+        if quest.record_version != request.record_version:
+            raise StaleQuestVersionError(result)
+
+        now = datetime.now(UTC)
+        mutation = ClientMutation(
+            id=uuid4(),
+            user_id=user.id,
+            client_mutation_id=request.client_mutation_id,
+            operation_type=operation,
+            payload_hash=payload_hash,
+            target_type="quest",
+            target_id=quest.id,
+            processing_status="succeeded",
+            result_type="quest",
+            result_id=quest.id,
+            processed_at=now,
+            updated_at=now,
+        )
+        database_session.add(mutation)
+        expected_state = "archived" if restore else "active"
+        if quest.definition_state == expected_state:
+            previous_campaign_state = campaign.campaign_state
+            quest.definition_state = "active" if restore else "archived"
+            if restore:
+                quest.restored_at = now
+            else:
+                quest.archived_at = now
+            quest.record_version += 1
+            quest.updated_at = now
+            campaign.record_version += 1
+            campaign.updated_at = now
+            database_session.flush()
+            derived_state = _derived_campaign_state(database_session, campaign, now)
+            campaign.campaign_state = derived_state
+            if derived_state == "completed" and previous_campaign_state != "completed":
+                campaign.completed_at = now
+                campaign.completion_reason = "quest_obligations_satisfied"
+            event_sequence = user.next_event_sequence
+            user.next_event_sequence += 1
+            database_session.add(
+                ProgressEvent(
+                    id=uuid4(),
+                    user_id=user.id,
+                    event_sequence=event_sequence,
+                    event_type="quest_restored" if restore else "quest_archived",
+                    source_type="client_mutation",
+                    source_id=mutation.id,
+                    client_mutation_id=request.client_mutation_id,
+                    server_received_at=now,
+                    server_processed_at=now,
+                    rule_version=1,
+                    event_metadata={
+                        "campaign_id": str(campaign.id),
+                        "quest_id": str(quest.id),
+                    },
+                )
+            )
+            if previous_campaign_state != derived_state:
+                campaign_sequence = user.next_event_sequence
+                user.next_event_sequence += 1
+                database_session.add(
+                    ProgressEvent(
+                        id=uuid4(),
+                        user_id=user.id,
+                        event_sequence=campaign_sequence,
+                        event_type=(
+                            "campaign_completed"
+                            if derived_state == "completed"
+                            else "campaign_reopened"
+                        ),
+                        source_type="client_mutation",
+                        source_id=mutation.id,
+                        client_mutation_id=request.client_mutation_id,
+                        server_received_at=now,
+                        server_processed_at=now,
+                        rule_version=1,
+                        event_metadata={
+                            "campaign_id": str(campaign.id),
+                            "quest_id": str(quest.id),
+                            "previous_state": previous_campaign_state,
+                        },
+                    )
+                )
+            user.updated_at = now
+        try:
+            database_session.commit()
+        except Exception:
+            database_session.rollback()
+            raise
+        return result
+
+    def archive_one_time(
+        self,
+        database_session: Session,
+        current_user: User,
+        quest_id: UUID,
+        request: QuestTransitionRequest,
+    ) -> QuestResult:
+        return self._transition_one_time(
+            database_session,
+            current_user,
+            quest_id,
+            request,
+            restore=False,
+        )
+
+    def restore_one_time(
+        self,
+        database_session: Session,
+        current_user: User,
+        quest_id: UUID,
+        request: QuestTransitionRequest,
+    ) -> QuestResult:
+        return self._transition_one_time(
+            database_session,
+            current_user,
+            quest_id,
+            request,
+            restore=True,
+        )
+
     def get_detail(
         self,
         database_session: Session,

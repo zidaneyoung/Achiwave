@@ -1,9 +1,10 @@
 import { useCallback, useRef, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { AccessibilityInfo, StyleSheet, View } from "react-native";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuthentication } from "../../../src/auth/AuthContext";
+import { invalidateCachedCampaign } from "../../../src/campaigns/cache";
 import { AppButton } from "../../../src/components/AppButton";
 import { ErrorState } from "../../../src/components/ErrorState";
 import { LoadingSkeleton } from "../../../src/components/LoadingSkeleton";
@@ -36,6 +37,10 @@ export default function QuestDetailRoute() {
   const styles = useThemeStyles(createStyles);
   const [quest, setQuest] = useState<Quest | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [transitioning, setTransitioning] = useState(false);
+  const [transitionError, setTransitionError] = useState<string | null>(null);
+  const archiveMutationId = useRef<string | null>(null);
+  const restoreMutationId = useRef<string | null>(null);
   const sequence = useRef(0);
 
   const load = useCallback(async () => {
@@ -99,6 +104,45 @@ export default function QuestDetailRoute() {
               label="Edit quest"
               onPress={() => router.push(PROTECTED_ROUTES.questEdit(quest.id))}
             />
+          ) : null}
+          {quest.campaignStatus !== "archived" ? (
+            <AppButton
+              label={quest.definitionState === "archived" ? "Restore quest" : "Archive quest"}
+              loading={transitioning}
+              onPress={() => {
+                if (transitioning) return;
+                const restoring = quest.definitionState === "archived";
+                const mutation = restoring ? restoreMutationId : archiveMutationId;
+                mutation.current ??= questApi.createMutationId();
+                setTransitioning(true);
+                setTransitionError(null);
+                const request = restoring
+                  ? questApi.restore(quest.id, quest.recordVersion, mutation.current)
+                  : questApi.archive(quest.id, quest.recordVersion, mutation.current);
+                void request
+                  .then(() => {
+                    invalidateCachedCampaign(ownerId, quest.campaignId);
+                    const message = restoring ? "Quest restored." : "Quest archived.";
+                    AccessibilityInfo.announceForAccessibility(message);
+                    router.replace(PROTECTED_ROUTES.campaignDetail(quest.campaignId));
+                  })
+                  .catch((caught) => {
+                    const message = caught instanceof QuestRequestError ? caught.message : "The quest lifecycle change failed.";
+                    setTransitionError(message);
+                    AccessibilityInfo.announceForAccessibility(message);
+                  })
+                  .finally(() => setTransitioning(false));
+              }}
+              variant={quest.definitionState === "archived" ? "primary" : "destructive"}
+            />
+          ) : (
+            <AppText tone="muted">Restore the campaign before changing this quest.</AppText>
+          )}
+          {transitionError ? (
+            <View style={styles.snapshot}>
+              <ErrorState kind="inline" />
+              <AppText accessibilityLiveRegion="assertive" tone="error">{transitionError}</AppText>
+            </View>
           ) : null}
           <AppButton
             label="View campaign"

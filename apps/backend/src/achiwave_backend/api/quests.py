@@ -13,6 +13,7 @@ from achiwave_backend.schemas.quests import (
     QuestConflictResponse,
     QuestOccurrenceResponse,
     QuestResponse,
+    QuestTransitionRequest,
     UpdateOneTimeQuestRequest,
 )
 from achiwave_backend.services.quests import (
@@ -69,6 +70,66 @@ def create_quests_router(
 ) -> APIRouter:
     router = APIRouter(tags=["quests"])
     service = QuestService()
+
+    def transition_error(error: Exception, *, action: str) -> ApiError:
+        if isinstance(error, QuestNotFoundError):
+            return ApiError(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="quest_not_found",
+                message="The quest was not found.",
+            )
+        if isinstance(error, StaleQuestVersionError):
+            return ApiError(
+                status_code=status.HTTP_409_CONFLICT,
+                code="stale_record_version",
+                message=f"The quest changed before {action} was applied.",
+                details={"current": quest_response(error.result).model_dump(mode="json")},
+            )
+        return ApiError(
+            status_code=status.HTTP_409_CONFLICT,
+            code="client_mutation_conflict",
+            message="This request identifier was already used for another action.",
+        )
+
+    @router.post(
+        "/api/v1/quests/{quest_id}/restore",
+        response_model=QuestResponse,
+        responses={
+            status.HTTP_404_NOT_FOUND: {"model": ErrorResponse},
+            status.HTTP_409_CONFLICT: {"model": QuestConflictResponse},
+        },
+    )
+    def restore_one_time_quest(
+        quest_id: UUID,
+        request: QuestTransitionRequest,
+        user: User = Depends(authentication.current_user),
+        database_session: Session = Depends(authentication.database_session),
+    ) -> QuestResponse:
+        try:
+            result = service.restore_one_time(database_session, user, quest_id, request)
+        except (QuestNotFoundError, StaleQuestVersionError, QuestMutationConflictError) as error:
+            raise transition_error(error, action="restoration") from error
+        return quest_response(result)
+
+    @router.post(
+        "/api/v1/quests/{quest_id}/archive",
+        response_model=QuestResponse,
+        responses={
+            status.HTTP_404_NOT_FOUND: {"model": ErrorResponse},
+            status.HTTP_409_CONFLICT: {"model": QuestConflictResponse},
+        },
+    )
+    def archive_one_time_quest(
+        quest_id: UUID,
+        request: QuestTransitionRequest,
+        user: User = Depends(authentication.current_user),
+        database_session: Session = Depends(authentication.database_session),
+    ) -> QuestResponse:
+        try:
+            result = service.archive_one_time(database_session, user, quest_id, request)
+        except (QuestNotFoundError, StaleQuestVersionError, QuestMutationConflictError) as error:
+            raise transition_error(error, action="archival") from error
+        return quest_response(result)
 
     @router.patch(
         "/api/v1/quests/{quest_id}",

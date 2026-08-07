@@ -105,4 +105,26 @@ export const questApi = {
       method: "PATCH",
     });
   },
+
+  archive(questId: string, recordVersion: number, clientMutationId: string): Promise<Quest> {
+    return requestQuest(`/api/v1/quests/${encodeURIComponent(questId)}/archive`, {
+      body: JSON.stringify({
+        record_version: recordVersion,
+        client_mutation_id: clientMutationId,
+      }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+  },
+
+  restore(questId: string, recordVersion: number, clientMutationId: string): Promise<Quest> {
+    return requestQuest(`/api/v1/quests/${encodeURIComponent(questId)}/restore`, {
+      body: JSON.stringify({
+        record_version: recordVersion,
+        client_mutation_id: clientMutationId,
+      }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+  },
 };

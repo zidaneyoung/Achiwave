@@ -47,6 +47,13 @@ class UpdateOneTimeQuestRequest(BaseModel):
         return self
 
 
+class QuestTransitionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    record_version: int = Field(ge=1)
+    client_mutation_id: UUID
+
+
 class QuestOccurrenceResponse(BaseModel):
     id: UUID
     status: Literal["scheduled", "available", "completed", "reversed", "expired", "voided"]
