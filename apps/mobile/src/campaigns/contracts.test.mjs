@@ -53,6 +53,7 @@ test("campaign detail parser preserves canonical quest status", () => {
         available_from: null,
         due_at: null,
         timezone_name: null,
+        due_status: "none",
         record_version: 1,
         archived_at: null,
         restored_at: null,

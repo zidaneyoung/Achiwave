@@ -12,6 +12,9 @@ import { StatusBadge, type StatusTone } from "../../../src/components/StatusBadg
 import { PROTECTED_ROUTES } from "../../../src/navigation/routes";
 import { questApi, QuestRequestError } from "../../../src/quests/api";
 import type { Quest } from "../../../src/quests/types";
+import { preferenceApi } from "../../../src/preferences/api";
+import { formatPreferenceDateTime } from "../../../src/preferences/formatDate";
+import type { DateFormatPreference } from "../../../src/preferences/types";
 import { AppText } from "../../../src/theme/AppText";
 import { type AchiwaveTheme, useThemeStyles } from "../../../src/theme/ThemeProvider";
 import { spacing } from "../../../src/theme/tokens";
@@ -39,6 +42,7 @@ export default function QuestDetailRoute() {
   const [error, setError] = useState<string | null>(null);
   const [transitioning, setTransitioning] = useState(false);
   const [transitionError, setTransitionError] = useState<string | null>(null);
+  const [dateFormat, setDateFormat] = useState<DateFormatPreference | null>(null);
   const archiveMutationId = useRef<string | null>(null);
   const restoreMutationId = useRef<string | null>(null);
   const sequence = useRef(0);
@@ -48,8 +52,14 @@ export default function QuestDetailRoute() {
     const request = ++sequence.current;
     setError(null);
     try {
-      const result = await questApi.get(questId);
-      if (request === sequence.current) setQuest(result);
+      const [result, preferences] = await Promise.all([
+        questApi.get(questId),
+        preferenceApi.get().catch(() => preferenceApi.getCached()),
+      ]);
+      if (request === sequence.current) {
+        setQuest(result);
+        setDateFormat(preferences?.dateFormat ?? null);
+      }
     } catch (caught) {
       if (request !== sequence.current) return;
       setError(caught instanceof QuestRequestError ? caught.message : "This quest could not be loaded.");
@@ -87,6 +97,20 @@ export default function QuestDetailRoute() {
           <AppText accessibilityRole="header" variant="heading1">{quest.title}</AppText>
           {quest.description ? <AppText tone="muted">{quest.description}</AppText> : null}
           <AppText>{quest.rewardXp} XP configured</AppText>
+          {quest.dueAt && quest.timezoneName && dateFormat ? (
+            <View style={styles.snapshot}>
+              <AppText accessibilityRole="header" variant="heading2">Due</AppText>
+              <AppText>
+                {formatPreferenceDateTime(new Date(quest.dueAt), dateFormat, quest.timezoneName)} ({quest.timezoneName})
+              </AppText>
+              {quest.dueStatus === "overdue" ? (
+                <AppText accessibilityLiveRegion="polite" tone="error">Overdue — confirmed by the server.</AppText>
+              ) : null}
+              {quest.dueStatus === "unavailable" ? (
+                <AppText tone="muted">This due occurrence is no longer available.</AppText>
+              ) : null}
+            </View>
+          ) : null}
           {quest.occurrence ? (
             <View style={styles.snapshot}>
               <AppText accessibilityRole="header" variant="heading2">Occurrence snapshot</AppText>

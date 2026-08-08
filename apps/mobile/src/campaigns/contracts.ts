@@ -132,6 +132,10 @@ function parseCampaignQuest(value: unknown): CampaignQuest | null {
     availableFrom === undefined ||
     dueAt === undefined ||
     timezoneName === undefined ||
+    (value.due_status !== "none" &&
+      value.due_status !== "upcoming" &&
+      value.due_status !== "overdue" &&
+      value.due_status !== "unavailable") ||
     parseNonnegativeInteger(value.record_version) === null ||
     archivedAt === undefined ||
     restoredAt === undefined ||
@@ -153,6 +157,7 @@ function parseCampaignQuest(value: unknown): CampaignQuest | null {
     availableFrom,
     dueAt,
     timezoneName,
+    dueStatus: value.due_status,
     recordVersion: value.record_version as number,
     archivedAt,
     restoredAt,

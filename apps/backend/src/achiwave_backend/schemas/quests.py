@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 QUEST_TITLE_MAX_LENGTH = 120
 QUEST_DESCRIPTION_MAX_LENGTH = 4_000
+LOCAL_DATE_TIME_PATTERN = r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$"
 
 
 def _trimmed_quest_title(value: str) -> str:
@@ -36,11 +37,22 @@ class CreateOneTimeQuestRequest(BaseModel):
     title: str = Field(min_length=1, max_length=QUEST_TITLE_MAX_LENGTH)
     description: str | None = Field(default=None, max_length=QUEST_DESCRIPTION_MAX_LENGTH)
     reward_xp: int = Field(default=0, ge=0, le=2_147_483_647)
+    due_local_datetime: str | None = Field(
+        default=None,
+        pattern=LOCAL_DATE_TIME_PATTERN,
+    )
+    timezone_name: str | None = Field(default=None, min_length=1, max_length=128)
     campaign_record_version: int = Field(ge=1)
     client_mutation_id: UUID
 
     _validate_title = field_validator("title")(_trimmed_quest_title)
     _validate_description = field_validator("description")(_trimmed_quest_description)
+
+    @model_validator(mode="after")
+    def require_due_for_timezone(self) -> "CreateOneTimeQuestRequest":
+        if self.timezone_name is not None and self.due_local_datetime is None:
+            raise ValueError("A timezone can only be supplied with a due date.")
+        return self
 
 
 class UpdateOneTimeQuestRequest(BaseModel):
@@ -97,6 +109,7 @@ class QuestResponse(BaseModel):
     available_from: datetime | None
     due_at: datetime | None
     timezone_name: str | None
+    due_status: Literal["none", "upcoming", "overdue", "unavailable"]
     record_version: int
     archived_at: datetime | None
     restored_at: datetime | None

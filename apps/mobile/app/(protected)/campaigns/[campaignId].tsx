@@ -22,6 +22,9 @@ import { ErrorState } from "../../../src/components/ErrorState";
 import { LoadingSkeleton } from "../../../src/components/LoadingSkeleton";
 import { StatusBadge, type StatusTone } from "../../../src/components/StatusBadge";
 import { PROTECTED_ROUTES } from "../../../src/navigation/routes";
+import { preferenceApi } from "../../../src/preferences/api";
+import { formatPreferenceDateTime } from "../../../src/preferences/formatDate";
+import type { DateFormatPreference } from "../../../src/preferences/types";
 import { AppText } from "../../../src/theme/AppText";
 import {
   type AchiwaveTheme,
@@ -40,13 +43,25 @@ function statusPresentation(status: QuestDisplayStatus): { label: string; tone: 
   return { label, tone: "neutral" };
 }
 
-function QuestRow({ quest, onPress }: { quest: CampaignQuest; onPress: () => void }) {
+function QuestRow({
+  quest,
+  dateFormat,
+  onPress,
+}: {
+  quest: CampaignQuest;
+  dateFormat: DateFormatPreference | null;
+  onPress: () => void;
+}) {
   const presentation = statusPresentation(quest.status);
+  const due =
+    quest.dueAt && quest.timezoneName && dateFormat
+      ? ` · Due ${formatPreferenceDateTime(new Date(quest.dueAt), dateFormat, quest.timezoneName)}${quest.dueStatus === "overdue" ? " · Overdue (server confirmed)" : ""}`
+      : "";
   return (
     <AppListItem
       onPress={onPress}
       leading={<StatusBadge compact label={presentation.label} tone={presentation.tone} />}
-      metadata={`${quest.questType === "one_time" ? "One-time" : "Recurring"} · ${quest.rewardXp} XP configured`}
+      metadata={`${quest.questType === "one_time" ? "One-time" : "Recurring"} · ${quest.rewardXp} XP configured${due}`}
       status={quest.description ?? undefined}
       title={quest.title}
     />
@@ -69,6 +84,7 @@ export default function CampaignDetailRoute() {
   const [error, setError] = useState<string | null>(null);
   const [archiving, setArchiving] = useState(false);
   const [archiveError, setArchiveError] = useState<string | null>(null);
+  const [dateFormat, setDateFormat] = useState<DateFormatPreference | null>(null);
   const archiveMutationId = useRef<string | null>(null);
   const [restoring, setRestoring] = useState(false);
   const [restoreError, setRestoreError] = useState<string | null>(null);
@@ -83,10 +99,14 @@ export default function CampaignDetailRoute() {
     setRefreshing(cached !== null);
     setError(null);
     try {
-      const result = await campaignApi.get(campaignId, includeArchived);
+      const [result, preferences] = await Promise.all([
+        campaignApi.get(campaignId, includeArchived),
+        preferenceApi.get().catch(() => preferenceApi.getCached()),
+      ]);
       if (request !== requestSequence.current) return;
       setCachedCampaignDetail(ownerId, campaignId, includeArchived, result);
       setDetail(result);
+      setDateFormat(preferences?.dateFormat ?? null);
     } catch (caught) {
       if (request !== requestSequence.current) return;
       setError(
@@ -265,6 +285,7 @@ export default function CampaignDetailRoute() {
           }
           renderItem={({ item }) => (
             <QuestRow
+              dateFormat={dateFormat}
               quest={item}
               onPress={() => router.push(PROTECTED_ROUTES.questDetail(item.id))}
             />

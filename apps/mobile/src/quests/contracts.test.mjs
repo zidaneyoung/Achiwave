@@ -8,7 +8,7 @@ test("quest parser accepts canonical one-time occurrence snapshot", () => {
     id: "quest", campaign_id: "campaign", campaign_record_version: 2, campaign_status: "active",
     quest_type: "one_time", definition_state: "active", title: "Write brief",
     description: null, reward_xp: 20, display_order: 0, available_from: null,
-    due_at: null, timezone_name: null, record_version: 1, archived_at: null,
+    due_at: null, timezone_name: null, due_status: "none", record_version: 1, archived_at: null,
     restored_at: null, created_at: "2026-08-07T00:00:00Z", updated_at: "2026-08-07T00:00:00Z",
     occurrence: {
       id: "occurrence", status: "available", occurrence_local_date: "2026-08-07",

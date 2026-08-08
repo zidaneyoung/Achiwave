@@ -76,6 +76,10 @@ export function parseQuest(value: unknown): Quest | null {
     availableFrom === undefined ||
     dueAt === undefined ||
     timezoneName === undefined ||
+    (value.due_status !== "none" &&
+      value.due_status !== "upcoming" &&
+      value.due_status !== "overdue" &&
+      value.due_status !== "unavailable") ||
     !nonnegativeInteger(value.record_version) ||
     value.record_version < 1 ||
     archivedAt === undefined ||
@@ -98,6 +102,7 @@ export function parseQuest(value: unknown): Quest | null {
     availableFrom,
     dueAt,
     timezoneName,
+    dueStatus: value.due_status,
     recordVersion: value.record_version,
     archivedAt,
     restoredAt,

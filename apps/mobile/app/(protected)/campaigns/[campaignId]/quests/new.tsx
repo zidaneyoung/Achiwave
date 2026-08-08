@@ -12,6 +12,7 @@ import { AppTextField } from "../../../../../src/components/FormControls";
 import { LoadingSkeleton } from "../../../../../src/components/LoadingSkeleton";
 import { PROTECTED_ROUTES } from "../../../../../src/navigation/routes";
 import { KeyboardAwareScreen } from "../../../../../src/platform/KeyboardAwareScreen";
+import { preferenceApi } from "../../../../../src/preferences/api";
 import { questApi, QuestRequestError } from "../../../../../src/quests/api";
 import { validateOneTimeQuestForm } from "../../../../../src/quests/form";
 import { AppText } from "../../../../../src/theme/AppText";
@@ -19,22 +20,31 @@ import { spacing } from "../../../../../src/theme/tokens";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 
-function QuestForm({ campaign, ownerId }: { campaign: CampaignDetail; ownerId: string }) {
+function QuestForm({
+  campaign,
+  ownerId,
+  timezoneName,
+}: {
+  campaign: CampaignDetail;
+  ownerId: string;
+  timezoneName: string | null;
+}) {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [reward, setReward] = useState("0");
+  const [due, setDue] = useState("");
   const [attempted, setAttempted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const submissionIdentity = useRef<{ payload: string; mutationId: string } | null>(null);
-  const validation = validateOneTimeQuestForm(title, reward, description);
+  const validation = validateOneTimeQuestForm(title, reward, description, due);
 
   async function submit() {
     setAttempted(true);
     setSubmissionError(null);
-    if (validation.titleError || validation.rewardError || validation.descriptionError || submitting) return;
-    const payload = JSON.stringify({ title: validation.title, description: validation.description, rewardXp: validation.rewardXp, version: campaign.recordVersion });
+    if (validation.titleError || validation.rewardError || validation.descriptionError || validation.dueError || submitting) return;
+    const payload = JSON.stringify({ title: validation.title, description: validation.description, rewardXp: validation.rewardXp, dueLocalDateTime: validation.dueLocalDateTime, version: campaign.recordVersion });
     if (submissionIdentity.current?.payload !== payload) {
       submissionIdentity.current = { payload, mutationId: questApi.createMutationId() };
     }
@@ -46,6 +56,7 @@ function QuestForm({ campaign, ownerId }: { campaign: CampaignDetail; ownerId: s
         title: validation.title,
         description: validation.description,
         rewardXp: validation.rewardXp,
+        dueLocalDateTime: validation.dueLocalDateTime,
         clientMutationId: submissionIdentity.current.mutationId,
       });
       invalidateCachedCampaign(ownerId, campaign.id);
@@ -96,6 +107,16 @@ function QuestForm({ campaign, ownerId }: { campaign: CampaignDetail; ownerId: s
           required
           value={reward}
         />
+        <AppTextField
+          autoCapitalize="none"
+          editable={!submitting}
+          errorText={attempted ? validation.dueError ?? undefined : undefined}
+          helperText={`Optional local time. Uses ${timezoneName ?? "your saved account timezone"}; the server validates and resolves it.`}
+          label="Due date and time"
+          onChangeText={setDue}
+          placeholder="YYYY-MM-DDTHH:MM"
+          value={due}
+        />
       </View>
       {submissionError ? (
         <View style={styles.error}>
@@ -114,6 +135,7 @@ export default function CreateQuestRoute() {
   const authentication = useAuthentication();
   const ownerId = authentication.state.status === "authenticated" ? authentication.state.user.id : null;
   const [campaign, setCampaign] = useState<CampaignDetail | null>(null);
+  const [timezoneName, setTimezoneName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const sequence = useRef(0);
 
@@ -122,13 +144,17 @@ export default function CreateQuestRoute() {
     const request = ++sequence.current;
     setError(null);
     try {
-      const result = await campaignApi.get(campaignId);
+      const [result, preferences] = await Promise.all([
+        campaignApi.get(campaignId),
+        preferenceApi.get().catch(() => preferenceApi.getCached()),
+      ]);
       if (request !== sequence.current) return;
       if (result.status !== "active") {
         setError("Only active campaigns can accept new quests.");
         return;
       }
       setCampaign(result);
+      setTimezoneName(preferences?.timezoneName ?? null);
     } catch (caught) {
       if (request !== sequence.current) return;
       setError(caught instanceof CampaignRequestError ? caught.message : "The campaign could not be loaded.");
@@ -151,7 +177,7 @@ export default function CreateQuestRoute() {
           <AppText accessibilityLiveRegion="assertive" tone="error">{campaignId ? error : "This campaign link is invalid."}</AppText>
         </View>
       ) : null}
-      {campaign ? <QuestForm campaign={campaign} ownerId={ownerId} /> : null}
+      {campaign ? <QuestForm campaign={campaign} ownerId={ownerId} timezoneName={timezoneName} /> : null}
     </KeyboardAwareScreen>
   );
 }

@@ -85,6 +85,7 @@ class CampaignQuestResponse(BaseModel):
     available_from: datetime | None
     due_at: datetime | None
     timezone_name: str | None
+    due_status: Literal["none", "upcoming", "overdue", "unavailable"]
     record_version: int
     archived_at: datetime | None
     restored_at: datetime | None

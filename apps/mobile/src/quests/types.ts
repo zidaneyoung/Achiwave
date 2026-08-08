@@ -23,6 +23,7 @@ export interface Quest {
   availableFrom: string | null;
   dueAt: string | null;
   timezoneName: string | null;
+  dueStatus: "none" | "upcoming" | "overdue" | "unavailable";
   recordVersion: number;
   archivedAt: string | null;
   restoredAt: string | null;

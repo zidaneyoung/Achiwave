@@ -30,3 +30,47 @@ export function formatPreferenceDate(
   }
   return `${year}-${month}-${day}`;
 }
+
+export function formatPreferenceDateTime(
+  date: Date,
+  preference: DateFormatPreference,
+  timeZone: string,
+): string {
+  const safeTimeZone = (() => {
+    try {
+      new Intl.DateTimeFormat(undefined, { timeZone }).format(date);
+      return timeZone;
+    } catch {
+      return "UTC";
+    }
+  })();
+  const parts = new Intl.DateTimeFormat(undefined, {
+    day: preference === "system" ? "numeric" : "2-digit",
+    hour: "numeric",
+    minute: "2-digit",
+    month: preference === "system" ? "numeric" : "2-digit",
+    timeZone: safeTimeZone,
+    year: "numeric",
+  }).formatToParts(date);
+  const values = parts.reduce<Record<string, string>>((result, part) => {
+    if (["day", "month", "year", "hour", "minute", "dayPeriod"].includes(part.type)) {
+      result[part.type] = part.value;
+    }
+    return result;
+  }, {});
+  const dateValue =
+    preference === "day_month_year"
+      ? `${values.day}/${values.month}/${values.year}`
+      : preference === "month_day_year"
+        ? `${values.month}/${values.day}/${values.year}`
+        : preference === "year_month_day"
+          ? `${values.year}-${values.month}-${values.day}`
+          : new Intl.DateTimeFormat(undefined, {
+              day: "numeric",
+              month: "numeric",
+              timeZone: safeTimeZone,
+              year: "numeric",
+            }).format(date);
+  const timeValue = `${values.hour}:${values.minute}${values.dayPeriod ? ` ${values.dayPeriod}` : ""}`;
+  return `${dateValue} ${timeValue}`;
+}

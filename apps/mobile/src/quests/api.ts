@@ -65,6 +65,7 @@ export const questApi = {
     title: string;
     description: string | null;
     rewardXp: number;
+    dueLocalDateTime: string | null;
     clientMutationId: string;
   }): Promise<Quest> {
     return requestQuest(
@@ -74,6 +75,7 @@ export const questApi = {
           title: input.title,
           description: input.description,
           reward_xp: input.rewardXp,
+          due_local_datetime: input.dueLocalDateTime,
           campaign_record_version: input.campaignRecordVersion,
           client_mutation_id: input.clientMutationId,
         }),

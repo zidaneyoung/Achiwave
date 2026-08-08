@@ -27,6 +27,7 @@ from achiwave_backend.services.campaigns import (
     InvalidCampaignStructureError,
     StaleCampaignVersionError,
 )
+from achiwave_backend.services.quests import quest_due_status
 
 
 def campaign_response(campaign: Campaign) -> CampaignResponse:
@@ -225,6 +226,11 @@ def create_campaigns_router(
                     available_from=quest.available_from,
                     due_at=quest.due_at,
                     timezone_name=quest.one_time_timezone_name,
+                    due_status=quest_due_status(
+                        quest,
+                        quest_status,
+                        result.campaign.campaign_state,
+                    ),
                     record_version=quest.record_version,
                     archived_at=quest.archived_at,
                     restored_at=quest.restored_at,

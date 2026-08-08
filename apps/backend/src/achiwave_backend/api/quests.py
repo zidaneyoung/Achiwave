@@ -18,12 +18,14 @@ from achiwave_backend.schemas.quests import (
 )
 from achiwave_backend.services.quests import (
     CampaignUnavailableError,
+    InvalidQuestScheduleError,
     QuestMutationConflictError,
     QuestNotFoundError,
     QuestResult,
     QuestService,
     StaleCampaignVersionError,
     StaleQuestVersionError,
+    quest_due_status,
 )
 
 
@@ -56,6 +58,11 @@ def quest_response(result: QuestResult) -> QuestResponse:
         available_from=quest.available_from,
         due_at=quest.due_at,
         timezone_name=quest.one_time_timezone_name,
+        due_status=quest_due_status(
+            quest,
+            result.occurrence.occurrence_state,
+            result.campaign.campaign_state,
+        ),
         record_version=quest.record_version,
         archived_at=quest.archived_at,
         restored_at=quest.restored_at,
@@ -230,6 +237,12 @@ def create_quests_router(
                 status_code=status.HTTP_409_CONFLICT,
                 code="client_mutation_conflict",
                 message="This request identifier was already used for another action.",
+            ) from error
+        except InvalidQuestScheduleError as error:
+            raise ApiError(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                code="invalid_due_date",
+                message="The due date must resolve to a valid future instant.",
             ) from error
         return quest_response(result)
 
