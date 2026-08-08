@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from achiwave_backend.api.dependencies import AuthenticationDependencies
 from achiwave_backend.api.errors import ApiError, ErrorResponse
-from achiwave_backend.models import Campaign, User
+from achiwave_backend.models import User
 from achiwave_backend.quest_configuration import (
     quest_category_label,
     quest_difficulty_label,
@@ -30,25 +30,9 @@ from achiwave_backend.services.campaigns import (
     ClientMutationConflictError,
     InvalidCampaignStructureError,
     StaleCampaignVersionError,
+    campaign_response,
 )
 from achiwave_backend.services.quests import quest_due_status
-
-
-def campaign_response(campaign: Campaign) -> CampaignResponse:
-    return CampaignResponse(
-        id=campaign.id,
-        title=campaign.title,
-        description=campaign.description,
-        display_order=campaign.display_order,
-        status=campaign.campaign_state,
-        record_version=campaign.record_version,
-        completed_at=campaign.completed_at,
-        archived_at=campaign.archived_at,
-        restored_at=campaign.restored_at,
-        created_at=campaign.created_at,
-        updated_at=campaign.updated_at,
-    )
-
 
 def create_campaigns_router(
     authentication: AuthenticationDependencies,
@@ -99,7 +83,7 @@ def create_campaigns_router(
                 code="client_mutation_conflict",
                 message="This request identifier was already used for another action.",
             ) from error
-        return campaign_response(campaign)
+        return campaign
 
     @router.post(
         "/{campaign_id}/archive",
@@ -138,7 +122,7 @@ def create_campaigns_router(
                 code="client_mutation_conflict",
                 message="This request identifier was already used for another action.",
             ) from error
-        return campaign_response(campaign)
+        return campaign
 
     @router.patch(
         "/{campaign_id}",

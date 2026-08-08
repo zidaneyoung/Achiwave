@@ -19,11 +19,17 @@ from achiwave_backend.models import (
     User,
     UserPreference,
 )
-from achiwave_backend.quest_configuration import ALLOWED_QUEST_REWARD_XP
+from achiwave_backend.quest_configuration import (
+    ALLOWED_QUEST_REWARD_XP,
+    quest_category_label,
+    quest_difficulty_label,
+)
 from achiwave_backend.schemas.quests import (
     CreateOneTimeQuestRequest,
     QuestListCategory,
     QuestListStatus,
+    QuestOccurrenceResponse,
+    QuestResponse,
     QuestTransitionRequest,
     ReorderActiveQuestsRequest,
     UpdateOneTimeQuestRequest,
@@ -220,6 +226,68 @@ def quest_due_status(
     ):
         return "unavailable"
     return "overdue" if quest.due_at <= (now or datetime.now(UTC)) else "upcoming"
+
+
+def _occurrence_response(occurrence: QuestOccurrence) -> QuestOccurrenceResponse:
+    return QuestOccurrenceResponse(
+        id=occurrence.id,
+        status=occurrence.occurrence_state,
+        occurrence_local_date=occurrence.occurrence_local_date,
+        timezone_name=occurrence.timezone_name,
+        available_at=occurrence.available_at,
+        eligibility_expires_at=occurrence.eligibility_expires_at,
+        reward_xp=occurrence.reward_xp,
+        record_version=occurrence.record_version,
+    )
+
+
+def quest_response(
+    result: QuestResult,
+    *,
+    now: datetime | None = None,
+) -> QuestResponse:
+    """Materialize the canonical public quest representation."""
+
+    quest = result.quest
+    return QuestResponse(
+        id=quest.id,
+        campaign_id=quest.campaign_id,
+        campaign_record_version=result.campaign.record_version,
+        campaign_status=result.campaign.campaign_state,
+        quest_type=quest.quest_type,
+        definition_state=quest.definition_state,
+        title=quest.title,
+        description=quest.description,
+        category=quest.category,
+        category_label=quest_category_label(quest.category),
+        difficulty=quest.difficulty,
+        difficulty_label=quest_difficulty_label(quest.difficulty),
+        reward_xp=quest.reward_xp,
+        display_order=quest.display_order,
+        available_from=quest.available_from,
+        due_at=quest.due_at,
+        timezone_name=quest.one_time_timezone_name,
+        due_status=quest_due_status(
+            quest,
+            (
+                result.occurrence.occurrence_state
+                if result.occurrence is not None
+                else "available"
+            ),
+            result.campaign.campaign_state,
+            now=now,
+        ),
+        record_version=quest.record_version,
+        archived_at=quest.archived_at,
+        restored_at=quest.restored_at,
+        created_at=quest.created_at,
+        updated_at=quest.updated_at,
+        occurrence=(
+            _occurrence_response(result.occurrence)
+            if result.occurrence is not None
+            else None
+        ),
+    )
 
 
 class QuestService:
@@ -465,7 +533,7 @@ class QuestService:
         request: QuestTransitionRequest,
         *,
         restore: bool,
-    ) -> QuestResult:
+    ) -> QuestResponse:
         user = database_session.scalar(
             select(User).where(User.id == current_user.id).with_for_update()
         )
@@ -483,6 +551,26 @@ class QuestService:
         )
         if quest is None:
             raise QuestNotFoundError
+        operation = "one_time_quest_restore" if restore else "one_time_quest_archive"
+        payload_hash = _payload_hash(
+            {"quest_id": str(quest_id), "record_version": request.record_version}
+        )
+        existing_mutation = database_session.scalar(
+            select(ClientMutation).where(
+                ClientMutation.user_id == user.id,
+                ClientMutation.client_mutation_id == request.client_mutation_id,
+            )
+        )
+        if existing_mutation is not None:
+            if (
+                existing_mutation.operation_type != operation
+                or existing_mutation.target_id != quest.id
+                or existing_mutation.payload_hash != payload_hash
+                or existing_mutation.result_id != quest.id
+            ):
+                raise QuestMutationConflictError
+            if existing_mutation.result_payload is not None:
+                return QuestResponse.model_validate(existing_mutation.result_payload)
         campaign = database_session.scalar(
             select(Campaign)
             .where(
@@ -500,25 +588,9 @@ class QuestService:
         )
         if campaign is None or occurrence is None or campaign.campaign_state == "archived":
             raise QuestNotFoundError
-        operation = "one_time_quest_restore" if restore else "one_time_quest_archive"
-        payload_hash = _payload_hash(
-            {"quest_id": str(quest.id), "record_version": request.record_version}
-        )
-        existing_mutation = database_session.scalar(
-            select(ClientMutation).where(
-                ClientMutation.user_id == user.id,
-                ClientMutation.client_mutation_id == request.client_mutation_id,
-            )
-        )
         if existing_mutation is not None:
-            if (
-                existing_mutation.operation_type != operation
-                or existing_mutation.target_id != quest.id
-                or existing_mutation.payload_hash != payload_hash
-                or existing_mutation.result_id != quest.id
-            ):
-                raise QuestMutationConflictError
-            return QuestResult(quest, occurrence, campaign)
+            # Rows created before result snapshots existed cannot be reconstructed.
+            return quest_response(QuestResult(quest, occurrence, campaign))
         result = QuestResult(quest, occurrence, campaign)
         if quest.record_version != request.record_version:
             raise StaleQuestVersionError(result)
@@ -615,12 +687,14 @@ class QuestService:
                     )
                 )
             user.updated_at = now
+        response = quest_response(result, now=now)
+        mutation.result_payload = response.model_dump(mode="json")
         try:
             database_session.commit()
         except Exception:
             database_session.rollback()
             raise
-        return result
+        return response
 
     def archive_one_time(
         self,
@@ -628,7 +702,7 @@ class QuestService:
         current_user: User,
         quest_id: UUID,
         request: QuestTransitionRequest,
-    ) -> QuestResult:
+    ) -> QuestResponse:
         return self._transition_one_time(
             database_session,
             current_user,
@@ -643,7 +717,7 @@ class QuestService:
         current_user: User,
         quest_id: UUID,
         request: QuestTransitionRequest,
-    ) -> QuestResult:
+    ) -> QuestResponse:
         return self._transition_one_time(
             database_session,
             current_user,

@@ -17,6 +17,7 @@ from achiwave_backend.models import (
     User,
 )
 from achiwave_backend.schemas.campaigns import (
+    CampaignResponse,
     CampaignTransitionRequest,
     CreateCampaignRequest,
     UpdateCampaignRequest,
@@ -90,6 +91,24 @@ def _commit(database_session: Session) -> None:
         raise
 
 
+def campaign_response(campaign: Campaign) -> CampaignResponse:
+    """Materialize the canonical public campaign representation."""
+
+    return CampaignResponse(
+        id=campaign.id,
+        title=campaign.title,
+        description=campaign.description,
+        display_order=campaign.display_order,
+        status=campaign.campaign_state,
+        record_version=campaign.record_version,
+        completed_at=campaign.completed_at,
+        archived_at=campaign.archived_at,
+        restored_at=campaign.restored_at,
+        created_at=campaign.created_at,
+        updated_at=campaign.updated_at,
+    )
+
+
 def _derived_campaign_state(
     database_session: Session,
     campaign: Campaign,
@@ -150,7 +169,7 @@ class CampaignService:
         current_user: User,
         campaign_id: UUID,
         request: CampaignTransitionRequest,
-    ) -> Campaign:
+    ) -> CampaignResponse:
         user = database_session.scalar(
             select(User).where(User.id == current_user.id).with_for_update()
         )
@@ -187,7 +206,10 @@ class CampaignService:
                 or existing_mutation.result_id != campaign.id
             ):
                 raise ClientMutationConflictError
-            return campaign
+            if existing_mutation.result_payload is not None:
+                return CampaignResponse.model_validate(existing_mutation.result_payload)
+            # Rows created before result snapshots existed cannot be reconstructed.
+            return campaign_response(campaign)
         if campaign.record_version != request.record_version:
             raise StaleCampaignVersionError(campaign)
 
@@ -241,8 +263,10 @@ class CampaignService:
                     },
                 )
             )
+        result = campaign_response(campaign)
+        mutation.result_payload = result.model_dump(mode="json")
         _commit(database_session)
-        return campaign
+        return result
 
     def archive(
         self,
@@ -250,7 +274,7 @@ class CampaignService:
         current_user: User,
         campaign_id: UUID,
         request: CampaignTransitionRequest,
-    ) -> Campaign:
+    ) -> CampaignResponse:
         user = database_session.scalar(
             select(User).where(User.id == current_user.id).with_for_update()
         )
@@ -287,7 +311,10 @@ class CampaignService:
                 or existing_mutation.result_id != campaign.id
             ):
                 raise ClientMutationConflictError
-            return campaign
+            if existing_mutation.result_payload is not None:
+                return CampaignResponse.model_validate(existing_mutation.result_payload)
+            # Rows created before result snapshots existed cannot be reconstructed.
+            return campaign_response(campaign)
         if campaign.record_version != request.record_version:
             raise StaleCampaignVersionError(campaign)
 
@@ -334,8 +361,10 @@ class CampaignService:
                     },
                 )
             )
+        result = campaign_response(campaign)
+        mutation.result_payload = result.model_dump(mode="json")
         _commit(database_session)
-        return campaign
+        return result
 
     def update(
         self,
