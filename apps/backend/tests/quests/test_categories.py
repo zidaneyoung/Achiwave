@@ -34,6 +34,7 @@ def test_category_options_are_authenticated_and_canonical(
             {"value": "medium", "label": "Medium"},
             {"value": "hard", "label": "Hard"},
         ],
+        "reward_xp_values": [0, 10, 20],
     }
 
 

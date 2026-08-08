@@ -9,6 +9,7 @@ export interface QuestAuthoringOption<TValue extends string = string> {
 export interface QuestAuthoringOptions {
   categories: QuestAuthoringOption<QuestCategory>[];
   difficulties: QuestAuthoringOption<QuestDifficulty>[];
+  rewardXpValues: number[];
 }
 
 export interface OneTimeOccurrence {

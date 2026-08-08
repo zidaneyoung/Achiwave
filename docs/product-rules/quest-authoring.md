@@ -41,3 +41,19 @@ this contract remain `null` and display **Not set** until the owner explicitly
 chooses a difficulty; unrelated edits may preserve that legacy null. Explicit
 null, labels, aliases, case variants, whitespace variants, and unknown values are
 rejected for new configuration. Archive and restore retain the stored value.
+
+## Configured XP rewards
+
+The only values selectable for a new quest or a changed definition reward are
+`0`, `10`, and `20` XP. Values are JSON integers; numeric strings, fractions,
+negative values, and other integers are rejected. Difficulty never selects or
+constrains a reward value.
+
+This setting is not an XP award. Creating or editing a quest does not add a
+ledger entry, change progression, or change an already generated occurrence's
+reward snapshot. Existing definitions with a historical reward outside the
+allowed choices remain readable and authoritative for their existing occurrence.
+They may be submitted unchanged and may be omitted during unrelated edits, but
+any actual reward change must select an allowed value. No database allowlist
+constraint or data backfill rewrites legacy configured or snapshotted rewards;
+the existing nonnegative database integrity constraint remains in force.

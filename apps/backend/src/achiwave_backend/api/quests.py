@@ -10,6 +10,7 @@ from achiwave_backend.models import Quest, QuestOccurrence, User
 from achiwave_backend.quest_configuration import (
     QUEST_CATEGORY_LABELS,
     QUEST_DIFFICULTY_LABELS,
+    ALLOWED_QUEST_REWARD_XP,
     quest_category_label,
     quest_difficulty_label,
 )
@@ -26,6 +27,7 @@ from achiwave_backend.schemas.quests import (
 )
 from achiwave_backend.services.quests import (
     CampaignUnavailableError,
+    InvalidQuestRewardError,
     InvalidQuestScheduleError,
     QuestMutationConflictError,
     QuestNotFoundError,
@@ -106,6 +108,7 @@ def create_quests_router(
                 QuestAuthoringOptionResponse(value=value, label=label)
                 for value, label in QUEST_DIFFICULTY_LABELS.items()
             ],
+            reward_xp_values=list(ALLOWED_QUEST_REWARD_XP),
         )
 
     def transition_error(error: Exception, *, action: str) -> ApiError:
@@ -202,6 +205,12 @@ def create_quests_router(
                 status_code=status.HTTP_409_CONFLICT,
                 code="client_mutation_conflict",
                 message="This request identifier was already used for another action.",
+            ) from error
+        except InvalidQuestRewardError as error:
+            raise ApiError(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                code="invalid_reward_xp",
+                message="Choose an allowed quest XP reward.",
             ) from error
         return quest_response(result)
 

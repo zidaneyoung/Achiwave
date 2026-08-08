@@ -29,6 +29,8 @@ QUEST_DIFFICULTY_LABELS: dict[QuestDifficulty, str] = {
     QuestDifficulty.HARD: "Hard",
 }
 
+ALLOWED_QUEST_REWARD_XP: tuple[int, ...] = (0, 10, 20)
+
 
 def quest_category_label(value: str | None) -> str:
     return "Uncategorized" if value is None else QUEST_CATEGORY_LABELS[QuestCategory(value)]

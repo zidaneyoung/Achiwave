@@ -23,6 +23,12 @@ test("one-time quest form rejects blank title and invalid XP", () => {
   const result = validateOneTimeQuestForm(" ", "1.5");
   assert.ok(result.titleError);
   assert.ok(result.rewardError);
+  assert.ok(validateOneTimeQuestForm("Quest", "5").rewardError);
+});
+
+test("one-time quest form uses the server-provided allowed XP choices", () => {
+  assert.equal(validateOneTimeQuestForm("Quest", "5", "", "", [0, 5]).rewardError, null);
+  assert.ok(validateOneTimeQuestForm("Quest", "10", "", "", [0, 5]).rewardError);
 });
 
 test("one-time quest form preserves absent description and rejects unsafe content", () => {

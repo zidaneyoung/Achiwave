@@ -48,7 +48,17 @@ function QuestForm({
   const [submitting, setSubmitting] = useState(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const submissionIdentity = useRef<{ payload: string; mutationId: string } | null>(null);
-  const validation = validateOneTimeQuestForm(title, reward, description, due);
+  const validation = validateOneTimeQuestForm(
+    title,
+    reward,
+    description,
+    due,
+    options.rewardXpValues,
+  );
+  const rewardOptions = options.rewardXpValues.map((value) => ({
+    value: String(value),
+    label: `${value} XP`,
+  }));
 
   async function submit() {
     setAttempted(true);
@@ -129,13 +139,15 @@ function QuestForm({
           required
           value={difficulty}
         />
-        <AppTextField
-          editable={!submitting}
+        <QuestOptionSelector
+          disabled={submitting}
           errorText={attempted ? validation.rewardError ?? undefined : undefined}
           helperText="Configured reward only. XP is not awarded until a future accepted completion."
-          keyboardType="number-pad"
           label="XP reward"
-          onChangeText={setReward}
+          onChange={(value) => {
+            if (value !== null) setReward(value);
+          }}
+          options={rewardOptions}
           required
           value={reward}
         />

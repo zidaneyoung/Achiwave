@@ -37,7 +37,8 @@ export function parseQuestAuthoringOptions(value: unknown): QuestAuthoringOption
   if (
     !isObject(value) ||
     !Array.isArray(value.categories) ||
-    !Array.isArray(value.difficulties)
+    !Array.isArray(value.difficulties) ||
+    !Array.isArray(value.reward_xp_values)
   ) return null;
   const categories = value.categories.map((option) => {
     if (
@@ -57,15 +58,20 @@ export function parseQuestAuthoringOptions(value: unknown): QuestAuthoringOption
     ) return null;
     return { value: option.value, label: option.label };
   });
+  const rewardXpValues = value.reward_xp_values;
   if (
     categories.some((option) => option === null) ||
     categories.length === 0 ||
     difficulties.some((option) => option === null) ||
-    difficulties.length === 0
+    difficulties.length === 0 ||
+    rewardXpValues.length === 0 ||
+    rewardXpValues.some((reward) => !nonnegativeInteger(reward)) ||
+    new Set(rewardXpValues).size !== rewardXpValues.length
   ) return null;
   return {
     categories: categories as QuestAuthoringOptions["categories"],
     difficulties: difficulties as QuestAuthoringOptions["difficulties"],
+    rewardXpValues: rewardXpValues as number[],
   };
 }
 

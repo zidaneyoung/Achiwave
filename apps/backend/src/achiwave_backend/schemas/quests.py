@@ -5,7 +5,11 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from achiwave_backend.quest_configuration import QuestCategory, QuestDifficulty
+from achiwave_backend.quest_configuration import (
+    ALLOWED_QUEST_REWARD_XP,
+    QuestCategory,
+    QuestDifficulty,
+)
 
 QUEST_TITLE_MAX_LENGTH = 120
 QUEST_DESCRIPTION_MAX_LENGTH = 4_000
@@ -33,6 +37,12 @@ def _trimmed_quest_description(value: str | None) -> str | None:
     return normalized
 
 
+def _allowed_quest_reward(value: int) -> int:
+    if value not in ALLOWED_QUEST_REWARD_XP:
+        raise ValueError("Quest reward XP is not an allowed value.")
+    return value
+
+
 class CreateOneTimeQuestRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -40,7 +50,7 @@ class CreateOneTimeQuestRequest(BaseModel):
     description: str | None = Field(default=None, max_length=QUEST_DESCRIPTION_MAX_LENGTH)
     category: QuestCategory | None = None
     difficulty: QuestDifficulty
-    reward_xp: int = Field(default=0, ge=0, le=2_147_483_647)
+    reward_xp: int = Field(default=0, strict=True, ge=0, le=2_147_483_647)
     due_local_datetime: str | None = Field(
         default=None,
         pattern=LOCAL_DATE_TIME_PATTERN,
@@ -51,6 +61,7 @@ class CreateOneTimeQuestRequest(BaseModel):
 
     _validate_title = field_validator("title")(_trimmed_quest_title)
     _validate_description = field_validator("description")(_trimmed_quest_description)
+    _validate_reward_xp = field_validator("reward_xp")(_allowed_quest_reward)
 
     @model_validator(mode="after")
     def require_due_for_timezone(self) -> "CreateOneTimeQuestRequest":
@@ -66,7 +77,12 @@ class UpdateOneTimeQuestRequest(BaseModel):
     description: str | None = Field(default=None, max_length=QUEST_DESCRIPTION_MAX_LENGTH)
     category: QuestCategory | None = None
     difficulty: QuestDifficulty | None = None
-    reward_xp: int | None = Field(default=None, ge=0, le=2_147_483_647)
+    reward_xp: int | None = Field(
+        default=None,
+        strict=True,
+        ge=0,
+        le=2_147_483_647,
+    )
     record_version: int = Field(ge=1)
     client_mutation_id: UUID
 
@@ -144,3 +160,4 @@ class QuestAuthoringOptionResponse(BaseModel):
 class QuestAuthoringOptionsResponse(BaseModel):
     categories: list[QuestAuthoringOptionResponse]
     difficulties: list[QuestAuthoringOptionResponse]
+    reward_xp_values: list[int]

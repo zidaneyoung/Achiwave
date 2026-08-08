@@ -17,6 +17,7 @@ from achiwave_backend.models import (
     User,
     UserPreference,
 )
+from achiwave_backend.quest_configuration import ALLOWED_QUEST_REWARD_XP
 from achiwave_backend.schemas.quests import (
     CreateOneTimeQuestRequest,
     QuestTransitionRequest,
@@ -45,6 +46,10 @@ class QuestNotFoundError(Exception):
 
 class InvalidQuestScheduleError(Exception):
     """A supplied local due date cannot produce an accepted future instant."""
+
+
+class InvalidQuestRewardError(Exception):
+    """A changed quest reward is outside the accepted authoring choices."""
 
 
 class StaleQuestVersionError(Exception):
@@ -416,6 +421,12 @@ class QuestService:
         result = QuestResult(quest, occurrence, campaign)
         if quest.record_version != request.record_version:
             raise StaleQuestVersionError(result)
+        if (
+            "reward_xp" in fields
+            and quest.reward_xp != request.reward_xp
+            and request.reward_xp not in ALLOWED_QUEST_REWARD_XP
+        ):
+            raise InvalidQuestRewardError
 
         changed = False
         if "title" in fields and quest.title != request.title:

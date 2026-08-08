@@ -35,7 +35,28 @@ function QuestEditForm({ quest, options, ownerId, onSaved }: { quest: Quest; opt
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [staleCurrent, setStaleCurrent] = useState<Quest | null>(null);
   const identity = useRef<{ payload: string; mutationId: string } | null>(null);
-  const validation = validateOneTimeQuestForm(title, reward, description);
+  const legacyCompatibleRewards = options.rewardXpValues.includes(quest.rewardXp)
+    ? options.rewardXpValues
+    : [...options.rewardXpValues, quest.rewardXp];
+  const validation = validateOneTimeQuestForm(
+    title,
+    reward,
+    description,
+    "",
+    quest.rewardXp === Number(reward)
+      ? legacyCompatibleRewards
+      : options.rewardXpValues,
+  );
+  const rewardOptions = options.rewardXpValues.map((value) => ({
+    value: String(value),
+    label: `${value} XP`,
+  }));
+  if (!options.rewardXpValues.includes(quest.rewardXp)) {
+    rewardOptions.unshift({
+      value: String(quest.rewardXp),
+      label: `${quest.rewardXp} XP (legacy value)`,
+    });
+  }
 
   async function submit() {
     setAttempted(true);
@@ -50,7 +71,7 @@ function QuestEditForm({ quest, options, ownerId, onSaved }: { quest: Quest; opt
         description: validation.description,
         category,
         difficulty,
-        rewardXp: validation.rewardXp,
+        rewardXp: validation.rewardXp === quest.rewardXp ? undefined : validation.rewardXp,
         recordVersion: quest.recordVersion,
         clientMutationId: identity.current.mutationId,
       });
@@ -104,7 +125,18 @@ function QuestEditForm({ quest, options, ownerId, onSaved }: { quest: Quest; opt
           required
           value={difficulty}
         />
-        <AppTextField editable={!submitting && !staleCurrent} errorText={attempted ? validation.rewardError ?? undefined : undefined} keyboardType="number-pad" label="Configured XP reward" onChangeText={setReward} required value={reward} />
+        <QuestOptionSelector
+          disabled={submitting || staleCurrent !== null}
+          errorText={attempted ? validation.rewardError ?? undefined : undefined}
+          helperText="Changing this definition never rewrites an existing occurrence reward snapshot."
+          label="Configured XP reward"
+          onChange={(value) => {
+            if (value !== null) setReward(value);
+          }}
+          options={rewardOptions}
+          required
+          value={reward}
+        />
       </View>
       {submissionError ? (
         <View style={styles.error}>

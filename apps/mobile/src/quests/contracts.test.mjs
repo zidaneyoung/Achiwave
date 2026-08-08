@@ -15,6 +15,7 @@ test("authoring options parser accepts only canonical category values", () => {
         { value: "medium", label: "Medium" },
         { value: "hard", label: "Hard" },
       ],
+      reward_xp_values: [0, 10, 20],
     }),
     {
       categories: [
@@ -26,12 +27,14 @@ test("authoring options parser accepts only canonical category values", () => {
         { value: "medium", label: "Medium" },
         { value: "hard", label: "Hard" },
       ],
+      rewardXpValues: [0, 10, 20],
     },
   );
   assert.equal(
     parseQuestAuthoringOptions({
       categories: [{ value: "Finance", label: "Finance" }],
       difficulties: [{ value: "medium", label: "Medium" }],
+      reward_xp_values: [0, 10, 20],
     }),
     null,
   );

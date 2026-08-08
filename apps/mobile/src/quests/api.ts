@@ -123,7 +123,7 @@ export const questApi = {
       description: string | null;
       category: QuestCategory | null;
       difficulty: QuestDifficulty;
-      rewardXp: number;
+      rewardXp?: number;
       recordVersion: number;
       clientMutationId: string;
     },
@@ -134,7 +134,7 @@ export const questApi = {
         description: input.description,
         category: input.category,
         difficulty: input.difficulty,
-        reward_xp: input.rewardXp,
+        ...(input.rewardXp === undefined ? {} : { reward_xp: input.rewardXp }),
         record_version: input.recordVersion,
         client_mutation_id: input.clientMutationId,
       }),

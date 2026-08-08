@@ -43,7 +43,7 @@ def test_quest_detail_and_edit_preserve_occurrence_snapshot_and_replay(
         detail = client.get(f"/api/v1/quests/{created['id']}", headers=headers)
         payload = {
             "title": "  Updated  ",
-            "reward_xp": 25,
+            "reward_xp": 20,
             "record_version": created["record_version"],
             "client_mutation_id": "c0000000-0000-4000-8000-000000000003",
         }
@@ -60,7 +60,7 @@ def test_quest_detail_and_edit_preserve_occurrence_snapshot_and_replay(
     assert replay.json() == updated.json()
     result = updated.json()
     assert result["title"] == "Updated"
-    assert result["reward_xp"] == 25
+    assert result["reward_xp"] == 20
     assert result["record_version"] == 2
     assert result["occurrence"]["id"] == created["occurrence"]["id"]
     assert result["occurrence"]["reward_xp"] == 10

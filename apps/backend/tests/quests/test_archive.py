@@ -29,7 +29,7 @@ def _create_campaign_and_quest(client, headers: dict[str, str]) -> tuple[dict, d
         json={
             "title": "Preserve me",
             "difficulty": "hard",
-            "reward_xp": 30,
+            "reward_xp": 20,
             "campaign_record_version": 1,
             "client_mutation_id": "d0000000-0000-4000-8000-000000000002",
         },

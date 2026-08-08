@@ -2,12 +2,12 @@
 
 ## Status
 
-Stage 6 is partially implemented through issue #121. Campaign management
+Stage 6 is partially implemented through issue #122. Campaign management
 (#108-#113), one-time quest authoring (#114-#118), and optional one-time due
-dates (#119), optional quest categories (#120), and quest difficulty (#121) are
-implemented.
+dates (#119), optional quest categories (#120), quest difficulty (#121), and
+allowed configured XP choices (#122) are implemented.
 
-Issues #122-#129 remain unimplemented. Issue #130 and all Stage 7 completion,
+Issues #123-#129 remain unimplemented. Issue #130 and all Stage 7 completion,
 XP-award, progression, recurrence-worker, notification, and offline-mutation
 behavior remain out of scope.
 
@@ -72,3 +72,11 @@ in [`quest-authoring.md`](../product-rules/quest-authoring.md). Difficulty remai
 independent from configured XP and has no completion or reward authority. Legacy
 null values remain readable as Not set, are not backfilled, and must be replaced
 with a canonical value when explicitly changed.
+
+## Configured reward contract
+
+New or changed rewards use the centralized `0`, `10`, or `20` XP choices in
+[`quest-authoring.md`](../product-rules/quest-authoring.md). These choices remain
+independent from difficulty and never award XP during authoring. Legacy values
+outside the choices stay readable and may remain unchanged; occurrence snapshots
+and historical rewards are never rewritten.
