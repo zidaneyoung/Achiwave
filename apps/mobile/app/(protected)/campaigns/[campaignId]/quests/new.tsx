@@ -15,6 +15,7 @@ import { KeyboardAwareScreen } from "../../../../../src/platform/KeyboardAwareSc
 import { preferenceApi } from "../../../../../src/preferences/api";
 import { questApi, QuestRequestError } from "../../../../../src/quests/api";
 import { validateOneTimeQuestForm } from "../../../../../src/quests/form";
+import { QuestDueDateTimeField } from "../../../../../src/quests/QuestDueDateTimeField";
 import { QuestOptionSelector } from "../../../../../src/quests/QuestOptionSelector";
 import type {
   QuestAuthoringOptions,
@@ -151,14 +152,11 @@ function QuestForm({
           required
           value={reward}
         />
-        <AppTextField
-          autoCapitalize="none"
-          editable={!submitting}
+        <QuestDueDateTimeField
+          disabled={submitting}
           errorText={attempted ? validation.dueError ?? undefined : undefined}
-          helperText={`Optional local time. Uses ${timezoneName ?? "your saved account timezone"}; the server validates and resolves it.`}
-          label="Due date and time"
-          onChangeText={setDue}
-          placeholder="YYYY-MM-DDTHH:MM"
+          onChange={setDue}
+          timeZoneName={timezoneName}
           value={due}
         />
       </View>
