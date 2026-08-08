@@ -4,6 +4,7 @@ import type {
   QuestAuthoringOptions,
   QuestCategory,
   QuestDifficulty,
+  QuestOrder,
 } from "./types";
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -17,6 +18,40 @@ function nullableString(value: unknown): string | null | undefined {
 
 function nonnegativeInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+
+export function parseQuestOrder(value: unknown): QuestOrder | null {
+  if (
+    !isObject(value) ||
+    typeof value.campaign_id !== "string" ||
+    !nonnegativeInteger(value.campaign_record_version) ||
+    value.campaign_record_version < 1 ||
+    !Array.isArray(value.items)
+  ) return null;
+  const items = value.items.map((item) => {
+    if (
+      !isObject(item) ||
+      typeof item.id !== "string" ||
+      !nonnegativeInteger(item.display_order) ||
+      !nonnegativeInteger(item.record_version) ||
+      item.record_version < 1
+    ) return null;
+    return {
+      id: item.id,
+      displayOrder: item.display_order,
+      recordVersion: item.record_version,
+    };
+  });
+  if (
+    items.some((item) => item === null) ||
+    new Set(items.map((item) => item?.id)).size !== items.length ||
+    items.some((item, index) => item?.displayOrder !== index)
+  ) return null;
+  return {
+    campaignId: value.campaign_id,
+    campaignRecordVersion: value.campaign_record_version,
+    items: items as QuestOrder["items"],
+  };
 }
 
 export function isQuestCategory(value: unknown): value is QuestCategory {

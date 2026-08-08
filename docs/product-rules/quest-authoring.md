@@ -57,3 +57,20 @@ They may be submitted unchanged and may be omitted during unrelated edits, but
 any actual reward change must select an allowed value. No database allowlist
 constraint or data backfill rewrites legacy configured or snapshotted rewards;
 the existing nonnegative database integrity constraint remains in force.
+
+## Active quest order
+
+Quest `display_order` is presentation metadata only. A reorder request must name
+every active, non-deleted quest in one owned, non-archived campaign exactly once,
+with current campaign and quest record versions plus a stable client mutation
+identifier. The backend applies the order atomically as contiguous nonnegative
+positions and returns the canonical result. Duplicate, missing, unknown,
+cross-campaign, cross-owner, archived, or stale entries are rejected without a
+partial write.
+
+Archived quests do not participate in active order. Restoring a quest appends it
+after the current active order. Reordering does not create a completion, reward,
+progress event, campaign transition, or other product-state change. Mobile must
+offer visible, accessible move-up and move-down controls; it must not require a
+drag gesture and must disable reordering when filters, archived history, or a
+noncanonical sort make the full active sequence ambiguous.

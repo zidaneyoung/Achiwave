@@ -25,6 +25,8 @@ import { PROTECTED_ROUTES } from "../../../src/navigation/routes";
 import { preferenceApi } from "../../../src/preferences/api";
 import { formatPreferenceDateTime } from "../../../src/preferences/formatDate";
 import type { DateFormatPreference } from "../../../src/preferences/types";
+import { questApi, QuestRequestError } from "../../../src/quests/api";
+import { applyQuestOrder, moveQuest, type QuestMoveDirection } from "../../../src/quests/reorder";
 import { AppText } from "../../../src/theme/AppText";
 import {
   type AchiwaveTheme,
@@ -46,10 +48,20 @@ function statusPresentation(status: QuestDisplayStatus): { label: string; tone: 
 function QuestRow({
   quest,
   dateFormat,
+  busy,
+  index,
+  reorderEnabled,
+  total,
+  onMove,
   onPress,
 }: {
   quest: CampaignQuest;
   dateFormat: DateFormatPreference | null;
+  busy: boolean;
+  index: number;
+  reorderEnabled: boolean;
+  total: number;
+  onMove: (direction: QuestMoveDirection) => void;
   onPress: () => void;
 }) {
   const presentation = statusPresentation(quest.status);
@@ -58,13 +70,35 @@ function QuestRow({
       ? ` · Due ${formatPreferenceDateTime(new Date(quest.dueAt), dateFormat, quest.timezoneName)}${quest.dueStatus === "overdue" ? " · Overdue (server confirmed)" : ""}`
       : "";
   return (
-    <AppListItem
-      onPress={onPress}
-      leading={<StatusBadge compact label={presentation.label} tone={presentation.tone} />}
-      metadata={`${quest.questType === "one_time" ? "One-time" : "Recurring"} · ${quest.categoryLabel} · Difficulty ${quest.difficultyLabel} · ${quest.rewardXp} XP configured${due}`}
-      status={quest.description ?? undefined}
-      title={quest.title}
-    />
+    <View style={questRowStyles.questBlock}>
+      <AppListItem
+        onPress={onPress}
+        leading={<StatusBadge compact label={presentation.label} tone={presentation.tone} />}
+        metadata={`${quest.questType === "one_time" ? "One-time" : "Recurring"} · ${quest.categoryLabel} · Difficulty ${quest.difficultyLabel} · ${quest.rewardXp} XP configured${due}`}
+        status={quest.description ?? undefined}
+        title={quest.title}
+      />
+      {quest.definitionState === "active" ? (
+        <View style={questRowStyles.orderActions}>
+          <AppButton
+            accessibilityHint={`Moves ${quest.title} one position earlier.`}
+            disabled={!reorderEnabled || busy || index === 0}
+            icon="arrow-up"
+            label={`Move ${quest.title} up`}
+            onPress={() => onMove("up")}
+            variant="secondary"
+          />
+          <AppButton
+            accessibilityHint={`Moves ${quest.title} one position later.`}
+            disabled={!reorderEnabled || busy || index === total - 1}
+            icon="arrow-down"
+            label={`Move ${quest.title} down`}
+            onPress={() => onMove("down")}
+            variant="secondary"
+          />
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -89,6 +123,9 @@ export default function CampaignDetailRoute() {
   const [restoring, setRestoring] = useState(false);
   const [restoreError, setRestoreError] = useState<string | null>(null);
   const restoreMutationId = useRef<string | null>(null);
+  const [reordering, setReordering] = useState(false);
+  const [reorderError, setReorderError] = useState<string | null>(null);
+  const reorderIdentity = useRef<{ payload: string; mutationId: string } | null>(null);
   const requestSequence = useRef(0);
 
   const load = useCallback(async () => {
@@ -118,6 +155,52 @@ export default function CampaignDetailRoute() {
       if (request === requestSequence.current) setRefreshing(false);
     }
   }, [campaignId, includeArchived, ownerId]);
+
+  async function reorderQuest(index: number, direction: QuestMoveDirection) {
+    if (!detail || !ownerId || includeArchived || reordering) return;
+    const activeQuests = detail.quests.filter((quest) => quest.definitionState === "active");
+    const reordered = moveQuest(activeQuests, index, direction);
+    if (!reordered) return;
+    const payload = JSON.stringify({
+      campaignRecordVersion: detail.recordVersion,
+      items: reordered.map((quest) => ({ id: quest.id, recordVersion: quest.recordVersion })),
+    });
+    if (reorderIdentity.current?.payload !== payload) {
+      reorderIdentity.current = { payload, mutationId: questApi.createMutationId() };
+    }
+    const movedQuest = activeQuests[index];
+    setReordering(true);
+    setReorderError(null);
+    try {
+      const result = await questApi.reorderActive(detail.id, {
+        campaignRecordVersion: detail.recordVersion,
+        items: reordered.map((quest) => ({
+          id: quest.id,
+          recordVersion: quest.recordVersion,
+        })),
+        clientMutationId: reorderIdentity.current.mutationId,
+      });
+      const canonical = applyQuestOrder(detail, result);
+      setDetail(canonical);
+      setCachedCampaignDetail(ownerId, detail.id, false, canonical);
+      AccessibilityInfo.announceForAccessibility(
+        `${movedQuest.title} moved ${direction}.`,
+      );
+    } catch (caught) {
+      if (caught instanceof QuestRequestError && caught.currentOrder) {
+        const canonical = applyQuestOrder(detail, caught.currentOrder);
+        setDetail(canonical);
+        setCachedCampaignDetail(ownerId, detail.id, false, canonical);
+      }
+      const message = caught instanceof QuestRequestError
+        ? caught.message
+        : "The quest order could not be changed.";
+      setReorderError(message);
+      AccessibilityInfo.announceForAccessibility(message);
+    } finally {
+      setReordering(false);
+    }
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -184,6 +267,7 @@ export default function CampaignDetailRoute() {
                   setIncludeArchived((current) => !current);
                   setDetail(null);
                   setError(null);
+                  setReorderError(null);
                 }}
                 variant="secondary"
               />
@@ -257,6 +341,11 @@ export default function CampaignDetailRoute() {
                 </View>
               ) : null}
               <AppText accessibilityRole="header" variant="heading2">Quests</AppText>
+              {includeArchived ? (
+                <AppText tone="muted">
+                  Reordering is disabled while archived quests are shown. Hide archived quests to change active order.
+                </AppText>
+              ) : null}
               {detail.status === "active" ? (
                 <AppButton
                   icon="plus"
@@ -274,7 +363,12 @@ export default function CampaignDetailRoute() {
             />
           }
           ListFooterComponent={
-            error ? (
+            reorderError ? (
+              <View style={styles.footer}>
+                <ErrorState kind="inline" />
+                <AppText accessibilityLiveRegion="assertive" tone="error">{reorderError}</AppText>
+              </View>
+            ) : error ? (
               <View style={styles.footer}>
                 <ErrorState kind="section" onRetry={() => void load()} />
                 <AppText accessibilityLiveRegion="assertive" tone="error">{error}</AppText>
@@ -283,10 +377,15 @@ export default function CampaignDetailRoute() {
               <AppText accessibilityLiveRegion="polite" tone="muted" style={styles.center}>Refreshing campaign…</AppText>
             ) : null
           }
-          renderItem={({ item }) => (
+          renderItem={({ item, index }) => (
             <QuestRow
+              busy={reordering}
               dateFormat={dateFormat}
+              index={index}
               quest={item}
+              reorderEnabled={!includeArchived && detail.status !== "archived" && detail.quests.length > 1}
+              total={detail.quests.length}
+              onMove={(direction) => void reorderQuest(index, direction)}
               onPress={() => router.push(PROTECTED_ROUTES.questDetail(item.id))}
             />
           )}
@@ -295,6 +394,11 @@ export default function CampaignDetailRoute() {
     </SafeAreaView>
   );
 }
+
+const questRowStyles = StyleSheet.create({
+  questBlock: { gap: spacing.xs },
+  orderActions: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+});
 
 const createStyles = (theme: AchiwaveTheme) => StyleSheet.create({
   safeArea: { backgroundColor: theme.colors.background, flex: 1 },

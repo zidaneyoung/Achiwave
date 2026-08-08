@@ -1,7 +1,36 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parseQuest, parseQuestAuthoringOptions } from "./contracts.ts";
+import { parseQuest, parseQuestAuthoringOptions, parseQuestOrder } from "./contracts.ts";
+
+test("quest order parser requires unique contiguous canonical items", () => {
+  assert.deepEqual(
+    parseQuestOrder({
+      campaign_id: "campaign",
+      campaign_record_version: 5,
+      items: [
+        { id: "b", display_order: 0, record_version: 2 },
+        { id: "a", display_order: 1, record_version: 2 },
+      ],
+    }),
+    {
+      campaignId: "campaign",
+      campaignRecordVersion: 5,
+      items: [
+        { id: "b", displayOrder: 0, recordVersion: 2 },
+        { id: "a", displayOrder: 1, recordVersion: 2 },
+      ],
+    },
+  );
+  assert.equal(
+    parseQuestOrder({
+      campaign_id: "campaign",
+      campaign_record_version: 5,
+      items: [{ id: "a", display_order: 1, record_version: 2 }],
+    }),
+    null,
+  );
+});
 
 test("authoring options parser accepts only canonical category values", () => {
   assert.deepEqual(

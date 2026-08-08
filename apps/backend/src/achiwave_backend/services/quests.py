@@ -21,6 +21,7 @@ from achiwave_backend.quest_configuration import ALLOWED_QUEST_REWARD_XP
 from achiwave_backend.schemas.quests import (
     CreateOneTimeQuestRequest,
     QuestTransitionRequest,
+    ReorderActiveQuestsRequest,
     UpdateOneTimeQuestRequest,
 )
 from achiwave_backend.services.campaigns import _derived_campaign_state
@@ -52,6 +53,15 @@ class InvalidQuestRewardError(Exception):
     """A changed quest reward is outside the accepted authoring choices."""
 
 
+class InvalidQuestOrderError(Exception):
+    """A reorder payload does not exactly describe the owner's active quests."""
+
+
+class StaleQuestOrderError(Exception):
+    def __init__(self, result: "QuestOrderResult") -> None:
+        self.result = result
+
+
 class StaleQuestVersionError(Exception):
     def __init__(self, result: "QuestResult") -> None:
         self.result = result
@@ -67,6 +77,12 @@ class QuestResult:
         self.quest = quest
         self.occurrence = occurrence
         self.campaign = campaign
+
+
+class QuestOrderResult:
+    def __init__(self, campaign: Campaign, quests: list[Quest]) -> None:
+        self.campaign = campaign
+        self.quests = sorted(quests, key=lambda quest: (quest.display_order, quest.id))
 
 
 def _payload_hash(payload: dict[str, object]) -> bytes:
@@ -132,6 +148,122 @@ def quest_due_status(
 
 
 class QuestService:
+    def reorder_active(
+        self,
+        database_session: Session,
+        current_user: User,
+        campaign_id: UUID,
+        request: ReorderActiveQuestsRequest,
+    ) -> QuestOrderResult:
+        user = database_session.scalar(
+            select(User).where(User.id == current_user.id).with_for_update()
+        )
+        if user is None:
+            raise RuntimeError("Authenticated user record is missing.")
+        campaign = database_session.scalar(
+            select(Campaign)
+            .where(
+                Campaign.id == campaign_id,
+                Campaign.user_id == user.id,
+                Campaign.campaign_state != "archived",
+                Campaign.deleted_at.is_(None),
+            )
+            .with_for_update()
+        )
+        if campaign is None:
+            raise CampaignUnavailableError
+        quests = list(
+            database_session.scalars(
+                select(Quest)
+                .where(
+                    Quest.user_id == user.id,
+                    Quest.campaign_id == campaign.id,
+                    Quest.definition_state == "active",
+                    Quest.deleted_at.is_(None),
+                )
+                .order_by(Quest.id)
+                .with_for_update()
+            )
+        )
+        result = QuestOrderResult(campaign, quests)
+        payload_hash = _payload_hash(
+            {
+                "campaign_id": str(campaign.id),
+                "campaign_record_version": request.campaign_record_version,
+                "items": [
+                    {"id": str(item.id), "record_version": item.record_version}
+                    for item in request.items
+                ],
+            }
+        )
+        existing_mutation = database_session.scalar(
+            select(ClientMutation).where(
+                ClientMutation.user_id == user.id,
+                ClientMutation.client_mutation_id == request.client_mutation_id,
+            )
+        )
+        if existing_mutation is not None:
+            if (
+                existing_mutation.operation_type != "active_quest_reorder"
+                or existing_mutation.target_id != campaign.id
+                or existing_mutation.payload_hash != payload_hash
+                or existing_mutation.result_id != campaign.id
+            ):
+                raise QuestMutationConflictError
+            return result
+
+        requested_ids = [item.id for item in request.items]
+        quests_by_id = {quest.id: quest for quest in quests}
+        if (
+            len(requested_ids) != len(quests)
+            or len(set(requested_ids)) != len(requested_ids)
+            or set(requested_ids) != set(quests_by_id)
+        ):
+            raise InvalidQuestOrderError
+        if campaign.record_version != request.campaign_record_version:
+            raise StaleQuestOrderError(result)
+        requested_versions = {item.id: item.record_version for item in request.items}
+        if any(
+            quest.record_version != requested_versions[quest.id]
+            for quest in quests
+        ):
+            raise StaleQuestOrderError(result)
+
+        now = datetime.now(UTC)
+        changed = False
+        for display_order, quest_id in enumerate(requested_ids):
+            quest = quests_by_id[quest_id]
+            if quest.display_order != display_order:
+                quest.display_order = display_order
+                quest.record_version += 1
+                quest.updated_at = now
+                changed = True
+        if changed:
+            campaign.record_version += 1
+            campaign.updated_at = now
+        database_session.add(
+            ClientMutation(
+                id=uuid4(),
+                user_id=user.id,
+                client_mutation_id=request.client_mutation_id,
+                operation_type="active_quest_reorder",
+                payload_hash=payload_hash,
+                target_type="campaign",
+                target_id=campaign.id,
+                processing_status="succeeded",
+                result_type="campaign",
+                result_id=campaign.id,
+                processed_at=now,
+                updated_at=now,
+            )
+        )
+        try:
+            database_session.commit()
+        except Exception:
+            database_session.rollback()
+            raise
+        return QuestOrderResult(campaign, quests)
+
     def _transition_one_time(
         self,
         database_session: Session,
@@ -217,6 +349,17 @@ class QuestService:
         expected_state = "archived" if restore else "active"
         if quest.definition_state == expected_state:
             previous_campaign_state = campaign.campaign_state
+            if restore:
+                next_display_order = database_session.scalar(
+                    select(func.coalesce(func.max(Quest.display_order) + 1, 0)).where(
+                        Quest.user_id == user.id,
+                        Quest.campaign_id == campaign.id,
+                        Quest.definition_state == "active",
+                        Quest.deleted_at.is_(None),
+                        Quest.id != quest.id,
+                    )
+                )
+                quest.display_order = int(next_display_order or 0)
             quest.definition_state = "active" if restore else "archived"
             if restore:
                 quest.restored_at = now

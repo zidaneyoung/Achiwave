@@ -2,12 +2,13 @@
 
 ## Status
 
-Stage 6 is partially implemented through issue #122. Campaign management
+Stage 6 is partially implemented through issue #123. Campaign management
 (#108-#113), one-time quest authoring (#114-#118), and optional one-time due
 dates (#119), optional quest categories (#120), quest difficulty (#121), and
-allowed configured XP choices (#122) are implemented.
+allowed configured XP choices (#122), and active quest reordering (#123) are
+implemented.
 
-Issues #123-#129 remain unimplemented. Issue #130 and all Stage 7 completion,
+Issues #124-#129 remain unimplemented. Issue #130 and all Stage 7 completion,
 XP-award, progression, recurrence-worker, notification, and offline-mutation
 behavior remain out of scope.
 
@@ -80,3 +81,12 @@ New or changed rewards use the centralized `0`, `10`, or `20` XP choices in
 independent from difficulty and never award XP during authoring. Legacy values
 outside the choices stay readable and may remain unchanged; occurrence snapshots
 and historical rewards are never rewritten.
+
+## Active quest order
+
+Owners can move active quests up or down through visible buttons. The backend
+validates the complete owner-scoped active set and all record versions, writes
+contiguous positions in one transaction, and returns the canonical order.
+Archived quests are excluded and restored quests append to the active sequence.
+Reordering is disabled whenever archived history or another ambiguous view is
+shown, and it has no completion, reward, or progression side effect.

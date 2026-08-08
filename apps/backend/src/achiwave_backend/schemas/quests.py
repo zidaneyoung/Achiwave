@@ -161,3 +161,42 @@ class QuestAuthoringOptionsResponse(BaseModel):
     categories: list[QuestAuthoringOptionResponse]
     difficulties: list[QuestAuthoringOptionResponse]
     reward_xp_values: list[int]
+
+
+class QuestOrderItemRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: UUID
+    record_version: int = Field(ge=1)
+
+
+class ReorderActiveQuestsRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[QuestOrderItemRequest] = Field(min_length=1)
+    campaign_record_version: int = Field(ge=1)
+    client_mutation_id: UUID
+
+    @model_validator(mode="after")
+    def require_unique_quests(self) -> "ReorderActiveQuestsRequest":
+        if len({item.id for item in self.items}) != len(self.items):
+            raise ValueError("Each active quest must appear exactly once.")
+        return self
+
+
+class QuestOrderItemResponse(BaseModel):
+    id: UUID
+    display_order: int
+    record_version: int
+
+
+class QuestOrderResponse(BaseModel):
+    campaign_id: UUID
+    campaign_record_version: int
+    items: list[QuestOrderItemResponse]
+
+
+class QuestOrderConflictResponse(BaseModel):
+    code: str
+    message: str
+    current: QuestOrderResponse

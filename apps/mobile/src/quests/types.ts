@@ -12,6 +12,18 @@ export interface QuestAuthoringOptions {
   rewardXpValues: number[];
 }
 
+export interface QuestOrderItem {
+  id: string;
+  displayOrder: number;
+  recordVersion: number;
+}
+
+export interface QuestOrder {
+  campaignId: string;
+  campaignRecordVersion: number;
+  items: QuestOrderItem[];
+}
+
 export interface OneTimeOccurrence {
   id: string;
   status: "scheduled" | "available" | "completed" | "reversed" | "expired" | "voided";

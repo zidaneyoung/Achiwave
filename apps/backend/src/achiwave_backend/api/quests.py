@@ -21,20 +21,27 @@ from achiwave_backend.schemas.quests import (
     QuestAuthoringOptionsResponse,
     QuestConflictResponse,
     QuestOccurrenceResponse,
+    QuestOrderConflictResponse,
+    QuestOrderItemResponse,
+    QuestOrderResponse,
     QuestResponse,
     QuestTransitionRequest,
+    ReorderActiveQuestsRequest,
     UpdateOneTimeQuestRequest,
 )
 from achiwave_backend.services.quests import (
     CampaignUnavailableError,
     InvalidQuestRewardError,
+    InvalidQuestOrderError,
     InvalidQuestScheduleError,
     QuestMutationConflictError,
     QuestNotFoundError,
     QuestResult,
+    QuestOrderResult,
     QuestService,
     StaleCampaignVersionError,
     StaleQuestVersionError,
+    StaleQuestOrderError,
     quest_due_status,
 )
 
@@ -86,6 +93,21 @@ def quest_response(result: QuestResult) -> QuestResponse:
     )
 
 
+def quest_order_response(result: QuestOrderResult) -> QuestOrderResponse:
+    return QuestOrderResponse(
+        campaign_id=result.campaign.id,
+        campaign_record_version=result.campaign.record_version,
+        items=[
+            QuestOrderItemResponse(
+                id=quest.id,
+                display_order=quest.display_order,
+                record_version=quest.record_version,
+            )
+            for quest in result.quests
+        ],
+    )
+
+
 def create_quests_router(
     authentication: AuthenticationDependencies,
 ) -> APIRouter:
@@ -110,6 +132,57 @@ def create_quests_router(
             ],
             reward_xp_values=list(ALLOWED_QUEST_REWARD_XP),
         )
+
+    @router.put(
+        "/api/v1/campaigns/{campaign_id}/quests/order",
+        response_model=QuestOrderResponse,
+        responses={
+            status.HTTP_404_NOT_FOUND: {"model": ErrorResponse},
+            status.HTTP_409_CONFLICT: {"model": QuestOrderConflictResponse},
+            status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorResponse},
+        },
+    )
+    def reorder_active_quests(
+        campaign_id: UUID,
+        request: ReorderActiveQuestsRequest,
+        user: User = Depends(authentication.current_user),
+        database_session: Session = Depends(authentication.database_session),
+    ) -> QuestOrderResponse:
+        try:
+            result = service.reorder_active(
+                database_session,
+                user,
+                campaign_id,
+                request,
+            )
+        except CampaignUnavailableError as error:
+            raise ApiError(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="campaign_not_found",
+                message="The campaign is unavailable for quest reordering.",
+            ) from error
+        except InvalidQuestOrderError as error:
+            raise ApiError(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                code="invalid_quest_order",
+                message="Submit every active quest exactly once.",
+            ) from error
+        except StaleQuestOrderError as error:
+            raise ApiError(
+                status_code=status.HTTP_409_CONFLICT,
+                code="stale_record_version",
+                message="Campaign or quest order changed before this request was applied.",
+                details={
+                    "current": quest_order_response(error.result).model_dump(mode="json")
+                },
+            ) from error
+        except QuestMutationConflictError as error:
+            raise ApiError(
+                status_code=status.HTTP_409_CONFLICT,
+                code="client_mutation_conflict",
+                message="This request identifier was already used for another action.",
+            ) from error
+        return quest_order_response(result)
 
     def transition_error(error: Exception, *, action: str) -> ApiError:
         if isinstance(error, QuestNotFoundError):
