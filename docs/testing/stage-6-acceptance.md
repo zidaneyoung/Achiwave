@@ -4,7 +4,8 @@
 
 Stage 6 implementation is complete through issue #129. Branch-wide local
 acceptance is **Pass**, with device-only behavior separately marked **Unable to
-Verify**. The final branch is awaiting pull-request review and merge. Issue #130
+Verify**. The final branch is in [pull request #393](https://github.com/zidaneyoung/Achiwave/pull/393)
+and is awaiting merge. Issue #130
 and all Stage 7 completion, XP-award, progression, recurrence-worker,
 notification, and offline-mutation behavior remain out of scope.
 
@@ -15,13 +16,13 @@ notification, and offline-mutation behavior remain out of scope.
 | #108-#113 | `stage-6/campaign-management-108-113` | `26990fb`, `af97617`, `ee2a718`, `240bb9b`, `ff3b4e6`, `da7728c` | [#390](https://github.com/zidaneyoung/Achiwave/pull/390), merged as `c32ee098089d8317fb0fc79b04b4c95f20c7e3ce` | Pass; issues closed |
 | #114-#118 | `stage-6/quest-authoring-114-118` | `077ab51`, `adad3f6`, `75fc7df`, `1c502b8`, `2c74811` | [#391](https://github.com/zidaneyoung/Achiwave/pull/391), merged as `f2658ec771b9e2670d3aed6409c73c8180f625e8` | Pass; issues closed |
 | #119-#123 | `stage-6/quest-planning-119-123` | `6a1b69f`, `fa3a437`, `7f937c5`, `47a7012`, `1ca6c0b`, `189cfa8`, `46216d4` | [#392](https://github.com/zidaneyoung/Achiwave/pull/392), merged as `89ce156e38ea11f6be77d6db90670b683d758e7c` | Pass; issues closed |
-| #124 | `stage-6/quest-discovery-integrity-124-129` | `d321f69` | Pending final branch PR | Pass locally |
-| #125 | `stage-6/quest-discovery-integrity-124-129` | `2b21706`, `56edd3d` | Pending final branch PR | Pass locally |
-| #126 | `stage-6/quest-discovery-integrity-124-129` | `c5d6798` | Pending final branch PR | Pass locally; device interaction Unable to Verify |
-| #127 | `stage-6/quest-discovery-integrity-124-129` | `32c4e86`, `56edd3d` | Pending final branch PR | Pass locally; device interaction Unable to Verify |
-| #128 | `stage-6/quest-discovery-integrity-124-129` | `9ee0dcf` | Pending final branch PR | Pass locally; device interaction Unable to Verify |
-| Lifecycle replay review fix | `stage-6/quest-discovery-integrity-124-129` | `3f91a03` | Pending final branch PR | Pass locally |
-| #129 | `stage-6/quest-discovery-integrity-124-129` | `52a4fb9` | Pending final branch PR | Pass locally |
+| #124 | `stage-6/quest-discovery-integrity-124-129` | `d321f69` | [#393](https://github.com/zidaneyoung/Achiwave/pull/393) | Pass locally |
+| #125 | `stage-6/quest-discovery-integrity-124-129` | `2b21706`, `56edd3d` | [#393](https://github.com/zidaneyoung/Achiwave/pull/393) | Pass locally |
+| #126 | `stage-6/quest-discovery-integrity-124-129` | `c5d6798` | [#393](https://github.com/zidaneyoung/Achiwave/pull/393) | Pass locally; device interaction Unable to Verify |
+| #127 | `stage-6/quest-discovery-integrity-124-129` | `32c4e86`, `56edd3d` | [#393](https://github.com/zidaneyoung/Achiwave/pull/393) | Pass locally; device interaction Unable to Verify |
+| #128 | `stage-6/quest-discovery-integrity-124-129` | `9ee0dcf` | [#393](https://github.com/zidaneyoung/Achiwave/pull/393) | Pass locally; device interaction Unable to Verify |
+| Lifecycle replay review fix | `stage-6/quest-discovery-integrity-124-129` | `3f91a03` | [#393](https://github.com/zidaneyoung/Achiwave/pull/393) | Pass locally |
+| #129 | `stage-6/quest-discovery-integrity-124-129` | `52a4fb9` | [#393](https://github.com/zidaneyoung/Achiwave/pull/393) | Pass locally |
 
 Review-fix commits on the first two branches were `ff0913f`, `c125f12`, and
 `23bcbce`. The third branch used `fa3a437` for preference-fallback isolation and
