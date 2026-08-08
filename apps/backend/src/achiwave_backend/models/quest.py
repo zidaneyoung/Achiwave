@@ -95,6 +95,19 @@ class Quest(Base):
             "definition_state",
             "display_order",
         ),
+        Index(
+            "ix_quests_user_state_category",
+            "user_id",
+            "definition_state",
+            "category",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index(
+            "ix_quests_user_due_at",
+            "user_id",
+            "due_at",
+            postgresql_where=text("deleted_at IS NULL AND due_at IS NOT NULL"),
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(

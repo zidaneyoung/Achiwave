@@ -3,12 +3,15 @@ import * as Crypto from "expo-crypto";
 import { authenticationService } from "../auth/service";
 import { isObject, parseCampaign } from "../campaigns/contracts";
 import type { Campaign } from "../campaigns/types";
-import { parseQuest, parseQuestAuthoringOptions, parseQuestOrder } from "./contracts";
+import { parseQuest, parseQuestAuthoringOptions, parseQuestList, parseQuestOrder } from "./contracts";
+import { buildQuestListPath, QUEST_LIST_PAGE_SIZE } from "./list";
 import type {
   Quest,
   QuestAuthoringOptions,
   QuestCategory,
   QuestDifficulty,
+  QuestListFilters,
+  QuestListPage,
   QuestOrder,
 } from "./types";
 
@@ -81,6 +84,33 @@ async function requestAuthoringOptions(): Promise<QuestAuthoringOptions> {
   }
 }
 
+async function requestQuestList(
+  filters: QuestListFilters,
+  limit: number,
+  offset: number,
+): Promise<QuestListPage> {
+  try {
+    const response = await authenticationService.request(
+      buildQuestListPath(filters, limit, offset),
+    );
+    const body = await readJson(response);
+    if (!response.ok) {
+      if (response.status === 422) {
+        throw new QuestRequestError("validation", "Check the quest filters and try again.");
+      }
+      throw new QuestRequestError("server", "Quests could not be loaded. Try again.");
+    }
+    const page = parseQuestList(body);
+    if (!page) {
+      throw new QuestRequestError("invalid_response", "Quest data is temporarily unavailable.");
+    }
+    return page;
+  } catch (error) {
+    if (error instanceof QuestRequestError) throw error;
+    throw new QuestRequestError("offline", "Reconnect to load quests.");
+  }
+}
+
 async function requestQuestOrder(path: string, init: RequestInit): Promise<QuestOrder> {
   try {
     const response = await authenticationService.request(path, init);
@@ -134,6 +164,10 @@ export const questApi = {
 
   get(questId: string): Promise<Quest> {
     return requestQuest(`/api/v1/quests/${encodeURIComponent(questId)}`);
+  },
+
+  list(filters: QuestListFilters, limit = QUEST_LIST_PAGE_SIZE, offset = 0): Promise<QuestListPage> {
+    return requestQuestList(filters, limit, offset);
   },
 
   reorderActive(

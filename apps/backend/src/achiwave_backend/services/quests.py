@@ -1,14 +1,14 @@
 import hashlib
 import json
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from importlib.metadata import PackageNotFoundError, version
 from typing import Any
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy import case, func, select
+from sqlalchemy.orm import Session, aliased
 
 from achiwave_backend.models import (
     Campaign,
@@ -22,6 +22,8 @@ from achiwave_backend.models import (
 from achiwave_backend.quest_configuration import ALLOWED_QUEST_REWARD_XP
 from achiwave_backend.schemas.quests import (
     CreateOneTimeQuestRequest,
+    QuestListCategory,
+    QuestListStatus,
     QuestTransitionRequest,
     ReorderActiveQuestsRequest,
     UpdateOneTimeQuestRequest,
@@ -73,12 +75,28 @@ class QuestResult:
     def __init__(
         self,
         quest: Quest,
-        occurrence: QuestOccurrence,
+        occurrence: QuestOccurrence | None,
         campaign: Campaign,
     ) -> None:
         self.quest = quest
         self.occurrence = occurrence
         self.campaign = campaign
+
+
+@dataclass(frozen=True)
+class QuestListItemResult:
+    quest: Quest
+    campaign: Campaign
+    occurrence: QuestOccurrence | None
+    status: str
+
+
+@dataclass(frozen=True)
+class QuestListResult:
+    items: tuple[QuestListItemResult, ...]
+    total: int
+    limit: int
+    offset: int
 
 
 @dataclass(frozen=True)
@@ -205,6 +223,120 @@ def quest_due_status(
 
 
 class QuestService:
+    def list(
+        self,
+        database_session: Session,
+        current_user: User,
+        *,
+        campaign_id: UUID | None,
+        quest_status: QuestListStatus | None,
+        category: QuestListCategory | None,
+        due_from: date | None,
+        due_to: date | None,
+        limit: int,
+        offset: int,
+    ) -> QuestListResult:
+        preference = database_session.get(UserPreference, current_user.id)
+        if preference is None:
+            raise RuntimeError("Active user preference record is missing.")
+        try:
+            timezone = ZoneInfo(preference.timezone_name)
+        except ZoneInfoNotFoundError as error:
+            raise RuntimeError("Saved user timezone is unavailable.") from error
+
+        candidate_occurrence = aliased(QuestOccurrence)
+        latest_occurrence = aliased(QuestOccurrence)
+        latest_occurrence_id = (
+            select(candidate_occurrence.id)
+            .where(
+                candidate_occurrence.quest_id == Quest.id,
+                candidate_occurrence.user_id == current_user.id,
+            )
+            .order_by(
+                candidate_occurrence.generated_at.desc(),
+                candidate_occurrence.id,
+            )
+            .limit(1)
+            .correlate(Quest)
+            .scalar_subquery()
+        )
+        product_status = case(
+            (Quest.definition_state == "archived", "archived"),
+            (Quest.quest_type == "recurring", "active"),
+            else_=func.coalesce(latest_occurrence.occurrence_state, "active"),
+        )
+        filters = [
+            Quest.user_id == current_user.id,
+            Quest.deleted_at.is_(None),
+            Campaign.user_id == current_user.id,
+            Campaign.deleted_at.is_(None),
+        ]
+        if campaign_id is not None:
+            filters.append(Quest.campaign_id == campaign_id)
+        if quest_status == "archived":
+            filters.append(Quest.definition_state == "archived")
+        else:
+            filters.extend(
+                (
+                    Quest.definition_state == "active",
+                    Campaign.campaign_state != "archived",
+                )
+            )
+            if quest_status is not None:
+                filters.append(product_status == quest_status)
+        if category == "uncategorized":
+            filters.append(Quest.category.is_(None))
+        elif category is not None:
+            filters.append(Quest.category == category)
+        if due_from is not None:
+            start = datetime.combine(due_from, time.min, tzinfo=timezone).astimezone(UTC)
+            filters.append(Quest.due_at >= start)
+        if due_to is not None and due_to < date.max:
+            exclusive_end = datetime.combine(
+                due_to + timedelta(days=1),
+                time.min,
+                tzinfo=timezone,
+            ).astimezone(UTC)
+            filters.append(Quest.due_at < exclusive_end)
+
+        statement = (
+            select(Quest, Campaign, latest_occurrence, product_status)
+            .join(
+                Campaign,
+                (Campaign.id == Quest.campaign_id)
+                & (Campaign.user_id == Quest.user_id),
+            )
+            .outerjoin(latest_occurrence, latest_occurrence.id == latest_occurrence_id)
+            .where(*filters)
+        )
+        rows = database_session.execute(
+            statement.order_by(
+                Campaign.display_order,
+                Campaign.id,
+                Quest.display_order,
+                Quest.id,
+            )
+            .limit(limit)
+            .offset(offset)
+        ).all()
+        total = database_session.scalar(
+            statement.with_only_columns(func.count()).order_by(None)
+        )
+        return QuestListResult(
+            items=tuple(
+                QuestListItemResult(
+                    quest=quest,
+                    campaign=campaign,
+                    occurrence=occurrence,
+                    status=str(status),
+                )
+                for quest, campaign, occurrence, status in rows
+            ),
+            total=int(total or 0),
+            limit=limit,
+            offset=offset,
+        )
+
     def reorder_active(
         self,
         database_session: Session,

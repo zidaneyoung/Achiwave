@@ -95,10 +95,14 @@ async function requestCampaign(path: string, init?: RequestInit): Promise<Campai
   }
 }
 
-async function requestCampaignList(view: CampaignListView): Promise<CampaignListPage> {
+async function requestCampaignList(
+  view: CampaignListView,
+  limit: number,
+  offset: number,
+): Promise<CampaignListPage> {
   try {
     const response = await authenticationService.request(
-      `/api/v1/campaigns?view=${view}&limit=100`,
+      `/api/v1/campaigns?view=${view}&limit=${limit}&offset=${offset}`,
     );
     const body = await readJson(response);
     if (!response.ok) throw errorFromResponse(response, body);
@@ -225,8 +229,8 @@ export const campaignApi = {
     );
   },
 
-  list(view: CampaignListView): Promise<CampaignListPage> {
-    return requestCampaignList(view);
+  list(view: CampaignListView, limit = 100, offset = 0): Promise<CampaignListPage> {
+    return requestCampaignList(view, limit, offset);
   },
 
   get(campaignId: string, includeArchivedQuests = false): Promise<CampaignDetail> {

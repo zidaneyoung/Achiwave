@@ -136,6 +136,12 @@ export default function CampaignsTabRoute() {
             variant={view === "archived" ? "primary" : "secondary"}
           />
         </View>
+        <AppButton
+          icon="format-list-checks"
+          label="Browse all quests"
+          onPress={() => router.push(PROTECTED_ROUTES.questList)}
+          variant="secondary"
+        />
         {view === "active" ? (
           <AppButton
             icon="plus"

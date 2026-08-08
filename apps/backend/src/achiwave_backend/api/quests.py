@@ -1,6 +1,7 @@
+from datetime import date
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from achiwave_backend.api.campaigns import campaign_response
@@ -20,6 +21,10 @@ from achiwave_backend.schemas.quests import (
     QuestAuthoringOptionResponse,
     QuestAuthoringOptionsResponse,
     QuestConflictResponse,
+    QuestListCategory,
+    QuestListItemResponse,
+    QuestListResponse,
+    QuestListStatus,
     QuestOccurrenceResponse,
     QuestOrderConflictResponse,
     QuestOrderItemResponse,
@@ -81,7 +86,11 @@ def quest_response(result: QuestResult) -> QuestResponse:
         timezone_name=quest.one_time_timezone_name,
         due_status=quest_due_status(
             quest,
-            result.occurrence.occurrence_state,
+            (
+                result.occurrence.occurrence_state
+                if result.occurrence is not None
+                else "available"
+            ),
             result.campaign.campaign_state,
         ),
         record_version=quest.record_version,
@@ -89,7 +98,11 @@ def quest_response(result: QuestResult) -> QuestResponse:
         restored_at=quest.restored_at,
         created_at=quest.created_at,
         updated_at=quest.updated_at,
-        occurrence=_occurrence_response(result.occurrence),
+        occurrence=(
+            _occurrence_response(result.occurrence)
+            if result.occurrence is not None
+            else None
+        ),
     )
 
 
@@ -131,6 +144,55 @@ def create_quests_router(
                 for value, label in QUEST_DIFFICULTY_LABELS.items()
             ],
             reward_xp_values=list(ALLOWED_QUEST_REWARD_XP),
+        )
+
+    @router.get(
+        "/api/v1/quests",
+        response_model=QuestListResponse,
+        responses={status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": ErrorResponse}},
+    )
+    def list_quests(
+        campaign_id: UUID | None = None,
+        quest_status: QuestListStatus | None = Query(default=None, alias="status"),
+        category: QuestListCategory | None = None,
+        due_from: date | None = None,
+        due_to: date | None = None,
+        limit: int = Query(default=50, ge=1, le=100),
+        offset: int = Query(default=0, ge=0),
+        user: User = Depends(authentication.current_user),
+        database_session: Session = Depends(authentication.database_session),
+    ) -> QuestListResponse:
+        if due_from is not None and due_to is not None and due_from > due_to:
+            raise ApiError(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                code="invalid_due_date_range",
+                message="The due-date start must not be after the end.",
+            )
+        result = service.list(
+            database_session,
+            user,
+            campaign_id=campaign_id,
+            quest_status=quest_status,
+            category=category,
+            due_from=due_from,
+            due_to=due_to,
+            limit=limit,
+            offset=offset,
+        )
+        return QuestListResponse(
+            items=[
+                QuestListItemResponse(
+                    **quest_response(
+                        QuestResult(item.quest, item.occurrence, item.campaign)
+                    ).model_dump(),
+                    campaign_title=item.campaign.title,
+                    status=item.status,
+                )
+                for item in result.items
+            ],
+            total=result.total,
+            limit=result.limit,
+            offset=result.offset,
         )
 
     @router.put(

@@ -1,5 +1,23 @@
 export type QuestCategory = "personal" | "health" | "learning" | "work" | "finance";
 export type QuestDifficulty = "easy" | "medium" | "hard";
+export type QuestListStatus =
+  | "active"
+  | "archived"
+  | "scheduled"
+  | "available"
+  | "completed"
+  | "reversed"
+  | "expired"
+  | "voided";
+export type QuestListCategory = QuestCategory | "uncategorized";
+
+export interface QuestListFilters {
+  campaignId: string | null;
+  status: QuestListStatus | null;
+  category: QuestListCategory | null;
+  dueFrom: string;
+  dueTo: string;
+}
 
 export interface QuestAuthoringOption<TValue extends string = string> {
   value: TValue;
@@ -60,4 +78,16 @@ export interface Quest {
   createdAt: string;
   updatedAt: string;
   occurrence: OneTimeOccurrence | null;
+}
+
+export interface QuestListItem extends Quest {
+  campaignTitle: string;
+  status: QuestListStatus;
+}
+
+export interface QuestListPage {
+  items: QuestListItem[];
+  total: number;
+  limit: number;
+  offset: number;
 }

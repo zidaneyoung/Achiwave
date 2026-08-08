@@ -11,6 +11,18 @@ from achiwave_backend.quest_configuration import (
     QuestDifficulty,
 )
 
+QuestListStatus = Literal[
+    "active",
+    "archived",
+    "scheduled",
+    "available",
+    "completed",
+    "reversed",
+    "expired",
+    "voided",
+]
+QuestListCategory = QuestCategory | Literal["uncategorized"]
+
 QUEST_TITLE_MAX_LENGTH = 120
 QUEST_DESCRIPTION_MAX_LENGTH = 4_000
 LOCAL_DATE_TIME_PATTERN = r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$"
@@ -144,6 +156,18 @@ class QuestResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     occurrence: QuestOccurrenceResponse | None
+
+
+class QuestListItemResponse(QuestResponse):
+    campaign_title: str
+    status: QuestListStatus
+
+
+class QuestListResponse(BaseModel):
+    items: list[QuestListItemResponse]
+    total: int
+    limit: int
+    offset: int
 
 
 class QuestConflictResponse(BaseModel):

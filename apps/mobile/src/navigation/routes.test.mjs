@@ -29,6 +29,14 @@ test("modal route remains an explicit protected temporary surface", () => {
   assert.equal(PROTECTED_ROUTES.modal, "/(protected)/modal");
 });
 
+test("quest discovery is an explicit protected stack route", () => {
+  assert.equal(PROTECTED_ROUTES.questList, "/(protected)/quests");
+  assert.deepEqual(PROTECTED_ROUTES.questDetail("quest/one"), {
+    pathname: "/(protected)/quests/[questId]",
+    params: { questId: "quest/one" },
+  });
+});
+
 test("Android back uses native stacks and bounded tab history", () => {
   assert.equal(AUTHENTICATED_TAB_BACK_BEHAVIOR, "history");
   assert.equal(AUTHENTICATED_TAB_INITIAL_ROUTE, "home");
