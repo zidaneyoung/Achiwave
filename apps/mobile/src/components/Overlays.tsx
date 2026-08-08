@@ -27,6 +27,7 @@ interface OverlayProps {
 export interface AppDialogProps extends OverlayProps {
   kind?: "information" | "confirmation" | "destructive";
   confirmLabel?: string;
+  dismissLabel?: string;
   onConfirm?: () => void;
 }
 
@@ -34,6 +35,7 @@ export function AppDialog({
   children,
   confirmLabel = "Confirm",
   description,
+  dismissLabel,
   kind = "information",
   onConfirm,
   onDismiss,
@@ -65,7 +67,7 @@ export function AppDialog({
                 variant={kind === "destructive" ? "destructive" : "primary"}
               />
             ) : null}
-            <AppButton label={kind === "information" ? "Close" : "Cancel"} onPress={onDismiss} variant="secondary" />
+            <AppButton label={dismissLabel ?? (kind === "information" ? "Close" : "Cancel")} onPress={onDismiss} variant="secondary" />
           </View>
         </View>
       </SafeAreaView>

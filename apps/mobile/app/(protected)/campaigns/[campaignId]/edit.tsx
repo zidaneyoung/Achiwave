@@ -10,7 +10,15 @@ import { AppButton } from "../../../../src/components/AppButton";
 import { ErrorState } from "../../../../src/components/ErrorState";
 import { AppTextField } from "../../../../src/components/FormControls";
 import { LoadingSkeleton } from "../../../../src/components/LoadingSkeleton";
+import {
+  campaignFormSnapshotsEqual,
+  createCampaignFormSnapshot,
+} from "../../../../src/forms/snapshots";
 import { PROTECTED_ROUTES } from "../../../../src/navigation/routes";
+import {
+  DirtyFormDialog,
+  useDirtyFormGuard,
+} from "../../../../src/navigation/useDirtyFormGuard";
 import { KeyboardAwareScreen } from "../../../../src/platform/KeyboardAwareScreen";
 import { AppText } from "../../../../src/theme/AppText";
 import { spacing } from "../../../../src/theme/tokens";
@@ -30,6 +38,13 @@ function CampaignEditForm({ campaign, onSaved }: CampaignEditFormProps) {
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [staleCurrent, setStaleCurrent] = useState<Campaign | null>(null);
   const submissionIdentity = useRef<{ payloadKey: string; mutationId: string } | null>(null);
+  const baseline = useRef(
+    createCampaignFormSnapshot(campaign.title, campaign.description),
+  ).current;
+  const currentSnapshot = createCampaignFormSnapshot(title, description);
+  const guard = useDirtyFormGuard(
+    !campaignFormSnapshotsEqual(baseline, currentSnapshot),
+  );
   const validation = validateCampaignForm(title, description);
 
   async function submit() {
@@ -56,7 +71,7 @@ function CampaignEditForm({ campaign, onSaved }: CampaignEditFormProps) {
         clientMutationId: submissionIdentity.current.mutationId,
       });
       AccessibilityInfo.announceForAccessibility("Campaign updated.");
-      onSaved(updated);
+      guard.completeNavigation(() => onSaved(updated));
     } catch (error) {
       const message =
         error instanceof CampaignRequestError
@@ -116,6 +131,7 @@ function CampaignEditForm({ campaign, onSaved }: CampaignEditFormProps) {
         loading={submitting}
         onPress={() => void submit()}
       />
+      <DirtyFormDialog guard={guard} />
     </>
   );
 }
@@ -160,7 +176,7 @@ export default function EditCampaignRoute() {
   if (!ownerId) return null;
   return (
     <KeyboardAwareScreen contentContainerStyle={styles.content}>
-      <Stack.Screen options={{ title: "Edit campaign" }} />
+      <Stack.Screen options={{ headerBackButtonMenuEnabled: false, title: "Edit campaign" }} />
       {!campaign && !error && campaignId ? (
         <LoadingSkeleton label="Loading campaign form" layout="card" />
       ) : null}
@@ -174,7 +190,7 @@ export default function EditCampaignRoute() {
       ) : null}
       {campaign ? (
         <CampaignEditForm
-          key={`${campaign.id}:${campaign.recordVersion}`}
+          key={`${ownerId}:${campaign.id}:${campaign.recordVersion}`}
           campaign={campaign}
           onSaved={(updated) => {
             router.replace(PROTECTED_ROUTES.campaignDetail(updated.id));

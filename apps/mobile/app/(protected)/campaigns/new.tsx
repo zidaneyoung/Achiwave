@@ -7,8 +7,16 @@ import { validateCampaignForm } from "../../../src/campaigns/form";
 import { AppButton } from "../../../src/components/AppButton";
 import { ErrorState } from "../../../src/components/ErrorState";
 import { AppTextField } from "../../../src/components/FormControls";
+import {
+  campaignFormSnapshotsEqual,
+  createCampaignFormSnapshot,
+} from "../../../src/forms/snapshots";
 import { KeyboardAwareScreen } from "../../../src/platform/KeyboardAwareScreen";
 import { PROTECTED_ROUTES } from "../../../src/navigation/routes";
+import {
+  DirtyFormDialog,
+  useDirtyFormGuard,
+} from "../../../src/navigation/useDirtyFormGuard";
 import { AppText } from "../../../src/theme/AppText";
 import { spacing } from "../../../src/theme/tokens";
 
@@ -25,6 +33,11 @@ export default function CreateCampaignRoute() {
   const [submitting, setSubmitting] = useState(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const submissionIdentity = useRef<SubmissionIdentity | null>(null);
+  const baseline = useRef(createCampaignFormSnapshot("", "")).current;
+  const currentSnapshot = createCampaignFormSnapshot(title, description);
+  const guard = useDirtyFormGuard(
+    !campaignFormSnapshotsEqual(baseline, currentSnapshot),
+  );
   const validation = validateCampaignForm(title, description);
 
   async function submit() {
@@ -49,7 +62,7 @@ export default function CreateCampaignRoute() {
         clientMutationId: submissionIdentity.current.mutationId,
       });
       AccessibilityInfo.announceForAccessibility("Campaign created.");
-      router.replace(PROTECTED_ROUTES.campaigns);
+      guard.completeNavigation(() => router.replace(PROTECTED_ROUTES.campaigns));
     } catch (error) {
       const message =
         error instanceof CampaignRequestError
@@ -64,7 +77,7 @@ export default function CreateCampaignRoute() {
 
   return (
     <KeyboardAwareScreen contentContainerStyle={styles.content}>
-      <Stack.Screen options={{ title: "Create campaign" }} />
+      <Stack.Screen options={{ headerBackButtonMenuEnabled: false, title: "Create campaign" }} />
       <AppText accessibilityRole="header" variant="heading1">
         Create campaign
       </AppText>
@@ -112,6 +125,7 @@ export default function CreateCampaignRoute() {
         loading={submitting}
         onPress={() => void submit()}
       />
+      <DirtyFormDialog guard={guard} />
     </KeyboardAwareScreen>
   );
 }
