@@ -1,3 +1,5 @@
+import type { QuestCategory, QuestDifficulty } from "../quests/types";
+
 export type CampaignStatus = "active" | "completed" | "archived";
 
 export interface Campaign {
@@ -51,11 +53,16 @@ export interface CampaignQuest {
   status: QuestDisplayStatus;
   title: string;
   description: string | null;
+  category: QuestCategory | null;
+  categoryLabel: string;
+  difficulty: QuestDifficulty | null;
+  difficultyLabel: string;
   rewardXp: number;
   displayOrder: number;
   availableFrom: string | null;
   dueAt: string | null;
   timezoneName: string | null;
+  dueStatus: "none" | "upcoming" | "overdue" | "unavailable";
   recordVersion: number;
   archivedAt: string | null;
   restoredAt: string | null;

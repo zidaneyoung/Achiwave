@@ -225,7 +225,10 @@ Purpose: durable per-user idempotency binding for exact replay.
 - UUID primary key; unique `(user_id, client_mutation_id)` and composite ownership
   key `(id, user_id)`.
 - Stores canonical payload hash, operation/target identity, explicit processing
-  state, canonical result identity, safe error class, and server timestamps.
+  state, canonical result identity, an optional object-shaped result snapshot for
+  exact response replay, safe error class, and server timestamps. Result snapshots
+  are private, owner-scoped mutation data and must not be logged or exposed through
+  unrestricted reads.
 - Composite FKs bind completion, reversal, progress, and synchronization records to
   the same user. `RESTRICT` preserves replay history.
 - A partial unfinished-processing index supports recovery. Payload hashes, not raw

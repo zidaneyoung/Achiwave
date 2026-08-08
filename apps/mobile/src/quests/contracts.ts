@@ -1,4 +1,11 @@
-import type { OneTimeOccurrence, Quest } from "./types";
+import type {
+  OneTimeOccurrence,
+  Quest,
+  QuestAuthoringOptions,
+  QuestCategory,
+  QuestDifficulty,
+  QuestOrder,
+} from "./types";
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -11,6 +18,96 @@ function nullableString(value: unknown): string | null | undefined {
 
 function nonnegativeInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+
+export function parseQuestOrder(value: unknown): QuestOrder | null {
+  if (
+    !isObject(value) ||
+    typeof value.campaign_id !== "string" ||
+    !nonnegativeInteger(value.campaign_record_version) ||
+    value.campaign_record_version < 1 ||
+    !Array.isArray(value.items)
+  ) return null;
+  const items = value.items.map((item) => {
+    if (
+      !isObject(item) ||
+      typeof item.id !== "string" ||
+      !nonnegativeInteger(item.display_order) ||
+      !nonnegativeInteger(item.record_version) ||
+      item.record_version < 1
+    ) return null;
+    return {
+      id: item.id,
+      displayOrder: item.display_order,
+      recordVersion: item.record_version,
+    };
+  });
+  if (
+    items.some((item) => item === null) ||
+    new Set(items.map((item) => item?.id)).size !== items.length ||
+    items.some((item, index) => item?.displayOrder !== index)
+  ) return null;
+  return {
+    campaignId: value.campaign_id,
+    campaignRecordVersion: value.campaign_record_version,
+    items: items as QuestOrder["items"],
+  };
+}
+
+export function isQuestCategory(value: unknown): value is QuestCategory {
+  return (
+    value === "personal" ||
+    value === "health" ||
+    value === "learning" ||
+    value === "work" ||
+    value === "finance"
+  );
+}
+
+export function isQuestDifficulty(value: unknown): value is QuestDifficulty {
+  return value === "easy" || value === "medium" || value === "hard";
+}
+
+export function parseQuestAuthoringOptions(value: unknown): QuestAuthoringOptions | null {
+  if (
+    !isObject(value) ||
+    !Array.isArray(value.categories) ||
+    !Array.isArray(value.difficulties) ||
+    !Array.isArray(value.reward_xp_values)
+  ) return null;
+  const categories = value.categories.map((option) => {
+    if (
+      !isObject(option) ||
+      !isQuestCategory(option.value) ||
+      typeof option.label !== "string" ||
+      option.label.length === 0
+    ) return null;
+    return { value: option.value, label: option.label };
+  });
+  const difficulties = value.difficulties.map((option) => {
+    if (
+      !isObject(option) ||
+      !isQuestDifficulty(option.value) ||
+      typeof option.label !== "string" ||
+      option.label.length === 0
+    ) return null;
+    return { value: option.value, label: option.label };
+  });
+  const rewardXpValues = value.reward_xp_values;
+  if (
+    categories.some((option) => option === null) ||
+    categories.length === 0 ||
+    difficulties.some((option) => option === null) ||
+    difficulties.length === 0 ||
+    rewardXpValues.length === 0 ||
+    rewardXpValues.some((reward) => !nonnegativeInteger(reward)) ||
+    new Set(rewardXpValues).size !== rewardXpValues.length
+  ) return null;
+  return {
+    categories: categories as QuestAuthoringOptions["categories"],
+    difficulties: difficulties as QuestAuthoringOptions["difficulties"],
+    rewardXpValues: rewardXpValues as number[],
+  };
 }
 
 function isOccurrenceStatus(
@@ -55,6 +152,12 @@ function parseOccurrence(value: unknown): OneTimeOccurrence | null {
 export function parseQuest(value: unknown): Quest | null {
   if (!isObject(value)) return null;
   const description = nullableString(value.description);
+  const category = value.category === null ? null : isQuestCategory(value.category) ? value.category : undefined;
+  const difficulty = value.difficulty === null
+    ? null
+    : isQuestDifficulty(value.difficulty)
+      ? value.difficulty
+      : undefined;
   const availableFrom = nullableString(value.available_from);
   const dueAt = nullableString(value.due_at);
   const timezoneName = nullableString(value.timezone_name);
@@ -71,11 +174,21 @@ export function parseQuest(value: unknown): Quest | null {
     (value.definition_state !== "active" && value.definition_state !== "archived") ||
     typeof value.title !== "string" ||
     description === undefined ||
+    category === undefined ||
+    typeof value.category_label !== "string" ||
+    value.category_label.length === 0 ||
+    difficulty === undefined ||
+    typeof value.difficulty_label !== "string" ||
+    value.difficulty_label.length === 0 ||
     !nonnegativeInteger(value.reward_xp) ||
     !nonnegativeInteger(value.display_order) ||
     availableFrom === undefined ||
     dueAt === undefined ||
     timezoneName === undefined ||
+    (value.due_status !== "none" &&
+      value.due_status !== "upcoming" &&
+      value.due_status !== "overdue" &&
+      value.due_status !== "unavailable") ||
     !nonnegativeInteger(value.record_version) ||
     value.record_version < 1 ||
     archivedAt === undefined ||
@@ -93,11 +206,16 @@ export function parseQuest(value: unknown): Quest | null {
     definitionState: value.definition_state,
     title: value.title,
     description,
+    category,
+    categoryLabel: value.category_label,
+    difficulty,
+    difficultyLabel: value.difficulty_label,
     rewardXp: value.reward_xp,
     displayOrder: value.display_order,
     availableFrom,
     dueAt,
     timezoneName,
+    dueStatus: value.due_status,
     recordVersion: value.record_version,
     archivedAt,
     restoredAt,

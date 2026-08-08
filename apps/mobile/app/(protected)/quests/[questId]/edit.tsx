@@ -12,35 +12,66 @@ import { PROTECTED_ROUTES } from "../../../../src/navigation/routes";
 import { KeyboardAwareScreen } from "../../../../src/platform/KeyboardAwareScreen";
 import { questApi, QuestRequestError } from "../../../../src/quests/api";
 import { validateOneTimeQuestForm } from "../../../../src/quests/form";
-import type { Quest } from "../../../../src/quests/types";
+import { QuestOptionSelector } from "../../../../src/quests/QuestOptionSelector";
+import type {
+  Quest,
+  QuestAuthoringOptions,
+  QuestCategory,
+  QuestDifficulty,
+} from "../../../../src/quests/types";
 import { AppText } from "../../../../src/theme/AppText";
 import { spacing } from "../../../../src/theme/tokens";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 
-function QuestEditForm({ quest, ownerId, onSaved }: { quest: Quest; ownerId: string; onSaved: (quest: Quest) => void }) {
+function QuestEditForm({ quest, options, ownerId, onSaved }: { quest: Quest; options: QuestAuthoringOptions; ownerId: string; onSaved: (quest: Quest) => void }) {
   const [title, setTitle] = useState(quest.title);
   const [description, setDescription] = useState(quest.description ?? "");
+  const [category, setCategory] = useState<QuestCategory | null>(quest.category);
+  const [difficulty, setDifficulty] = useState<QuestDifficulty | null>(quest.difficulty);
   const [reward, setReward] = useState(String(quest.rewardXp));
   const [attempted, setAttempted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [staleCurrent, setStaleCurrent] = useState<Quest | null>(null);
   const identity = useRef<{ payload: string; mutationId: string } | null>(null);
-  const validation = validateOneTimeQuestForm(title, reward, description);
+  const legacyCompatibleRewards = options.rewardXpValues.includes(quest.rewardXp)
+    ? options.rewardXpValues
+    : [...options.rewardXpValues, quest.rewardXp];
+  const validation = validateOneTimeQuestForm(
+    title,
+    reward,
+    description,
+    "",
+    quest.rewardXp === Number(reward)
+      ? legacyCompatibleRewards
+      : options.rewardXpValues,
+  );
+  const rewardOptions = options.rewardXpValues.map((value) => ({
+    value: String(value),
+    label: `${value} XP`,
+  }));
+  if (!options.rewardXpValues.includes(quest.rewardXp)) {
+    rewardOptions.unshift({
+      value: String(quest.rewardXp),
+      label: `${quest.rewardXp} XP (legacy value)`,
+    });
+  }
 
   async function submit() {
     setAttempted(true);
     setSubmissionError(null);
-    if (validation.titleError || validation.rewardError || validation.descriptionError || submitting || staleCurrent) return;
-    const payload = JSON.stringify({ title: validation.title, description: validation.description, rewardXp: validation.rewardXp, version: quest.recordVersion });
+    if (validation.titleError || validation.rewardError || validation.descriptionError || difficulty === null || submitting || staleCurrent) return;
+    const payload = JSON.stringify({ title: validation.title, description: validation.description, category, difficulty, rewardXp: validation.rewardXp, version: quest.recordVersion });
     if (identity.current?.payload !== payload) identity.current = { payload, mutationId: questApi.createMutationId() };
     setSubmitting(true);
     try {
       const updated = await questApi.update(quest.id, {
         title: validation.title,
         description: validation.description,
-        rewardXp: validation.rewardXp,
+        category,
+        difficulty,
+        rewardXp: validation.rewardXp === quest.rewardXp ? undefined : validation.rewardXp,
         recordVersion: quest.recordVersion,
         clientMutationId: identity.current.mutationId,
       });
@@ -75,7 +106,37 @@ function QuestEditForm({ quest, ownerId, onSaved }: { quest: Quest; ownerId: str
           textAlignVertical="top"
           value={description}
         />
-        <AppTextField editable={!submitting && !staleCurrent} errorText={attempted ? validation.rewardError ?? undefined : undefined} keyboardType="number-pad" label="Configured XP reward" onChangeText={setReward} required value={reward} />
+        <QuestOptionSelector
+          disabled={submitting || staleCurrent !== null}
+          helperText="Optional planning label. Uncategorized quests remain valid."
+          label="Category"
+          nullableLabel="Uncategorized"
+          onChange={(value) => setCategory(value as QuestCategory | null)}
+          options={options.categories}
+          value={category}
+        />
+        <QuestOptionSelector
+          disabled={submitting || staleCurrent !== null}
+          errorText={attempted && difficulty === null ? "Choose a difficulty before saving." : undefined}
+          helperText="Planning effort only. Difficulty does not determine XP."
+          label="Difficulty"
+          onChange={(value) => setDifficulty(value as QuestDifficulty | null)}
+          options={options.difficulties}
+          required
+          value={difficulty}
+        />
+        <QuestOptionSelector
+          disabled={submitting || staleCurrent !== null}
+          errorText={attempted ? validation.rewardError ?? undefined : undefined}
+          helperText="Changing this definition never rewrites an existing occurrence reward snapshot."
+          label="Configured XP reward"
+          onChange={(value) => {
+            if (value !== null) setReward(value);
+          }}
+          options={rewardOptions}
+          required
+          value={reward}
+        />
       </View>
       {submissionError ? (
         <View style={styles.error}>
@@ -96,6 +157,7 @@ export default function EditQuestRoute() {
   const ownerId = authentication.state.status === "authenticated" ? authentication.state.user.id : null;
   const router = useRouter();
   const [quest, setQuest] = useState<Quest | null>(null);
+  const [options, setOptions] = useState<QuestAuthoringOptions | null>(null);
   const [error, setError] = useState<string | null>(null);
   const sequence = useRef(0);
   const load = useCallback(async () => {
@@ -103,13 +165,17 @@ export default function EditQuestRoute() {
     const request = ++sequence.current;
     setError(null);
     try {
-      const result = await questApi.get(questId);
+      const [result, authoringOptions] = await Promise.all([
+        questApi.get(questId),
+        questApi.getAuthoringOptions(),
+      ]);
       if (request !== sequence.current) return;
       if (result.definitionState !== "active" || result.campaignStatus === "archived") {
         setError("Archived quests or campaigns must be restored before editing.");
         return;
       }
       setQuest(result);
+      setOptions(authoringOptions);
     } catch (caught) {
       if (request !== sequence.current) return;
       setError(caught instanceof QuestRequestError ? caught.message : "This quest could not be loaded.");
@@ -124,14 +190,14 @@ export default function EditQuestRoute() {
   return (
     <KeyboardAwareScreen contentContainerStyle={styles.content}>
       <Stack.Screen options={{ title: "Edit quest" }} />
-      {!quest && !error && questId ? <LoadingSkeleton label="Loading quest form" layout="card" /> : null}
-      {(!quest && error) || !questId ? (
+      {(!quest || !options) && !error && questId ? <LoadingSkeleton label="Loading quest form" layout="card" /> : null}
+      {((!quest || !options) && error) || !questId ? (
         <View style={styles.error}>
           <ErrorState kind="fullScreen" onRetry={questId ? () => void load() : undefined} />
           <AppText accessibilityLiveRegion="assertive" tone="error">{questId ? error : "This quest link is invalid."}</AppText>
         </View>
       ) : null}
-      {quest ? <QuestEditForm key={`${quest.id}:${quest.recordVersion}`} quest={quest} ownerId={ownerId} onSaved={(saved) => router.replace(PROTECTED_ROUTES.questDetail(saved.id))} /> : null}
+      {quest && options ? <QuestEditForm key={`${quest.id}:${quest.recordVersion}`} quest={quest} options={options} ownerId={ownerId} onSaved={(saved) => router.replace(PROTECTED_ROUTES.questDetail(saved.id))} /> : null}
     </KeyboardAwareScreen>
   );
 }

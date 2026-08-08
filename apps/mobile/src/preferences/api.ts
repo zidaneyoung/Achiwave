@@ -162,4 +162,16 @@ export const preferenceApi = {
   getCached(): Promise<PreferenceSnapshot | null> {
     return loadCachedPreferences();
   },
+
+  async getAvailable(): Promise<PreferenceSnapshot | null> {
+    try {
+      return await this.get();
+    } catch {
+      try {
+        return await this.getCached();
+      } catch {
+        return null;
+      }
+    }
+  },
 };

@@ -11,6 +11,8 @@
 - [Stage 5 visual direction](design/stage-5-visual-direction.md)
 - [Stage 5 mobile design system](design/stage-5-design-system.md)
 - [Stage 5 acceptance audit](testing/stage-5-acceptance.md)
+- [Stage 6 campaigns and quests](features/stage-6-campaigns-and-quests.md)
+- [Stage 6 acceptance audit](testing/stage-6-acceptance.md)
 
 This index is the normative entry point for Stage 1 product rules. If a later
 implementation conflicts with these documents, the implementation is wrong until
@@ -34,6 +36,9 @@ contracts, tests, and migrations are updated together.
 - [MVP boundary](product-rules/mvp-boundary.md) — issue #17.
 - [Stage 1 issue traceability](product-rules/stage-1-traceability.md) — exact
   #1–#17 mapping and verification result.
+
+- [Quest authoring configuration](product-rules/quest-authoring.md) â€” accepted
+  Stage 6 category, difficulty, and configured-reward contracts.
 
 ## Architecture decisions
 

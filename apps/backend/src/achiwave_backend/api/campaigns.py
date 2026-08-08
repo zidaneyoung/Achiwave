@@ -7,6 +7,10 @@ from sqlalchemy.orm import Session
 from achiwave_backend.api.dependencies import AuthenticationDependencies
 from achiwave_backend.api.errors import ApiError, ErrorResponse
 from achiwave_backend.models import Campaign, User
+from achiwave_backend.quest_configuration import (
+    quest_category_label,
+    quest_difficulty_label,
+)
 
 from achiwave_backend.schemas.campaigns import (
     CampaignDetailResponse,
@@ -27,6 +31,7 @@ from achiwave_backend.services.campaigns import (
     InvalidCampaignStructureError,
     StaleCampaignVersionError,
 )
+from achiwave_backend.services.quests import quest_due_status
 
 
 def campaign_response(campaign: Campaign) -> CampaignResponse:
@@ -220,11 +225,20 @@ def create_campaigns_router(
                     status=quest_status,
                     title=quest.title,
                     description=quest.description,
+                    category=quest.category,
+                    category_label=quest_category_label(quest.category),
+                    difficulty=quest.difficulty,
+                    difficulty_label=quest_difficulty_label(quest.difficulty),
                     reward_xp=quest.reward_xp,
                     display_order=quest.display_order,
                     available_from=quest.available_from,
                     due_at=quest.due_at,
                     timezone_name=quest.one_time_timezone_name,
+                    due_status=quest_due_status(
+                        quest,
+                        quest_status,
+                        result.campaign.campaign_state,
+                    ),
                     record_version=quest.record_version,
                     archived_at=quest.archived_at,
                     restored_at=quest.restored_at,

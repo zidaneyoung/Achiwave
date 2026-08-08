@@ -36,6 +36,7 @@ def test_quest_assignment_is_stable_and_campaign_reads_are_exact(
             headers=headers,
             json={
                 "title": "Fixed assignment",
+                "difficulty": "medium",
                 "campaign_record_version": 1,
                 "client_mutation_id": "e0000000-0000-4000-8000-000000000003",
             },

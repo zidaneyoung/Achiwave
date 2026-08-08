@@ -32,6 +32,7 @@ def test_one_time_quest_creation_is_atomic_authoritative_and_replay_safe(
         ).json()
         payload = {
             "title": "  Write brief  ",
+            "difficulty": "medium",
             "reward_xp": 20,
             "campaign_record_version": campaign["record_version"],
             "client_mutation_id": "b0000000-0000-4000-8000-000000000002",
@@ -96,6 +97,7 @@ def test_one_time_quest_creation_serializes_exact_concurrent_replay(
         ).json()
     payload = {
         "title": "One logical quest",
+        "difficulty": "medium",
         "reward_xp": 0,
         "campaign_record_version": 1,
         "client_mutation_id": "b0000000-0000-4000-8000-000000000004",
@@ -144,6 +146,7 @@ def test_one_time_quest_creation_enforces_campaign_owner_state_version_and_shape
         ).json()
         common = {
             "title": "Private quest",
+            "difficulty": "medium",
             "campaign_record_version": 1,
             "client_mutation_id": "b0000000-0000-4000-8000-000000000007",
         }

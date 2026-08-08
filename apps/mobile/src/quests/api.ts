@@ -3,8 +3,14 @@ import * as Crypto from "expo-crypto";
 import { authenticationService } from "../auth/service";
 import { isObject, parseCampaign } from "../campaigns/contracts";
 import type { Campaign } from "../campaigns/types";
-import { parseQuest } from "./contracts";
-import type { Quest } from "./types";
+import { parseQuest, parseQuestAuthoringOptions, parseQuestOrder } from "./contracts";
+import type {
+  Quest,
+  QuestAuthoringOptions,
+  QuestCategory,
+  QuestDifficulty,
+  QuestOrder,
+} from "./types";
 
 export class QuestRequestError extends Error {
   constructor(
@@ -12,6 +18,7 @@ export class QuestRequestError extends Error {
     message: string,
     public readonly currentCampaign: Campaign | null = null,
     public readonly currentQuest: Quest | null = null,
+    public readonly currentOrder: QuestOrder | null = null,
   ) {
     super(message);
     this.name = "QuestRequestError";
@@ -26,15 +33,19 @@ function responseError(response: Response, body: unknown): QuestRequestError {
   if (response.status === 409) {
     const currentCampaign = isObject(body) && "current" in body ? parseCampaign(body.current) : null;
     const currentQuest = isObject(body) && "current" in body ? parseQuest(body.current) : null;
+    const currentOrder = isObject(body) && "current" in body ? parseQuestOrder(body.current) : null;
     return new QuestRequestError(
       "conflict",
       currentCampaign
         ? "Campaign data changed elsewhere. Refresh before creating the quest."
         : currentQuest
           ? "Quest data changed elsewhere. Refresh before saving again."
+          : currentOrder
+            ? "Quest order changed elsewhere. Review the latest order and try again."
           : "This submission conflicts with newer server data.",
       currentCampaign,
       currentQuest,
+      currentOrder,
     );
   }
   if (response.status === 404) return new QuestRequestError("not_found", "This quest or campaign is unavailable.");
@@ -56,15 +67,50 @@ async function requestQuest(path: string, init?: RequestInit): Promise<Quest> {
   }
 }
 
+async function requestAuthoringOptions(): Promise<QuestAuthoringOptions> {
+  try {
+    const response = await authenticationService.request("/api/v1/quests/authoring-options");
+    const body = await readJson(response);
+    if (!response.ok) throw responseError(response, body);
+    const options = parseQuestAuthoringOptions(body);
+    if (!options) throw new QuestRequestError("invalid_response", "Quest choices are temporarily unavailable.");
+    return options;
+  } catch (error) {
+    if (error instanceof QuestRequestError) throw error;
+    throw new QuestRequestError("offline", "Reconnect to load quest choices.");
+  }
+}
+
+async function requestQuestOrder(path: string, init: RequestInit): Promise<QuestOrder> {
+  try {
+    const response = await authenticationService.request(path, init);
+    const body = await readJson(response);
+    if (!response.ok) throw responseError(response, body);
+    const order = parseQuestOrder(body);
+    if (!order) throw new QuestRequestError("invalid_response", "Quest order is temporarily unavailable.");
+    return order;
+  } catch (error) {
+    if (error instanceof QuestRequestError) throw error;
+    throw new QuestRequestError("offline", "Reconnect to reorder quests.");
+  }
+}
+
 export const questApi = {
   createMutationId(): string { return Crypto.randomUUID(); },
+
+  getAuthoringOptions(): Promise<QuestAuthoringOptions> {
+    return requestAuthoringOptions();
+  },
 
   async createOneTime(input: {
     campaignId: string;
     campaignRecordVersion: number;
     title: string;
     description: string | null;
+    category: QuestCategory | null;
+    difficulty: QuestDifficulty;
     rewardXp: number;
+    dueLocalDateTime: string | null;
     clientMutationId: string;
   }): Promise<Quest> {
     return requestQuest(
@@ -73,7 +119,10 @@ export const questApi = {
         body: JSON.stringify({
           title: input.title,
           description: input.description,
+          category: input.category,
+          difficulty: input.difficulty,
           reward_xp: input.rewardXp,
+          due_local_datetime: input.dueLocalDateTime,
           campaign_record_version: input.campaignRecordVersion,
           client_mutation_id: input.clientMutationId,
         }),
@@ -87,12 +136,39 @@ export const questApi = {
     return requestQuest(`/api/v1/quests/${encodeURIComponent(questId)}`);
   },
 
+  reorderActive(
+    campaignId: string,
+    input: {
+      items: { id: string; recordVersion: number }[];
+      campaignRecordVersion: number;
+      clientMutationId: string;
+    },
+  ): Promise<QuestOrder> {
+    return requestQuestOrder(
+      `/api/v1/campaigns/${encodeURIComponent(campaignId)}/quests/order`,
+      {
+        body: JSON.stringify({
+          items: input.items.map((item) => ({
+            id: item.id,
+            record_version: item.recordVersion,
+          })),
+          campaign_record_version: input.campaignRecordVersion,
+          client_mutation_id: input.clientMutationId,
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: "PUT",
+      },
+    );
+  },
+
   update(
     questId: string,
     input: {
       title: string;
       description: string | null;
-      rewardXp: number;
+      category: QuestCategory | null;
+      difficulty: QuestDifficulty;
+      rewardXp?: number;
       recordVersion: number;
       clientMutationId: string;
     },
@@ -101,7 +177,9 @@ export const questApi = {
       body: JSON.stringify({
         title: input.title,
         description: input.description,
-        reward_xp: input.rewardXp,
+        category: input.category,
+        difficulty: input.difficulty,
+        ...(input.rewardXp === undefined ? {} : { reward_xp: input.rewardXp }),
         record_version: input.recordVersion,
         client_mutation_id: input.clientMutationId,
       }),
