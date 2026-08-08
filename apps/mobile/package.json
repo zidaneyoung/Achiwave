@@ -14,7 +14,8 @@
     "test:components": "node --experimental-strip-types --test src/components/*.test.mjs",
     "test:feedback": "node --experimental-strip-types --test src/platform/touchFeedback.test.mjs",
     "test:accessibility": "node --experimental-strip-types --test src/accessibility/*.test.mjs",
-    "test:campaigns": "node --experimental-strip-types --test src/campaigns/*.test.mjs"
+    "test:campaigns": "node --experimental-strip-types --test src/campaigns/*.test.mjs",
+    "test:quests": "node --experimental-strip-types --test src/quests/*.test.mjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
