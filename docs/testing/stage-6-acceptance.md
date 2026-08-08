@@ -2,12 +2,12 @@
 
 ## Result
 
-Stage 6 implementation is complete through issue #129. Branch-wide local
-acceptance is **Pass**, with device-only behavior separately marked **Unable to
-Verify**. The final branch is in [pull request #393](https://github.com/zidaneyoung/Achiwave/pull/393)
-and is awaiting merge. Issue #130
-and all Stage 7 completion, XP-award, progression, recurrence-worker,
-notification, and offline-mutation behavior remain out of scope.
+Stage 6 is **Pass** through issue #129. All four implementation pull requests
+are merged, issues #108-#129 are closed, and merged-`main` acceptance passed.
+Device-only behavior remains separately marked **Unable to Verify**. Issue #130
+remains open, and all Stage 7 completion, XP-award, progression,
+recurrence-worker, notification, and offline-mutation behavior remain out of
+scope.
 
 ## Traceability
 
@@ -16,13 +16,13 @@ notification, and offline-mutation behavior remain out of scope.
 | #108-#113 | `stage-6/campaign-management-108-113` | `26990fb`, `af97617`, `ee2a718`, `240bb9b`, `ff3b4e6`, `da7728c` | [#390](https://github.com/zidaneyoung/Achiwave/pull/390), merged as `c32ee098089d8317fb0fc79b04b4c95f20c7e3ce` | Pass; issues closed |
 | #114-#118 | `stage-6/quest-authoring-114-118` | `077ab51`, `adad3f6`, `75fc7df`, `1c502b8`, `2c74811` | [#391](https://github.com/zidaneyoung/Achiwave/pull/391), merged as `f2658ec771b9e2670d3aed6409c73c8180f625e8` | Pass; issues closed |
 | #119-#123 | `stage-6/quest-planning-119-123` | `6a1b69f`, `fa3a437`, `7f937c5`, `47a7012`, `1ca6c0b`, `189cfa8`, `46216d4` | [#392](https://github.com/zidaneyoung/Achiwave/pull/392), merged as `89ce156e38ea11f6be77d6db90670b683d758e7c` | Pass; issues closed |
-| #124 | `stage-6/quest-discovery-integrity-124-129` | `d321f69` | [#393](https://github.com/zidaneyoung/Achiwave/pull/393) | Pass locally |
-| #125 | `stage-6/quest-discovery-integrity-124-129` | `2b21706`, `56edd3d` | [#393](https://github.com/zidaneyoung/Achiwave/pull/393) | Pass locally |
-| #126 | `stage-6/quest-discovery-integrity-124-129` | `c5d6798` | [#393](https://github.com/zidaneyoung/Achiwave/pull/393) | Pass locally; device interaction Unable to Verify |
-| #127 | `stage-6/quest-discovery-integrity-124-129` | `32c4e86`, `56edd3d` | [#393](https://github.com/zidaneyoung/Achiwave/pull/393) | Pass locally; device interaction Unable to Verify |
-| #128 | `stage-6/quest-discovery-integrity-124-129` | `9ee0dcf` | [#393](https://github.com/zidaneyoung/Achiwave/pull/393) | Pass locally; device interaction Unable to Verify |
-| Lifecycle replay review fix | `stage-6/quest-discovery-integrity-124-129` | `3f91a03` | [#393](https://github.com/zidaneyoung/Achiwave/pull/393) | Pass locally |
-| #129 | `stage-6/quest-discovery-integrity-124-129` | `52a4fb9` | [#393](https://github.com/zidaneyoung/Achiwave/pull/393) | Pass locally |
+| #124 | `stage-6/quest-discovery-integrity-124-129` | `d321f69` | [#393](https://github.com/zidaneyoung/Achiwave/pull/393), merged as `68e5645defb7804b094052522ae1baf95257dc44` | Pass; issue closed |
+| #125 | `stage-6/quest-discovery-integrity-124-129` | `2b21706`, `56edd3d` | [#393](https://github.com/zidaneyoung/Achiwave/pull/393), merged as `68e5645defb7804b094052522ae1baf95257dc44` | Pass; issue closed |
+| #126 | `stage-6/quest-discovery-integrity-124-129` | `c5d6798` | [#393](https://github.com/zidaneyoung/Achiwave/pull/393), merged as `68e5645defb7804b094052522ae1baf95257dc44` | Pass; issue closed; device interaction Unable to Verify |
+| #127 | `stage-6/quest-discovery-integrity-124-129` | `32c4e86`, `56edd3d` | [#393](https://github.com/zidaneyoung/Achiwave/pull/393), merged as `68e5645defb7804b094052522ae1baf95257dc44` | Pass; issue closed; device interaction Unable to Verify |
+| #128 | `stage-6/quest-discovery-integrity-124-129` | `9ee0dcf` | [#393](https://github.com/zidaneyoung/Achiwave/pull/393), merged as `68e5645defb7804b094052522ae1baf95257dc44` | Pass; issue closed; device interaction Unable to Verify |
+| Lifecycle replay review fix | `stage-6/quest-discovery-integrity-124-129` | `3f91a03` | [#393](https://github.com/zidaneyoung/Achiwave/pull/393), merged as `68e5645defb7804b094052522ae1baf95257dc44` | Pass |
+| #129 | `stage-6/quest-discovery-integrity-124-129` | `52a4fb9` | [#393](https://github.com/zidaneyoung/Achiwave/pull/393), merged as `68e5645defb7804b094052522ae1baf95257dc44` | Pass; issue closed |
 
 Review-fix commits on the first two branches were `ff0913f`, `c125f12`, and
 `23bcbce`. The third branch used `fa3a437` for preference-fallback isolation and
@@ -239,9 +239,49 @@ evidence.
   TalkBack, physical touch targets, rendered viewport/font-scale behavior, and
   runtime scroll preservation because no Android runtime is available.
 
-## Remaining acceptance work
+## Merged-main audit
 
-No Stage 6 implementation or local verification issue remains. Pull-request
-merge, issue closure, and the final `main` SHA are recorded in the completion
-report after the final branch merges; a commit cannot contain its own future
-merge SHA.
+The final implementation pull request merged as
+`68e5645defb7804b094052522ae1baf95257dc44`. A clean audit worktree was checked
+out at that exact `origin/main` commit. The developer's separate local `main`
+worktree contained unrelated uncommitted changes and was deliberately not
+modified or fast-forwarded.
+
+### Backend and database
+
+- Pass: every migration applied from base to `20260808_0083` on a new disposable
+  PostgreSQL database; `alembic current` reported the single head and `alembic
+  check` reported no new upgrade operations.
+- Pass: `python -m pytest -q`, `177 passed in 232.91s` against the clean,
+  safety-marked PostgreSQL test database.
+- A preliminary invocation used a disposable database name without the required
+  `test` or `ci` marker. Repository safety guards correctly refused database
+  fixtures, so that environmental invocation was discarded and replaced by the
+  clean passing run above; it is not reported as product verification.
+
+### Mobile and Android export
+
+- Pass: `npm ci --offline --ignore-scripts --no-audit --no-fund`, 579 packages;
+  `npm ls --depth=0` was clean and package/lock hashes remained unchanged.
+- Pass: all nine repository test scripts, 55 tests total, plus the two focused
+  refresh single-flight tests.
+- Pass: `npm run typecheck` and Expo Doctor, `20/20` checks.
+- Pass: Android export, 1,351 modules and 30 files (`5,473,528` bytes). The
+  output was inspected and moved outside the repository.
+
+### Runtime, scope, and repository state
+
+- Pass: Compose configuration; a fresh image built from merged source and a
+  uniquely named temporary backend returned live `ok` and ready PostgreSQL and
+  Redis checks. The temporary container and image were removed afterward.
+- Pass: issues #108-#129 are closed through their implementation pull requests;
+  issue #130 remains open. No quest-completion mutation or other Stage 7 behavior
+  entered the Stage 6 diff.
+- Pass: all merged Stage 6 feature branches are absent locally and remotely.
+- Pass: clean diff and tracked-file audits found no unrelated change, secret,
+  local database, dependency directory, cache, or generated export output.
+
+No Stage 6 implementation or locally verifiable acceptance work remains.
+Android runtime interaction, TalkBack, rendered font-scale/viewport behavior,
+and physical touch-target evidence remain Unable to Verify because this
+workstation has no Android SDK, ADB, Java, emulator, or physical-device bridge.
