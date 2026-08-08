@@ -119,6 +119,78 @@ def test_reorder_is_canonical_transactional_and_replay_safe(
         assert session.scalar(select(func.count()).select_from(XpLedgerEntry)) == 0
 
 
+def test_exact_reorder_replay_returns_original_result_after_later_reorder(
+    auth_database_url: str,
+    auth_session_factory: sessionmaker[Session],
+) -> None:
+    with create_auth_client(auth_database_url, auth_session_factory) as client:
+        registration = register(client)
+        headers = bearer(registration["access_token"])
+        campaign = _campaign(client, headers, suffix="102")
+        quests = _quests(client, headers, campaign, prefix=110)
+        original_payload = {
+            "items": [_item(quests[2]), _item(quests[0]), _item(quests[1])],
+            "campaign_record_version": quests[-1]["campaign_record_version"],
+            "client_mutation_id": "f3000000-0000-4000-8000-000000000002",
+        }
+        original = client.put(
+            f"/api/v1/campaigns/{campaign['id']}/quests/order",
+            headers=headers,
+            json=original_payload,
+        )
+        original_result = original.json()
+        original_items = {
+            item["id"]: item for item in original_result["items"]
+        }
+        later = client.put(
+            f"/api/v1/campaigns/{campaign['id']}/quests/order",
+            headers=headers,
+            json={
+                "items": [
+                    _item(original_items[quest["id"]])
+                    for quest in quests
+                ],
+                "campaign_record_version": original_result[
+                    "campaign_record_version"
+                ],
+                "client_mutation_id": "f3000000-0000-4000-8000-000000000003",
+            },
+        )
+        detail = client.get(f"/api/v1/campaigns/{campaign['id']}", headers=headers)
+        archived = client.post(
+            f"/api/v1/campaigns/{campaign['id']}/archive",
+            headers=headers,
+            json={
+                "record_version": later.json()["campaign_record_version"],
+                "client_mutation_id": "f3000000-0000-4000-8000-000000000004",
+            },
+        )
+        delayed_replay = client.put(
+            f"/api/v1/campaigns/{campaign['id']}/quests/order",
+            headers=headers,
+            json=original_payload,
+        )
+
+    assert original.status_code == 200
+    assert later.status_code == 200
+    assert archived.status_code == 200
+    assert delayed_replay.status_code == 200
+    assert delayed_replay.json() == original_result
+    assert delayed_replay.json() != later.json()
+    assert [quest["id"] for quest in detail.json()["quests"]] == [
+        item["id"] for item in later.json()["items"]
+    ]
+    with auth_session_factory() as session:
+        stored = session.scalar(
+            select(ClientMutation).where(
+                ClientMutation.client_mutation_id
+                == UUID("f3000000-0000-4000-8000-000000000002")
+            )
+        )
+        assert stored is not None
+        assert stored.result_payload == original_result
+
+
 def test_reorder_rejects_duplicate_missing_unknown_archived_and_cross_campaign_ids(
     auth_database_url: str,
     auth_session_factory: sessionmaker[Session],

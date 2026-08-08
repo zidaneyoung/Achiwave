@@ -204,7 +204,11 @@ export default function CreateQuestRoute() {
       setOptions(authoringOptions);
     } catch (caught) {
       if (request !== sequence.current) return;
-      setError(caught instanceof CampaignRequestError ? caught.message : "The campaign could not be loaded.");
+      setError(
+        caught instanceof CampaignRequestError || caught instanceof QuestRequestError
+          ? caught.message
+          : "The campaign could not be loaded.",
+      );
     }
   }, [campaignId, ownerId]);
 

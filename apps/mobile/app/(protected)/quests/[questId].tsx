@@ -99,11 +99,11 @@ export default function QuestDetailRoute() {
           <AppText>Category: {quest.categoryLabel}</AppText>
           <AppText>Difficulty: {quest.difficultyLabel}</AppText>
           <AppText>{quest.rewardXp} XP configured</AppText>
-          {quest.dueAt && quest.timezoneName && dateFormat ? (
+          {quest.dueAt && quest.timezoneName ? (
             <View style={styles.snapshot}>
               <AppText accessibilityRole="header" variant="heading2">Due</AppText>
               <AppText>
-                {formatPreferenceDateTime(new Date(quest.dueAt), dateFormat, quest.timezoneName)} ({quest.timezoneName})
+                {formatPreferenceDateTime(new Date(quest.dueAt), dateFormat ?? "system", quest.timezoneName)} ({quest.timezoneName})
               </AppText>
               {quest.dueStatus === "overdue" ? (
                 <AppText accessibilityLiveRegion="polite" tone="error">Overdue — confirmed by the server.</AppText>

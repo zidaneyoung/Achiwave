@@ -89,4 +89,7 @@ validates the complete owner-scoped active set and all record versions, writes
 contiguous positions in one transaction, and returns the canonical order.
 Archived quests are excluded and restored quests append to the active sequence.
 Reordering is disabled whenever archived history or another ambiguous view is
-shown, and it has no completion, reward, or progression side effect.
+shown, and it has no completion, reward, or progression side effect. The original
+canonical reorder response is stored with the private mutation record, so an
+exact replay returns the same order and versions even after later reorders or
+archival.

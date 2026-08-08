@@ -1,7 +1,9 @@
 import hashlib
 import json
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from importlib.metadata import PackageNotFoundError, version
+from typing import Any
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -79,10 +81,65 @@ class QuestResult:
         self.campaign = campaign
 
 
+@dataclass(frozen=True)
+class QuestOrderItemResult:
+    id: UUID
+    display_order: int
+    record_version: int
+
+
+@dataclass(frozen=True)
 class QuestOrderResult:
-    def __init__(self, campaign: Campaign, quests: list[Quest]) -> None:
-        self.campaign = campaign
-        self.quests = sorted(quests, key=lambda quest: (quest.display_order, quest.id))
+    campaign_id: UUID
+    campaign_record_version: int
+    items: tuple[QuestOrderItemResult, ...]
+
+    @classmethod
+    def from_models(cls, campaign: Campaign, quests: list[Quest]) -> "QuestOrderResult":
+        ordered_quests = sorted(
+            quests, key=lambda quest: (quest.display_order, quest.id)
+        )
+        return cls(
+            campaign_id=campaign.id,
+            campaign_record_version=campaign.record_version,
+            items=tuple(
+                QuestOrderItemResult(
+                    id=quest.id,
+                    display_order=quest.display_order,
+                    record_version=quest.record_version,
+                )
+                for quest in ordered_quests
+            ),
+        )
+
+    @classmethod
+    def from_payload(cls, payload: dict[str, Any]) -> "QuestOrderResult":
+        return cls(
+            campaign_id=UUID(payload["campaign_id"]),
+            campaign_record_version=int(payload["campaign_record_version"]),
+            items=tuple(
+                QuestOrderItemResult(
+                    id=UUID(item["id"]),
+                    display_order=int(item["display_order"]),
+                    record_version=int(item["record_version"]),
+                )
+                for item in payload["items"]
+            ),
+        )
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "campaign_id": str(self.campaign_id),
+            "campaign_record_version": self.campaign_record_version,
+            "items": [
+                {
+                    "id": str(item.id),
+                    "display_order": item.display_order,
+                    "record_version": item.record_version,
+                }
+                for item in self.items
+            ],
+        }
 
 
 def _payload_hash(payload: dict[str, object]) -> bytes:
@@ -160,6 +217,33 @@ class QuestService:
         )
         if user is None:
             raise RuntimeError("Authenticated user record is missing.")
+        payload_hash = _payload_hash(
+            {
+                "campaign_id": str(campaign_id),
+                "campaign_record_version": request.campaign_record_version,
+                "items": [
+                    {"id": str(item.id), "record_version": item.record_version}
+                    for item in request.items
+                ],
+            }
+        )
+        existing_mutation = database_session.scalar(
+            select(ClientMutation).where(
+                ClientMutation.user_id == user.id,
+                ClientMutation.client_mutation_id == request.client_mutation_id,
+            )
+        )
+        if existing_mutation is not None:
+            if (
+                existing_mutation.operation_type != "active_quest_reorder"
+                or existing_mutation.target_id != campaign_id
+                or existing_mutation.payload_hash != payload_hash
+                or existing_mutation.result_id != campaign_id
+                or existing_mutation.result_payload is None
+            ):
+                raise QuestMutationConflictError
+            return QuestOrderResult.from_payload(existing_mutation.result_payload)
+
         campaign = database_session.scalar(
             select(Campaign)
             .where(
@@ -185,32 +269,7 @@ class QuestService:
                 .with_for_update()
             )
         )
-        result = QuestOrderResult(campaign, quests)
-        payload_hash = _payload_hash(
-            {
-                "campaign_id": str(campaign.id),
-                "campaign_record_version": request.campaign_record_version,
-                "items": [
-                    {"id": str(item.id), "record_version": item.record_version}
-                    for item in request.items
-                ],
-            }
-        )
-        existing_mutation = database_session.scalar(
-            select(ClientMutation).where(
-                ClientMutation.user_id == user.id,
-                ClientMutation.client_mutation_id == request.client_mutation_id,
-            )
-        )
-        if existing_mutation is not None:
-            if (
-                existing_mutation.operation_type != "active_quest_reorder"
-                or existing_mutation.target_id != campaign.id
-                or existing_mutation.payload_hash != payload_hash
-                or existing_mutation.result_id != campaign.id
-            ):
-                raise QuestMutationConflictError
-            return result
+        result = QuestOrderResult.from_models(campaign, quests)
 
         requested_ids = [item.id for item in request.items]
         quests_by_id = {quest.id: quest for quest in quests}
@@ -241,6 +300,7 @@ class QuestService:
         if changed:
             campaign.record_version += 1
             campaign.updated_at = now
+        result = QuestOrderResult.from_models(campaign, quests)
         database_session.add(
             ClientMutation(
                 id=uuid4(),
@@ -253,6 +313,7 @@ class QuestService:
                 processing_status="succeeded",
                 result_type="campaign",
                 result_id=campaign.id,
+                result_payload=result.to_payload(),
                 processed_at=now,
                 updated_at=now,
             )
@@ -262,7 +323,7 @@ class QuestService:
         except Exception:
             database_session.rollback()
             raise
-        return QuestOrderResult(campaign, quests)
+        return result
 
     def _transition_one_time(
         self,

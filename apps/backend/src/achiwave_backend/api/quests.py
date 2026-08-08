@@ -95,15 +95,15 @@ def quest_response(result: QuestResult) -> QuestResponse:
 
 def quest_order_response(result: QuestOrderResult) -> QuestOrderResponse:
     return QuestOrderResponse(
-        campaign_id=result.campaign.id,
-        campaign_record_version=result.campaign.record_version,
+        campaign_id=result.campaign_id,
+        campaign_record_version=result.campaign_record_version,
         items=[
             QuestOrderItemResponse(
-                id=quest.id,
-                display_order=quest.display_order,
-                record_version=quest.record_version,
+                id=item.id,
+                display_order=item.display_order,
+                record_version=item.record_version,
             )
-            for quest in result.quests
+            for item in result.items
         ],
     )
 

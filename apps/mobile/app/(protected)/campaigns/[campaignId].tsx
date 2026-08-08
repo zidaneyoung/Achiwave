@@ -66,8 +66,8 @@ function QuestRow({
 }) {
   const presentation = statusPresentation(quest.status);
   const due =
-    quest.dueAt && quest.timezoneName && dateFormat
-      ? ` · Due ${formatPreferenceDateTime(new Date(quest.dueAt), dateFormat, quest.timezoneName)}${quest.dueStatus === "overdue" ? " · Overdue (server confirmed)" : ""}`
+    quest.dueAt && quest.timezoneName
+      ? ` · Due ${formatPreferenceDateTime(new Date(quest.dueAt), dateFormat ?? "system", quest.timezoneName)}${quest.dueStatus === "overdue" ? " · Overdue (server confirmed)" : ""}`
       : "";
   return (
     <View style={questRowStyles.questBlock}>

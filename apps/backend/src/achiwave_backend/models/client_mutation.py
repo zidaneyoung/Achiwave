@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
@@ -11,7 +12,7 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
-from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID as PostgreSQLUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from achiwave_backend.database import Base
@@ -56,6 +57,10 @@ class ClientMutation(Base):
             "OR processed_at IS NOT NULL",
             name="ck_client_mutations_terminal_processed_timestamp",
         ),
+        CheckConstraint(
+            "result_payload IS NULL OR jsonb_typeof(result_payload) = 'object'",
+            name="ck_client_mutations_result_payload_object",
+        ),
         Index(
             "ix_client_mutations_unfinished_received",
             "first_server_received_at",
@@ -84,6 +89,9 @@ class ClientMutation(Base):
     )
     result_type: Mapped[str | None] = mapped_column(Text)
     result_id: Mapped[UUID | None] = mapped_column(PostgreSQLUUID(as_uuid=True))
+    result_payload: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB, info={"sensitive": True}
+    )
     safe_error_class: Mapped[str | None] = mapped_column(Text)
     processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(

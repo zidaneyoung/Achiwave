@@ -45,13 +45,16 @@ port 55436 and the clean Stage 6 worktree.
 
 ### Backend and migrations
 
-- Pass: full backend regression suite, `168 passed`.
-- Pass: Alembic has one head and current revision, `20260808_0081`.
+- Pass: full backend regression suite, `169 passed` after the review fixes.
+- Pass: Alembic has one head and current revision, `20260808_0082`.
 - Pass: `alembic upgrade head` and `alembic check`; no new upgrade operations.
 - Pass: real-PostgreSQL tests cover strict category and difficulty values,
   optional/legacy null behavior, all allowed and disallowed reward cases,
   immutable occurrence snapshots, lifecycle preservation, exact reorder sets,
   stale and concurrent writes, replay safety, and canonical contiguous order.
+- Pass: review regression persists the original reorder response and returns it
+  unchanged after a later reorder and campaign archive; the focused PostgreSQL,
+  migration-chain, and quest suite passed `36 tests`.
 - Pass: authoring and reordering create no XP ledger or progression side effect.
 
 ### Mobile
@@ -64,6 +67,10 @@ port 55436 and the clean Stage 6 worktree.
   active quest ordering has visible move-up/down controls with 48 dp touch-target
   infrastructure, disabled boundary/ambiguous states, and screen-reader
   announcements. No drag or animation is required.
+- Pass: review fixes keep authoritative due-date metadata visible with the
+  `system` date-format fallback when preferences are unavailable and preserve
+  authoring-options request errors; focused campaign and quest suites passed
+  `17 tests`, and TypeScript still passed.
 
 The Expo checks used the documented non-secret development public environment
 values. Generated export artifacts were removed after verification.
