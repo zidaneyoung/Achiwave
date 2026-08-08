@@ -7,6 +7,7 @@ import type {
   CampaignStatus,
   QuestDisplayStatus,
 } from "./types";
+import type { QuestCategory } from "../quests/types";
 
 export function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -15,6 +16,16 @@ export function isObject(value: unknown): value is Record<string, unknown> {
 function nullableString(value: unknown): string | null | undefined {
   if (value === null) return null;
   return typeof value === "string" ? value : undefined;
+}
+
+function isQuestCategory(value: unknown): value is QuestCategory {
+  return (
+    value === "personal" ||
+    value === "health" ||
+    value === "learning" ||
+    value === "work" ||
+    value === "finance"
+  );
 }
 
 function isCampaignStatus(value: unknown): value is CampaignStatus {
@@ -114,6 +125,11 @@ function isQuestStatus(value: unknown): value is QuestDisplayStatus {
 function parseCampaignQuest(value: unknown): CampaignQuest | null {
   if (!isObject(value)) return null;
   const description = nullableString(value.description);
+  const category = value.category === null
+    ? null
+    : isQuestCategory(value.category)
+      ? value.category
+      : undefined;
   const availableFrom = nullableString(value.available_from);
   const dueAt = nullableString(value.due_at);
   const timezoneName = nullableString(value.timezone_name);
@@ -127,6 +143,9 @@ function parseCampaignQuest(value: unknown): CampaignQuest | null {
     !isQuestStatus(value.status) ||
     typeof value.title !== "string" ||
     description === undefined ||
+    category === undefined ||
+    typeof value.category_label !== "string" ||
+    value.category_label.length === 0 ||
     parseNonnegativeInteger(value.reward_xp) === null ||
     parseNonnegativeInteger(value.display_order) === null ||
     availableFrom === undefined ||
@@ -152,6 +171,8 @@ function parseCampaignQuest(value: unknown): CampaignQuest | null {
     status: value.status,
     title: value.title,
     description,
+    category,
+    categoryLabel: value.category_label,
     rewardXp: value.reward_xp as number,
     displayOrder: value.display_order as number,
     availableFrom,

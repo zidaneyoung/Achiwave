@@ -96,6 +96,7 @@ export default function QuestDetailRoute() {
           <StatusBadge label={presentation.label} tone={presentation.tone} />
           <AppText accessibilityRole="header" variant="heading1">{quest.title}</AppText>
           {quest.description ? <AppText tone="muted">{quest.description}</AppText> : null}
+          <AppText>Category: {quest.categoryLabel}</AppText>
           <AppText>{quest.rewardXp} XP configured</AppText>
           {quest.dueAt && quest.timezoneName && dateFormat ? (
             <View style={styles.snapshot}>

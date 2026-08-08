@@ -5,6 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from achiwave_backend.quest_configuration import QuestCategory
+
 QUEST_TITLE_MAX_LENGTH = 120
 QUEST_DESCRIPTION_MAX_LENGTH = 4_000
 LOCAL_DATE_TIME_PATTERN = r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$"
@@ -36,6 +38,7 @@ class CreateOneTimeQuestRequest(BaseModel):
 
     title: str = Field(min_length=1, max_length=QUEST_TITLE_MAX_LENGTH)
     description: str | None = Field(default=None, max_length=QUEST_DESCRIPTION_MAX_LENGTH)
+    category: QuestCategory | None = None
     reward_xp: int = Field(default=0, ge=0, le=2_147_483_647)
     due_local_datetime: str | None = Field(
         default=None,
@@ -60,6 +63,7 @@ class UpdateOneTimeQuestRequest(BaseModel):
 
     title: str | None = Field(default=None, min_length=1, max_length=QUEST_TITLE_MAX_LENGTH)
     description: str | None = Field(default=None, max_length=QUEST_DESCRIPTION_MAX_LENGTH)
+    category: QuestCategory | None = None
     reward_xp: int | None = Field(default=None, ge=0, le=2_147_483_647)
     record_version: int = Field(ge=1)
     client_mutation_id: UUID
@@ -104,6 +108,8 @@ class QuestResponse(BaseModel):
     definition_state: Literal["active", "archived"]
     title: str
     description: str | None
+    category: QuestCategory | None
+    category_label: str
     reward_xp: int
     display_order: int
     available_from: datetime | None
@@ -122,3 +128,12 @@ class QuestConflictResponse(BaseModel):
     code: str
     message: str
     current: QuestResponse
+
+
+class QuestAuthoringOptionResponse(BaseModel):
+    value: str
+    label: str
+
+
+class QuestAuthoringOptionsResponse(BaseModel):
+    categories: list[QuestAuthoringOptionResponse]

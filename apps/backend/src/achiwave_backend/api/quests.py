@@ -7,9 +7,15 @@ from achiwave_backend.api.campaigns import campaign_response
 from achiwave_backend.api.dependencies import AuthenticationDependencies
 from achiwave_backend.api.errors import ApiError, ErrorResponse
 from achiwave_backend.models import Quest, QuestOccurrence, User
+from achiwave_backend.quest_configuration import (
+    QUEST_CATEGORY_LABELS,
+    quest_category_label,
+)
 from achiwave_backend.schemas.campaigns import CampaignConflictResponse
 from achiwave_backend.schemas.quests import (
     CreateOneTimeQuestRequest,
+    QuestAuthoringOptionResponse,
+    QuestAuthoringOptionsResponse,
     QuestConflictResponse,
     QuestOccurrenceResponse,
     QuestResponse,
@@ -53,6 +59,8 @@ def quest_response(result: QuestResult) -> QuestResponse:
         definition_state=quest.definition_state,
         title=quest.title,
         description=quest.description,
+        category=quest.category,
+        category_label=quest_category_label(quest.category),
         reward_xp=quest.reward_xp,
         display_order=quest.display_order,
         available_from=quest.available_from,
@@ -77,6 +85,20 @@ def create_quests_router(
 ) -> APIRouter:
     router = APIRouter(tags=["quests"])
     service = QuestService()
+
+    @router.get(
+        "/api/v1/quests/authoring-options",
+        response_model=QuestAuthoringOptionsResponse,
+    )
+    def get_quest_authoring_options(
+        _user: User = Depends(authentication.current_user),
+    ) -> QuestAuthoringOptionsResponse:
+        return QuestAuthoringOptionsResponse(
+            categories=[
+                QuestAuthoringOptionResponse(value=value, label=label)
+                for value, label in QUEST_CATEGORY_LABELS.items()
+            ]
+        )
 
     def transition_error(error: Exception, *, action: str) -> ApiError:
         if isinstance(error, QuestNotFoundError):

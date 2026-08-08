@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from achiwave_backend.api.dependencies import AuthenticationDependencies
 from achiwave_backend.api.errors import ApiError, ErrorResponse
 from achiwave_backend.models import Campaign, User
+from achiwave_backend.quest_configuration import quest_category_label
 
 from achiwave_backend.schemas.campaigns import (
     CampaignDetailResponse,
@@ -221,6 +222,8 @@ def create_campaigns_router(
                     status=quest_status,
                     title=quest.title,
                     description=quest.description,
+                    category=quest.category,
+                    category_label=quest_category_label(quest.category),
                     reward_xp=quest.reward_xp,
                     display_order=quest.display_order,
                     available_from=quest.available_from,

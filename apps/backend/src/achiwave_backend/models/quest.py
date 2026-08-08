@@ -52,6 +52,11 @@ class Quest(Base):
         ),
         CheckConstraint("reward_xp >= 0", name="ck_quests_reward_xp_nonnegative"),
         CheckConstraint(
+            "category IS NULL OR category IN "
+            "('personal', 'health', 'learning', 'work', 'finance')",
+            name="ck_quests_category",
+        ),
+        CheckConstraint(
             "display_order >= 0",
             name="ck_quests_display_order_nonnegative",
         ),
@@ -101,6 +106,7 @@ class Quest(Base):
     )
     title: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
+    category: Mapped[str | None] = mapped_column(Text)
     reward_xp: Mapped[int] = mapped_column(
         Integer, nullable=False, server_default=text("0")
     )

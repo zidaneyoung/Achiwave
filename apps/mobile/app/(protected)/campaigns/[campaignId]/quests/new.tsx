@@ -15,6 +15,8 @@ import { KeyboardAwareScreen } from "../../../../../src/platform/KeyboardAwareSc
 import { preferenceApi } from "../../../../../src/preferences/api";
 import { questApi, QuestRequestError } from "../../../../../src/quests/api";
 import { validateOneTimeQuestForm } from "../../../../../src/quests/form";
+import { QuestOptionSelector } from "../../../../../src/quests/QuestOptionSelector";
+import type { QuestAuthoringOptions, QuestCategory } from "../../../../../src/quests/types";
 import { AppText } from "../../../../../src/theme/AppText";
 import { spacing } from "../../../../../src/theme/tokens";
 
@@ -24,14 +26,17 @@ function QuestForm({
   campaign,
   ownerId,
   timezoneName,
+  options,
 }: {
   campaign: CampaignDetail;
   ownerId: string;
   timezoneName: string | null;
+  options: QuestAuthoringOptions;
 }) {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [category, setCategory] = useState<QuestCategory | null>(null);
   const [reward, setReward] = useState("0");
   const [due, setDue] = useState("");
   const [attempted, setAttempted] = useState(false);
@@ -44,7 +49,7 @@ function QuestForm({
     setAttempted(true);
     setSubmissionError(null);
     if (validation.titleError || validation.rewardError || validation.descriptionError || validation.dueError || submitting) return;
-    const payload = JSON.stringify({ title: validation.title, description: validation.description, rewardXp: validation.rewardXp, dueLocalDateTime: validation.dueLocalDateTime, version: campaign.recordVersion });
+    const payload = JSON.stringify({ title: validation.title, description: validation.description, category, rewardXp: validation.rewardXp, dueLocalDateTime: validation.dueLocalDateTime, version: campaign.recordVersion });
     if (submissionIdentity.current?.payload !== payload) {
       submissionIdentity.current = { payload, mutationId: questApi.createMutationId() };
     }
@@ -55,6 +60,7 @@ function QuestForm({
         campaignRecordVersion: campaign.recordVersion,
         title: validation.title,
         description: validation.description,
+        category,
         rewardXp: validation.rewardXp,
         dueLocalDateTime: validation.dueLocalDateTime,
         clientMutationId: submissionIdentity.current.mutationId,
@@ -97,6 +103,15 @@ function QuestForm({
           textAlignVertical="top"
           value={description}
         />
+        <QuestOptionSelector
+          disabled={submitting}
+          helperText="Optional planning label. Uncategorized quests remain valid."
+          label="Category"
+          nullableLabel="Uncategorized"
+          onChange={(value) => setCategory(value as QuestCategory | null)}
+          options={options.categories}
+          value={category}
+        />
         <AppTextField
           editable={!submitting}
           errorText={attempted ? validation.rewardError ?? undefined : undefined}
@@ -136,6 +151,7 @@ export default function CreateQuestRoute() {
   const ownerId = authentication.state.status === "authenticated" ? authentication.state.user.id : null;
   const [campaign, setCampaign] = useState<CampaignDetail | null>(null);
   const [timezoneName, setTimezoneName] = useState<string | null>(null);
+  const [options, setOptions] = useState<QuestAuthoringOptions | null>(null);
   const [error, setError] = useState<string | null>(null);
   const sequence = useRef(0);
 
@@ -144,9 +160,10 @@ export default function CreateQuestRoute() {
     const request = ++sequence.current;
     setError(null);
     try {
-      const [result, preferences] = await Promise.all([
+      const [result, preferences, authoringOptions] = await Promise.all([
         campaignApi.get(campaignId),
         preferenceApi.getAvailable(),
+        questApi.getAuthoringOptions(),
       ]);
       if (request !== sequence.current) return;
       if (result.status !== "active") {
@@ -155,6 +172,7 @@ export default function CreateQuestRoute() {
       }
       setCampaign(result);
       setTimezoneName(preferences?.timezoneName ?? null);
+      setOptions(authoringOptions);
     } catch (caught) {
       if (request !== sequence.current) return;
       setError(caught instanceof CampaignRequestError ? caught.message : "The campaign could not be loaded.");
@@ -170,14 +188,14 @@ export default function CreateQuestRoute() {
   return (
     <KeyboardAwareScreen contentContainerStyle={styles.content}>
       <Stack.Screen options={{ title: "Create quest" }} />
-      {!campaign && !error && campaignId ? <LoadingSkeleton label="Loading quest form" layout="card" /> : null}
-      {(!campaign && error) || !campaignId ? (
+      {(!campaign || !options) && !error && campaignId ? <LoadingSkeleton label="Loading quest form" layout="card" /> : null}
+      {((!campaign || !options) && error) || !campaignId ? (
         <View style={styles.error}>
           <ErrorState kind="fullScreen" onRetry={campaignId ? () => void load() : undefined} />
           <AppText accessibilityLiveRegion="assertive" tone="error">{campaignId ? error : "This campaign link is invalid."}</AppText>
         </View>
       ) : null}
-      {campaign ? <QuestForm campaign={campaign} ownerId={ownerId} timezoneName={timezoneName} /> : null}
+      {campaign && options ? <QuestForm campaign={campaign} options={options} ownerId={ownerId} timezoneName={timezoneName} /> : null}
     </KeyboardAwareScreen>
   );
 }

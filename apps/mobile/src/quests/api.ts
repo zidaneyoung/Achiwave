@@ -3,8 +3,8 @@ import * as Crypto from "expo-crypto";
 import { authenticationService } from "../auth/service";
 import { isObject, parseCampaign } from "../campaigns/contracts";
 import type { Campaign } from "../campaigns/types";
-import { parseQuest } from "./contracts";
-import type { Quest } from "./types";
+import { parseQuest, parseQuestAuthoringOptions } from "./contracts";
+import type { Quest, QuestAuthoringOptions, QuestCategory } from "./types";
 
 export class QuestRequestError extends Error {
   constructor(
@@ -56,14 +56,33 @@ async function requestQuest(path: string, init?: RequestInit): Promise<Quest> {
   }
 }
 
+async function requestAuthoringOptions(): Promise<QuestAuthoringOptions> {
+  try {
+    const response = await authenticationService.request("/api/v1/quests/authoring-options");
+    const body = await readJson(response);
+    if (!response.ok) throw responseError(response, body);
+    const options = parseQuestAuthoringOptions(body);
+    if (!options) throw new QuestRequestError("invalid_response", "Quest choices are temporarily unavailable.");
+    return options;
+  } catch (error) {
+    if (error instanceof QuestRequestError) throw error;
+    throw new QuestRequestError("offline", "Reconnect to load quest choices.");
+  }
+}
+
 export const questApi = {
   createMutationId(): string { return Crypto.randomUUID(); },
+
+  getAuthoringOptions(): Promise<QuestAuthoringOptions> {
+    return requestAuthoringOptions();
+  },
 
   async createOneTime(input: {
     campaignId: string;
     campaignRecordVersion: number;
     title: string;
     description: string | null;
+    category: QuestCategory | null;
     rewardXp: number;
     dueLocalDateTime: string | null;
     clientMutationId: string;
@@ -74,6 +93,7 @@ export const questApi = {
         body: JSON.stringify({
           title: input.title,
           description: input.description,
+          category: input.category,
           reward_xp: input.rewardXp,
           due_local_datetime: input.dueLocalDateTime,
           campaign_record_version: input.campaignRecordVersion,
@@ -94,6 +114,7 @@ export const questApi = {
     input: {
       title: string;
       description: string | null;
+      category: QuestCategory | null;
       rewardXp: number;
       recordVersion: number;
       clientMutationId: string;
@@ -103,6 +124,7 @@ export const questApi = {
       body: JSON.stringify({
         title: input.title,
         description: input.description,
+        category: input.category,
         reward_xp: input.rewardXp,
         record_version: input.recordVersion,
         client_mutation_id: input.clientMutationId,

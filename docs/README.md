@@ -37,6 +37,9 @@ contracts, tests, and migrations are updated together.
 - [Stage 1 issue traceability](product-rules/stage-1-traceability.md) — exact
   #1–#17 mapping and verification result.
 
+- [Quest authoring configuration](product-rules/quest-authoring.md) â€” accepted
+  Stage 6 category contract.
+
 ## Architecture decisions
 
 - [ADR index](architecture/decisions/README.md)

@@ -48,6 +48,8 @@ test("campaign detail parser preserves canonical quest status", () => {
         status: "available",
         title: "First quest",
         description: null,
+        category: null,
+        category_label: "Uncategorized",
         reward_xp: 10,
         display_order: 0,
         available_from: null,

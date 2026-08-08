@@ -1,3 +1,14 @@
+export type QuestCategory = "personal" | "health" | "learning" | "work" | "finance";
+
+export interface QuestAuthoringOption<TValue extends string = string> {
+  value: TValue;
+  label: string;
+}
+
+export interface QuestAuthoringOptions {
+  categories: QuestAuthoringOption<QuestCategory>[];
+}
+
 export interface OneTimeOccurrence {
   id: string;
   status: "scheduled" | "available" | "completed" | "reversed" | "expired" | "voided";
@@ -18,6 +29,8 @@ export interface Quest {
   definitionState: "active" | "archived";
   title: string;
   description: string | null;
+  category: QuestCategory | null;
+  categoryLabel: string;
   rewardXp: number;
   displayOrder: number;
   availableFrom: string | null;

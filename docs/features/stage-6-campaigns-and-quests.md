@@ -2,12 +2,11 @@
 
 ## Status
 
-Stage 6 is partially implemented through issue #119. Campaign management
+Stage 6 is partially implemented through issue #120. Campaign management
 (#108-#113), one-time quest authoring (#114-#118), and optional one-time due
-dates (#119) are implemented. Work stopped before #120 because the repository
-contains no accepted quest-category vocabulary or normalization contract.
+dates (#119), and optional quest categories (#120) are implemented.
 
-Issues #120-#129 remain unimplemented. Issue #130 and all Stage 7 completion,
+Issues #121-#129 remain unimplemented. Issue #130 and all Stage 7 completion,
 XP-award, progression, recurrence-worker, notification, and offline-mutation
 behavior remain out of scope.
 
@@ -56,19 +55,11 @@ preference. The canonical due fields are exposed on quest detail and campaign
 quest-list contracts for the later #124 server-filter implementation; no
 historical value is recalculated.
 
-## Product-contract blocker
+## Category contract
 
-Repository-wide source, documentation, configuration, migration, and test
-searches found no accepted category machine values, labels, normalization rules,
-or uncategorized representation. GitHub issue #120 contains only the objective
-"Add quest categories" and generic acceptance language.
-
-The same audit found no accepted difficulty vocabulary for #121 and no allowed
-XP set or preset policy for #122. Current Stage 1/3 authority permits any
-nonnegative whole-number `reward_xp`; that rule is not authority to invent a
-smaller allowed set.
-
-Required decision before work resumes: accept a centralized category contract
-covering stable machine values, display labels, normalization, and the optional
-uncategorized representation. Difficulty and allowed-XP contracts must likewise
-be accepted before #121 and #122.
+Quest categories use the canonical values and labels in
+[`quest-authoring.md`](../product-rules/quest-authoring.md). Category is optional;
+stored `null` means Uncategorized. Existing definitions remain uncategorized and
+no occurrence or reward snapshot is rewritten. The backend rejects unknown or
+non-canonical values and exposes the choices through its authenticated
+authoring-options contract.

@@ -1,4 +1,9 @@
-import type { OneTimeOccurrence, Quest } from "./types";
+import type {
+  OneTimeOccurrence,
+  Quest,
+  QuestAuthoringOptions,
+  QuestCategory,
+} from "./types";
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -11,6 +16,31 @@ function nullableString(value: unknown): string | null | undefined {
 
 function nonnegativeInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+
+export function isQuestCategory(value: unknown): value is QuestCategory {
+  return (
+    value === "personal" ||
+    value === "health" ||
+    value === "learning" ||
+    value === "work" ||
+    value === "finance"
+  );
+}
+
+export function parseQuestAuthoringOptions(value: unknown): QuestAuthoringOptions | null {
+  if (!isObject(value) || !Array.isArray(value.categories)) return null;
+  const categories = value.categories.map((option) => {
+    if (
+      !isObject(option) ||
+      !isQuestCategory(option.value) ||
+      typeof option.label !== "string" ||
+      option.label.length === 0
+    ) return null;
+    return { value: option.value, label: option.label };
+  });
+  if (categories.some((option) => option === null) || categories.length === 0) return null;
+  return { categories: categories as QuestAuthoringOptions["categories"] };
 }
 
 function isOccurrenceStatus(
@@ -55,6 +85,7 @@ function parseOccurrence(value: unknown): OneTimeOccurrence | null {
 export function parseQuest(value: unknown): Quest | null {
   if (!isObject(value)) return null;
   const description = nullableString(value.description);
+  const category = value.category === null ? null : isQuestCategory(value.category) ? value.category : undefined;
   const availableFrom = nullableString(value.available_from);
   const dueAt = nullableString(value.due_at);
   const timezoneName = nullableString(value.timezone_name);
@@ -71,6 +102,9 @@ export function parseQuest(value: unknown): Quest | null {
     (value.definition_state !== "active" && value.definition_state !== "archived") ||
     typeof value.title !== "string" ||
     description === undefined ||
+    category === undefined ||
+    typeof value.category_label !== "string" ||
+    value.category_label.length === 0 ||
     !nonnegativeInteger(value.reward_xp) ||
     !nonnegativeInteger(value.display_order) ||
     availableFrom === undefined ||
@@ -97,6 +131,8 @@ export function parseQuest(value: unknown): Quest | null {
     definitionState: value.definition_state,
     title: value.title,
     description,
+    category,
+    categoryLabel: value.category_label,
     rewardXp: value.reward_xp,
     displayOrder: value.display_order,
     availableFrom,
