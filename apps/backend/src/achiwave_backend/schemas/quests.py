@@ -5,7 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from achiwave_backend.quest_configuration import QuestCategory
+from achiwave_backend.quest_configuration import QuestCategory, QuestDifficulty
 
 QUEST_TITLE_MAX_LENGTH = 120
 QUEST_DESCRIPTION_MAX_LENGTH = 4_000
@@ -39,6 +39,7 @@ class CreateOneTimeQuestRequest(BaseModel):
     title: str = Field(min_length=1, max_length=QUEST_TITLE_MAX_LENGTH)
     description: str | None = Field(default=None, max_length=QUEST_DESCRIPTION_MAX_LENGTH)
     category: QuestCategory | None = None
+    difficulty: QuestDifficulty
     reward_xp: int = Field(default=0, ge=0, le=2_147_483_647)
     due_local_datetime: str | None = Field(
         default=None,
@@ -64,6 +65,7 @@ class UpdateOneTimeQuestRequest(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=QUEST_TITLE_MAX_LENGTH)
     description: str | None = Field(default=None, max_length=QUEST_DESCRIPTION_MAX_LENGTH)
     category: QuestCategory | None = None
+    difficulty: QuestDifficulty | None = None
     reward_xp: int | None = Field(default=None, ge=0, le=2_147_483_647)
     record_version: int = Field(ge=1)
     client_mutation_id: UUID
@@ -76,6 +78,8 @@ class UpdateOneTimeQuestRequest(BaseModel):
         fields = self.model_fields_set - {"record_version", "client_mutation_id"}
         if not fields or ("title" in fields and self.title is None) or (
             "reward_xp" in fields and self.reward_xp is None
+        ) or (
+            "difficulty" in fields and self.difficulty is None
         ):
             raise ValueError("At least one supported quest field is required.")
         return self
@@ -110,6 +114,8 @@ class QuestResponse(BaseModel):
     description: str | None
     category: QuestCategory | None
     category_label: str
+    difficulty: QuestDifficulty | None
+    difficulty_label: str
     reward_xp: int
     display_order: int
     available_from: datetime | None
@@ -137,3 +143,4 @@ class QuestAuthoringOptionResponse(BaseModel):
 
 class QuestAuthoringOptionsResponse(BaseModel):
     categories: list[QuestAuthoringOptionResponse]
+    difficulties: list[QuestAuthoringOptionResponse]

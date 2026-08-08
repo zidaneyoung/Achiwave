@@ -3,6 +3,7 @@ import type {
   Quest,
   QuestAuthoringOptions,
   QuestCategory,
+  QuestDifficulty,
 } from "./types";
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -28,8 +29,16 @@ export function isQuestCategory(value: unknown): value is QuestCategory {
   );
 }
 
+export function isQuestDifficulty(value: unknown): value is QuestDifficulty {
+  return value === "easy" || value === "medium" || value === "hard";
+}
+
 export function parseQuestAuthoringOptions(value: unknown): QuestAuthoringOptions | null {
-  if (!isObject(value) || !Array.isArray(value.categories)) return null;
+  if (
+    !isObject(value) ||
+    !Array.isArray(value.categories) ||
+    !Array.isArray(value.difficulties)
+  ) return null;
   const categories = value.categories.map((option) => {
     if (
       !isObject(option) ||
@@ -39,8 +48,25 @@ export function parseQuestAuthoringOptions(value: unknown): QuestAuthoringOption
     ) return null;
     return { value: option.value, label: option.label };
   });
-  if (categories.some((option) => option === null) || categories.length === 0) return null;
-  return { categories: categories as QuestAuthoringOptions["categories"] };
+  const difficulties = value.difficulties.map((option) => {
+    if (
+      !isObject(option) ||
+      !isQuestDifficulty(option.value) ||
+      typeof option.label !== "string" ||
+      option.label.length === 0
+    ) return null;
+    return { value: option.value, label: option.label };
+  });
+  if (
+    categories.some((option) => option === null) ||
+    categories.length === 0 ||
+    difficulties.some((option) => option === null) ||
+    difficulties.length === 0
+  ) return null;
+  return {
+    categories: categories as QuestAuthoringOptions["categories"],
+    difficulties: difficulties as QuestAuthoringOptions["difficulties"],
+  };
 }
 
 function isOccurrenceStatus(
@@ -86,6 +112,11 @@ export function parseQuest(value: unknown): Quest | null {
   if (!isObject(value)) return null;
   const description = nullableString(value.description);
   const category = value.category === null ? null : isQuestCategory(value.category) ? value.category : undefined;
+  const difficulty = value.difficulty === null
+    ? null
+    : isQuestDifficulty(value.difficulty)
+      ? value.difficulty
+      : undefined;
   const availableFrom = nullableString(value.available_from);
   const dueAt = nullableString(value.due_at);
   const timezoneName = nullableString(value.timezone_name);
@@ -105,6 +136,9 @@ export function parseQuest(value: unknown): Quest | null {
     category === undefined ||
     typeof value.category_label !== "string" ||
     value.category_label.length === 0 ||
+    difficulty === undefined ||
+    typeof value.difficulty_label !== "string" ||
+    value.difficulty_label.length === 0 ||
     !nonnegativeInteger(value.reward_xp) ||
     !nonnegativeInteger(value.display_order) ||
     availableFrom === undefined ||
@@ -133,6 +167,8 @@ export function parseQuest(value: unknown): Quest | null {
     description,
     category,
     categoryLabel: value.category_label,
+    difficulty,
+    difficultyLabel: value.difficulty_label,
     rewardXp: value.reward_xp,
     displayOrder: value.display_order,
     availableFrom,

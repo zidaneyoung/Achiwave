@@ -61,7 +61,7 @@ function QuestRow({
     <AppListItem
       onPress={onPress}
       leading={<StatusBadge compact label={presentation.label} tone={presentation.tone} />}
-      metadata={`${quest.questType === "one_time" ? "One-time" : "Recurring"} · ${quest.categoryLabel} · ${quest.rewardXp} XP configured${due}`}
+      metadata={`${quest.questType === "one_time" ? "One-time" : "Recurring"} · ${quest.categoryLabel} · Difficulty ${quest.difficultyLabel} · ${quest.rewardXp} XP configured${due}`}
       status={quest.description ?? undefined}
       title={quest.title}
     />

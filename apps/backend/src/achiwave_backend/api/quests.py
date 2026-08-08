@@ -9,7 +9,9 @@ from achiwave_backend.api.errors import ApiError, ErrorResponse
 from achiwave_backend.models import Quest, QuestOccurrence, User
 from achiwave_backend.quest_configuration import (
     QUEST_CATEGORY_LABELS,
+    QUEST_DIFFICULTY_LABELS,
     quest_category_label,
+    quest_difficulty_label,
 )
 from achiwave_backend.schemas.campaigns import CampaignConflictResponse
 from achiwave_backend.schemas.quests import (
@@ -61,6 +63,8 @@ def quest_response(result: QuestResult) -> QuestResponse:
         description=quest.description,
         category=quest.category,
         category_label=quest_category_label(quest.category),
+        difficulty=quest.difficulty,
+        difficulty_label=quest_difficulty_label(quest.difficulty),
         reward_xp=quest.reward_xp,
         display_order=quest.display_order,
         available_from=quest.available_from,
@@ -97,7 +101,11 @@ def create_quests_router(
             categories=[
                 QuestAuthoringOptionResponse(value=value, label=label)
                 for value, label in QUEST_CATEGORY_LABELS.items()
-            ]
+            ],
+            difficulties=[
+                QuestAuthoringOptionResponse(value=value, label=label)
+                for value, label in QUEST_DIFFICULTY_LABELS.items()
+            ],
         )
 
     def transition_error(error: Exception, *, action: str) -> ApiError:

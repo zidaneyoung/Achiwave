@@ -32,6 +32,7 @@ def test_due_date_uses_saved_timezone_and_preserves_occurrence_snapshot(
         campaign = _create_campaign(client, headers)
         payload = {
             "title": "Submit proposal",
+            "difficulty": "medium",
             "due_local_datetime": "2099-12-31T23:00",
             "campaign_record_version": campaign["record_version"],
             "client_mutation_id": "b9000000-0000-4000-8000-000000000002",
@@ -84,6 +85,7 @@ def test_due_date_validates_local_shape_zone_and_future_on_server(
                 headers=headers,
                 json={
                     "title": "Invalid schedule",
+                    "difficulty": "medium",
                     "campaign_record_version": campaign["record_version"],
                     "client_mutation_id": f"b9000000-0000-4000-8000-{index:012d}",
                     **scheduling,
@@ -96,6 +98,7 @@ def test_due_date_validates_local_shape_zone_and_future_on_server(
             headers=headers,
             json={
                 "title": "Tokyo deadline",
+                "difficulty": "medium",
                 "due_local_datetime": "2099-12-31T23:00",
                 "timezone_name": "Asia/Tokyo",
                 "campaign_record_version": campaign["record_version"],
@@ -121,6 +124,7 @@ def test_due_status_is_server_derived_and_completed_snapshot_cannot_move(
             headers=headers,
             json={
                 "title": "Immutable deadline",
+                "difficulty": "medium",
                 "due_local_datetime": "2099-12-31T23:00",
                 "campaign_record_version": campaign["record_version"],
                 "client_mutation_id": "b9000000-0000-4000-8000-000000000100",

@@ -50,6 +50,8 @@ test("campaign detail parser preserves canonical quest status", () => {
         description: null,
         category: null,
         category_label: "Uncategorized",
+        difficulty: "easy",
+        difficulty_label: "Easy",
         reward_xp: 10,
         display_order: 0,
         available_from: null,

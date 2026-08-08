@@ -1,4 +1,4 @@
-import type { QuestCategory } from "../quests/types";
+import type { QuestCategory, QuestDifficulty } from "../quests/types";
 
 export type CampaignStatus = "active" | "completed" | "archived";
 
@@ -55,6 +55,8 @@ export interface CampaignQuest {
   description: string | null;
   category: QuestCategory | null;
   categoryLabel: string;
+  difficulty: QuestDifficulty | null;
+  difficultyLabel: string;
   rewardXp: number;
   displayOrder: number;
   availableFrom: string | null;

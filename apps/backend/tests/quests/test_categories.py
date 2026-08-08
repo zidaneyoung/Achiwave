@@ -28,7 +28,12 @@ def test_category_options_are_authenticated_and_canonical(
             {"value": "learning", "label": "Learning"},
             {"value": "work", "label": "Work"},
             {"value": "finance", "label": "Finance"},
-        ]
+        ],
+        "difficulties": [
+            {"value": "easy", "label": "Easy"},
+            {"value": "medium", "label": "Medium"},
+            {"value": "hard", "label": "Hard"},
+        ],
     }
 
 
@@ -52,6 +57,7 @@ def test_category_is_optional_validated_and_preserved_across_lifecycle(
             headers=headers,
             json={
                 "title": "Uncategorized",
+                "difficulty": "medium",
                 "campaign_record_version": campaign["record_version"],
                 "client_mutation_id": "ec000000-0000-4000-8000-000000000002",
             },
@@ -62,6 +68,7 @@ def test_category_is_optional_validated_and_preserved_across_lifecycle(
             json={
                 "title": "Budget",
                 "category": "finance",
+                "difficulty": "hard",
                 "reward_xp": 20,
                 "campaign_record_version": uncategorized.json()["campaign_record_version"],
                 "client_mutation_id": "ec000000-0000-4000-8000-000000000003",
@@ -137,6 +144,7 @@ def test_category_rejects_noncanonical_values_without_writes(
                 headers=headers,
                 json={
                     "title": "Invalid",
+                    "difficulty": "medium",
                     "category": invalid,
                     "campaign_record_version": campaign["record_version"],
                     "client_mutation_id": mutation_id,

@@ -4,7 +4,12 @@ import { authenticationService } from "../auth/service";
 import { isObject, parseCampaign } from "../campaigns/contracts";
 import type { Campaign } from "../campaigns/types";
 import { parseQuest, parseQuestAuthoringOptions } from "./contracts";
-import type { Quest, QuestAuthoringOptions, QuestCategory } from "./types";
+import type {
+  Quest,
+  QuestAuthoringOptions,
+  QuestCategory,
+  QuestDifficulty,
+} from "./types";
 
 export class QuestRequestError extends Error {
   constructor(
@@ -83,6 +88,7 @@ export const questApi = {
     title: string;
     description: string | null;
     category: QuestCategory | null;
+    difficulty: QuestDifficulty;
     rewardXp: number;
     dueLocalDateTime: string | null;
     clientMutationId: string;
@@ -94,6 +100,7 @@ export const questApi = {
           title: input.title,
           description: input.description,
           category: input.category,
+          difficulty: input.difficulty,
           reward_xp: input.rewardXp,
           due_local_datetime: input.dueLocalDateTime,
           campaign_record_version: input.campaignRecordVersion,
@@ -115,6 +122,7 @@ export const questApi = {
       title: string;
       description: string | null;
       category: QuestCategory | null;
+      difficulty: QuestDifficulty;
       rewardXp: number;
       recordVersion: number;
       clientMutationId: string;
@@ -125,6 +133,7 @@ export const questApi = {
         title: input.title,
         description: input.description,
         category: input.category,
+        difficulty: input.difficulty,
         reward_xp: input.rewardXp,
         record_version: input.recordVersion,
         client_mutation_id: input.clientMutationId,

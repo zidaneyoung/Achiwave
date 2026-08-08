@@ -38,7 +38,7 @@ contracts, tests, and migrations are updated together.
   #1–#17 mapping and verification result.
 
 - [Quest authoring configuration](product-rules/quest-authoring.md) â€” accepted
-  Stage 6 category contract.
+  Stage 6 category and difficulty contracts.
 
 ## Architecture decisions
 

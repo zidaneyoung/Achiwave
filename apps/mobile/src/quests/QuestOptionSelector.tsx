@@ -8,6 +8,7 @@ import type { QuestAuthoringOption } from "./types";
 
 interface QuestOptionSelectorProps {
   disabled?: boolean;
+  errorText?: string;
   helperText?: string;
   label: string;
   nullableLabel?: string;
@@ -19,6 +20,7 @@ interface QuestOptionSelectorProps {
 
 export function QuestOptionSelector({
   disabled = false,
+  errorText,
   helperText,
   label,
   nullableLabel,
@@ -39,6 +41,7 @@ export function QuestOptionSelector({
     <>
       <AppSelector
         disabled={disabled}
+        errorText={errorText}
         expanded={visible}
         helperText={helperText}
         label={label}

@@ -393,6 +393,7 @@ class QuestService:
                 "record_version": request.record_version,
                 "category": request.category if "category" in fields else "<omitted>",
                 "description": request.description if "description" in fields else "<omitted>",
+                "difficulty": request.difficulty if "difficulty" in fields else "<omitted>",
                 "reward_xp": request.reward_xp if "reward_xp" in fields else "<omitted>",
                 "title": request.title if "title" in fields else "<omitted>",
             }
@@ -425,6 +426,9 @@ class QuestService:
             changed = True
         if "category" in fields and quest.category != request.category:
             quest.category = request.category
+            changed = True
+        if "difficulty" in fields and quest.difficulty != request.difficulty:
+            quest.difficulty = request.difficulty
             changed = True
         if "reward_xp" in fields and quest.reward_xp != request.reward_xp:
             quest.reward_xp = request.reward_xp if request.reward_xp is not None else quest.reward_xp
@@ -486,6 +490,7 @@ class QuestService:
                 "campaign_record_version": request.campaign_record_version,
                 "category": request.category,
                 "description": request.description,
+                "difficulty": request.difficulty,
                 "due_local_datetime": request.due_local_datetime,
                 "reward_xp": request.reward_xp,
                 "timezone_name": request.timezone_name,
@@ -561,6 +566,7 @@ class QuestService:
             title=request.title,
             description=request.description,
             category=request.category,
+            difficulty=request.difficulty,
             reward_xp=request.reward_xp,
             display_order=int(display_order or 0),
             due_at=due_at,

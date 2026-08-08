@@ -13,7 +13,12 @@ import { KeyboardAwareScreen } from "../../../../src/platform/KeyboardAwareScree
 import { questApi, QuestRequestError } from "../../../../src/quests/api";
 import { validateOneTimeQuestForm } from "../../../../src/quests/form";
 import { QuestOptionSelector } from "../../../../src/quests/QuestOptionSelector";
-import type { Quest, QuestAuthoringOptions, QuestCategory } from "../../../../src/quests/types";
+import type {
+  Quest,
+  QuestAuthoringOptions,
+  QuestCategory,
+  QuestDifficulty,
+} from "../../../../src/quests/types";
 import { AppText } from "../../../../src/theme/AppText";
 import { spacing } from "../../../../src/theme/tokens";
 
@@ -23,6 +28,7 @@ function QuestEditForm({ quest, options, ownerId, onSaved }: { quest: Quest; opt
   const [title, setTitle] = useState(quest.title);
   const [description, setDescription] = useState(quest.description ?? "");
   const [category, setCategory] = useState<QuestCategory | null>(quest.category);
+  const [difficulty, setDifficulty] = useState<QuestDifficulty | null>(quest.difficulty);
   const [reward, setReward] = useState(String(quest.rewardXp));
   const [attempted, setAttempted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -34,8 +40,8 @@ function QuestEditForm({ quest, options, ownerId, onSaved }: { quest: Quest; opt
   async function submit() {
     setAttempted(true);
     setSubmissionError(null);
-    if (validation.titleError || validation.rewardError || validation.descriptionError || submitting || staleCurrent) return;
-    const payload = JSON.stringify({ title: validation.title, description: validation.description, category, rewardXp: validation.rewardXp, version: quest.recordVersion });
+    if (validation.titleError || validation.rewardError || validation.descriptionError || difficulty === null || submitting || staleCurrent) return;
+    const payload = JSON.stringify({ title: validation.title, description: validation.description, category, difficulty, rewardXp: validation.rewardXp, version: quest.recordVersion });
     if (identity.current?.payload !== payload) identity.current = { payload, mutationId: questApi.createMutationId() };
     setSubmitting(true);
     try {
@@ -43,6 +49,7 @@ function QuestEditForm({ quest, options, ownerId, onSaved }: { quest: Quest; opt
         title: validation.title,
         description: validation.description,
         category,
+        difficulty,
         rewardXp: validation.rewardXp,
         recordVersion: quest.recordVersion,
         clientMutationId: identity.current.mutationId,
@@ -86,6 +93,16 @@ function QuestEditForm({ quest, options, ownerId, onSaved }: { quest: Quest; opt
           onChange={(value) => setCategory(value as QuestCategory | null)}
           options={options.categories}
           value={category}
+        />
+        <QuestOptionSelector
+          disabled={submitting || staleCurrent !== null}
+          errorText={attempted && difficulty === null ? "Choose a difficulty before saving." : undefined}
+          helperText="Planning effort only. Difficulty does not determine XP."
+          label="Difficulty"
+          onChange={(value) => setDifficulty(value as QuestDifficulty | null)}
+          options={options.difficulties}
+          required
+          value={difficulty}
         />
         <AppTextField editable={!submitting && !staleCurrent} errorText={attempted ? validation.rewardError ?? undefined : undefined} keyboardType="number-pad" label="Configured XP reward" onChangeText={setReward} required value={reward} />
       </View>

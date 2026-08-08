@@ -28,6 +28,7 @@ def _create_campaign_and_quest(client, headers: dict[str, str]) -> tuple[dict, d
         headers=headers,
         json={
             "title": "Preserve me",
+            "difficulty": "hard",
             "reward_xp": 30,
             "campaign_record_version": 1,
             "client_mutation_id": "d0000000-0000-4000-8000-000000000002",
@@ -127,6 +128,7 @@ def test_quest_lifecycle_recalculates_campaign_from_authoritative_obligations(
             headers=headers,
             json={
                 "title": "Unfinished",
+                "difficulty": "easy",
                 "reward_xp": 0,
                 "campaign_record_version": first["campaign_record_version"],
                 "client_mutation_id": "d0000000-0000-4000-8000-000000000005",

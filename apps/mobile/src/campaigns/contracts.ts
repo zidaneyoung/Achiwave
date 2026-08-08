@@ -7,7 +7,7 @@ import type {
   CampaignStatus,
   QuestDisplayStatus,
 } from "./types";
-import type { QuestCategory } from "../quests/types";
+import type { QuestCategory, QuestDifficulty } from "../quests/types";
 
 export function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -26,6 +26,10 @@ function isQuestCategory(value: unknown): value is QuestCategory {
     value === "work" ||
     value === "finance"
   );
+}
+
+function isQuestDifficulty(value: unknown): value is QuestDifficulty {
+  return value === "easy" || value === "medium" || value === "hard";
 }
 
 function isCampaignStatus(value: unknown): value is CampaignStatus {
@@ -130,6 +134,11 @@ function parseCampaignQuest(value: unknown): CampaignQuest | null {
     : isQuestCategory(value.category)
       ? value.category
       : undefined;
+  const difficulty = value.difficulty === null
+    ? null
+    : isQuestDifficulty(value.difficulty)
+      ? value.difficulty
+      : undefined;
   const availableFrom = nullableString(value.available_from);
   const dueAt = nullableString(value.due_at);
   const timezoneName = nullableString(value.timezone_name);
@@ -146,6 +155,9 @@ function parseCampaignQuest(value: unknown): CampaignQuest | null {
     category === undefined ||
     typeof value.category_label !== "string" ||
     value.category_label.length === 0 ||
+    difficulty === undefined ||
+    typeof value.difficulty_label !== "string" ||
+    value.difficulty_label.length === 0 ||
     parseNonnegativeInteger(value.reward_xp) === null ||
     parseNonnegativeInteger(value.display_order) === null ||
     availableFrom === undefined ||
@@ -173,6 +185,8 @@ function parseCampaignQuest(value: unknown): CampaignQuest | null {
     description,
     category,
     categoryLabel: value.category_label,
+    difficulty,
+    difficultyLabel: value.difficulty_label,
     rewardXp: value.reward_xp as number,
     displayOrder: value.display_order as number,
     availableFrom,

@@ -97,6 +97,7 @@ export default function QuestDetailRoute() {
           <AppText accessibilityRole="header" variant="heading1">{quest.title}</AppText>
           {quest.description ? <AppText tone="muted">{quest.description}</AppText> : null}
           <AppText>Category: {quest.categoryLabel}</AppText>
+          <AppText>Difficulty: {quest.difficultyLabel}</AppText>
           <AppText>{quest.rewardXp} XP configured</AppText>
           {quest.dueAt && quest.timezoneName && dateFormat ? (
             <View style={styles.snapshot}>

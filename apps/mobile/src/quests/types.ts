@@ -1,4 +1,5 @@
 export type QuestCategory = "personal" | "health" | "learning" | "work" | "finance";
+export type QuestDifficulty = "easy" | "medium" | "hard";
 
 export interface QuestAuthoringOption<TValue extends string = string> {
   value: TValue;
@@ -7,6 +8,7 @@ export interface QuestAuthoringOption<TValue extends string = string> {
 
 export interface QuestAuthoringOptions {
   categories: QuestAuthoringOption<QuestCategory>[];
+  difficulties: QuestAuthoringOption<QuestDifficulty>[];
 }
 
 export interface OneTimeOccurrence {
@@ -31,6 +33,8 @@ export interface Quest {
   description: string | null;
   category: QuestCategory | null;
   categoryLabel: string;
+  difficulty: QuestDifficulty | null;
+  difficultyLabel: string;
   rewardXp: number;
   displayOrder: number;
   availableFrom: string | null;

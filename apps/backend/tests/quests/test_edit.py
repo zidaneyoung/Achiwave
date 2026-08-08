@@ -22,6 +22,7 @@ def _create_quest(client, headers: dict[str, str]) -> dict[str, object]:
         headers=headers,
         json={
             "title": "Original",
+            "difficulty": "medium",
             "reward_xp": 10,
             "campaign_record_version": campaign["record_version"],
             "client_mutation_id": "c0000000-0000-4000-8000-000000000002",

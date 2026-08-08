@@ -5,7 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from achiwave_backend.quest_configuration import QuestCategory
+from achiwave_backend.quest_configuration import QuestCategory, QuestDifficulty
 
 CAMPAIGN_TITLE_MAX_LENGTH = 120
 CAMPAIGN_DESCRIPTION_MAX_LENGTH = 4_000
@@ -84,6 +84,8 @@ class CampaignQuestResponse(BaseModel):
     description: str | None
     category: QuestCategory | None
     category_label: str
+    difficulty: QuestDifficulty | None
+    difficulty_label: str
     reward_xp: int
     display_order: int
     available_from: datetime | None

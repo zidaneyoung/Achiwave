@@ -27,6 +27,7 @@ def test_quest_description_create_edit_and_clear_use_existing_storage(
             headers=headers,
             json={
                 "title": "Document",
+                "difficulty": "medium",
                 "description": "  First line\nSecond line  ",
                 "campaign_record_version": 1,
                 "client_mutation_id": "f0000000-0000-4000-8000-000000000002",
@@ -83,6 +84,7 @@ def test_quest_description_rejects_blank_unsafe_and_oversized_values(
                 headers=headers,
                 json={
                     "title": "Invalid",
+                    "difficulty": "medium",
                     "description": value,
                     "campaign_record_version": 1,
                     "client_mutation_id": mutation_id,

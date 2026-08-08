@@ -2,11 +2,12 @@
 
 ## Status
 
-Stage 6 is partially implemented through issue #120. Campaign management
+Stage 6 is partially implemented through issue #121. Campaign management
 (#108-#113), one-time quest authoring (#114-#118), and optional one-time due
-dates (#119), and optional quest categories (#120) are implemented.
+dates (#119), optional quest categories (#120), and quest difficulty (#121) are
+implemented.
 
-Issues #121-#129 remain unimplemented. Issue #130 and all Stage 7 completion,
+Issues #122-#129 remain unimplemented. Issue #130 and all Stage 7 completion,
 XP-award, progression, recurrence-worker, notification, and offline-mutation
 behavior remain out of scope.
 
@@ -63,3 +64,11 @@ stored `null` means Uncategorized. Existing definitions remain uncategorized and
 no occurrence or reward snapshot is rewritten. The backend rejects unknown or
 non-canonical values and exposes the choices through its authenticated
 authoring-options contract.
+
+## Difficulty contract
+
+New quests require an Easy, Medium, or Hard difficulty from the canonical values
+in [`quest-authoring.md`](../product-rules/quest-authoring.md). Difficulty remains
+independent from configured XP and has no completion or reward authority. Legacy
+null values remain readable as Not set, are not backfilled, and must be replaced
+with a canonical value when explicitly changed.

@@ -16,7 +16,11 @@ import { preferenceApi } from "../../../../../src/preferences/api";
 import { questApi, QuestRequestError } from "../../../../../src/quests/api";
 import { validateOneTimeQuestForm } from "../../../../../src/quests/form";
 import { QuestOptionSelector } from "../../../../../src/quests/QuestOptionSelector";
-import type { QuestAuthoringOptions, QuestCategory } from "../../../../../src/quests/types";
+import type {
+  QuestAuthoringOptions,
+  QuestCategory,
+  QuestDifficulty,
+} from "../../../../../src/quests/types";
 import { AppText } from "../../../../../src/theme/AppText";
 import { spacing } from "../../../../../src/theme/tokens";
 
@@ -37,6 +41,7 @@ function QuestForm({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<QuestCategory | null>(null);
+  const [difficulty, setDifficulty] = useState<QuestDifficulty>("medium");
   const [reward, setReward] = useState("0");
   const [due, setDue] = useState("");
   const [attempted, setAttempted] = useState(false);
@@ -49,7 +54,7 @@ function QuestForm({
     setAttempted(true);
     setSubmissionError(null);
     if (validation.titleError || validation.rewardError || validation.descriptionError || validation.dueError || submitting) return;
-    const payload = JSON.stringify({ title: validation.title, description: validation.description, category, rewardXp: validation.rewardXp, dueLocalDateTime: validation.dueLocalDateTime, version: campaign.recordVersion });
+    const payload = JSON.stringify({ title: validation.title, description: validation.description, category, difficulty, rewardXp: validation.rewardXp, dueLocalDateTime: validation.dueLocalDateTime, version: campaign.recordVersion });
     if (submissionIdentity.current?.payload !== payload) {
       submissionIdentity.current = { payload, mutationId: questApi.createMutationId() };
     }
@@ -61,6 +66,7 @@ function QuestForm({
         title: validation.title,
         description: validation.description,
         category,
+        difficulty,
         rewardXp: validation.rewardXp,
         dueLocalDateTime: validation.dueLocalDateTime,
         clientMutationId: submissionIdentity.current.mutationId,
@@ -111,6 +117,17 @@ function QuestForm({
           onChange={(value) => setCategory(value as QuestCategory | null)}
           options={options.categories}
           value={category}
+        />
+        <QuestOptionSelector
+          disabled={submitting}
+          helperText="Planning effort only. Difficulty does not determine XP."
+          label="Difficulty"
+          onChange={(value) => {
+            if (value !== null) setDifficulty(value as QuestDifficulty);
+          }}
+          options={options.difficulties}
+          required
+          value={difficulty}
         />
         <AppTextField
           editable={!submitting}

@@ -57,6 +57,10 @@ class Quest(Base):
             name="ck_quests_category",
         ),
         CheckConstraint(
+            "difficulty IS NULL OR difficulty IN ('easy', 'medium', 'hard')",
+            name="ck_quests_difficulty",
+        ),
+        CheckConstraint(
             "display_order >= 0",
             name="ck_quests_display_order_nonnegative",
         ),
@@ -107,6 +111,7 @@ class Quest(Base):
     title: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
     category: Mapped[str | None] = mapped_column(Text)
+    difficulty: Mapped[str | None] = mapped_column(Text)
     reward_xp: Mapped[int] = mapped_column(
         Integer, nullable=False, server_default=text("0")
     )
