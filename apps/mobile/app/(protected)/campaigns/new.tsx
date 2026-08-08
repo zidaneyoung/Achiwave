@@ -125,7 +125,7 @@ export default function CreateCampaignRoute() {
         loading={submitting}
         onPress={() => void submit()}
       />
-      <DirtyFormDialog guard={guard} />
+      <DirtyFormDialog busy={submitting} guard={guard} />
     </KeyboardAwareScreen>
   );
 }

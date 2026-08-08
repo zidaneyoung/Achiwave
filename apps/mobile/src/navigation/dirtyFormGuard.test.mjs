@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
@@ -45,4 +46,27 @@ test("discard and committed success disable prevention before navigation", () =>
   assert.equal(shouldPreventDirtyFormRemoval(true, discarding), false);
   assert.deepEqual(committing, { phase: "committing", action: null });
   assert.equal(shouldPreventDirtyFormRemoval(true, committing), false);
+});
+
+test("pending campaign and quest submissions lock dirty-form dismissal", async () => {
+  const dialogSource = await readFile(
+    new URL("./useDirtyFormGuard.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(dialogSource, /busy\?: boolean;/u);
+  assert.match(dialogSource, /<AppDialog\s+busy=\{busy\}/u);
+
+  const formSources = await Promise.all([
+    "../../app/(protected)/campaigns/new.tsx",
+    "../../app/(protected)/campaigns/[campaignId]/edit.tsx",
+    "../../app/(protected)/campaigns/[campaignId]/quests/new.tsx",
+    "../../app/(protected)/quests/[questId]/edit.tsx",
+  ].map((path) => readFile(new URL(path, import.meta.url), "utf8")));
+
+  for (const source of formSources) {
+    assert.match(
+      source,
+      /<DirtyFormDialog busy=\{submitting\} guard=\{guard\} \/>/u,
+    );
+  }
 });

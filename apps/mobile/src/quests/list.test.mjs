@@ -3,10 +3,45 @@ import test from "node:test";
 
 import {
   buildQuestListPath,
+  combineQuestListPages,
   countQuestListFilters,
   createEmptyQuestListFilters,
   validateQuestListDates,
 } from "./list.ts";
+
+test("quest list refresh combines loaded pages and drops removed items", () => {
+  const previouslyLoadedIds = ["one", "two", "three", "four"];
+  const combined = combineQuestListPages([
+    {
+      items: [{ id: "one" }, { id: "three" }],
+      offset: 0,
+      total: 3,
+    },
+    {
+      items: [{ id: "four" }],
+      offset: 2,
+      total: 3,
+    },
+  ]);
+
+  assert.deepEqual(combined, {
+    items: [{ id: "one" }, { id: "three" }, { id: "four" }],
+    nextOffset: 3,
+    total: 3,
+  });
+  assert.equal(previouslyLoadedIds.includes("two"), true);
+  assert.equal(combined.items.some((item) => item.id === "two"), false);
+});
+
+test("quest list refresh rejects a pagination gap", () => {
+  assert.throws(
+    () => combineQuestListPages([
+      { items: [{ id: "one" }], offset: 0, total: 2 },
+      { items: [{ id: "two" }], offset: 2, total: 2 },
+    ]),
+    /must be contiguous/u,
+  );
+});
 
 test("quest list query encodes only selected server filters in canonical order", () => {
   assert.equal(

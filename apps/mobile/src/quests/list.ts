@@ -2,6 +2,35 @@ import type { QuestListFilters, QuestListStatus } from "./types";
 
 export const QUEST_LIST_PAGE_SIZE = 50;
 
+export interface CombinedQuestListPages<TItem extends { id: string }> {
+  items: TItem[];
+  nextOffset: number;
+  total: number;
+}
+
+export function combineQuestListPages<TItem extends { id: string }>(
+  pages: ReadonlyArray<{
+    items: readonly TItem[];
+    offset: number;
+    total: number;
+  }>,
+): CombinedQuestListPages<TItem> {
+  const items = new Map<string, TItem>();
+  let nextOffset = 0;
+  let total = 0;
+  for (const page of pages) {
+    if (page.offset !== nextOffset) {
+      throw new RangeError("Quest list refresh pages must be contiguous.");
+    }
+    for (const item of page.items) items.set(item.id, item);
+    total = page.total;
+    nextOffset = page.items.length === 0
+      ? page.total
+      : page.offset + page.items.length;
+  }
+  return { items: [...items.values()], nextOffset, total };
+}
+
 export const QUEST_LIST_STATUS_OPTIONS: ReadonlyArray<{
   value: QuestListStatus;
   label: string;

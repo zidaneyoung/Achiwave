@@ -75,9 +75,16 @@ export function useDirtyFormGuard(dirty: boolean): DirtyFormGuard {
   };
 }
 
-export function DirtyFormDialog({ guard }: { guard: DirtyFormGuard }) {
+export function DirtyFormDialog({
+  busy = false,
+  guard,
+}: {
+  busy?: boolean;
+  guard: DirtyFormGuard;
+}) {
   return (
     <AppDialog
+      busy={busy}
       confirmLabel="Discard changes"
       description="Your unsaved changes will be lost."
       dismissLabel="Stay"

@@ -196,7 +196,7 @@ function QuestForm({
         </View>
       ) : null}
       <AppButton label="Create quest" loading={submitting} onPress={() => void submit()} />
-      <DirtyFormDialog guard={guard} />
+      <DirtyFormDialog busy={submitting} guard={guard} />
     </>
   );
 }

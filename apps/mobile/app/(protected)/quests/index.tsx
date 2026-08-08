@@ -20,6 +20,7 @@ import type { DateFormatPreference } from "../../../src/preferences/types";
 import { questApi, QuestRequestError } from "../../../src/quests/api";
 import {
   buildQuestListPath,
+  combineQuestListPages,
   countQuestListFilters,
   createEmptyQuestListFilters,
   QUEST_LIST_PAGE_SIZE,
@@ -146,6 +147,7 @@ function QuestListContent({ ownerId }: { ownerId: string }) {
   const listRequestSequence = useRef(0);
   const choiceRequestSequence = useRef(0);
   const contentRef = useRef(items);
+  const listRefreshRequestRef = useRef<number | null>(null);
   const loadingMoreRef = useRef(loadingMore);
   const manualRefreshRef = useRef(false);
   const manualRefreshGeneration = useRef(0);
@@ -168,7 +170,12 @@ function QuestListContent({ ownerId }: { ownerId: string }) {
       setLoadingMore(false);
     }
     const request = ++listRequestSequence.current;
+    listRefreshRequestRef.current = request;
     const hadContent = contentRef.current !== null;
+    const refreshItemTarget = Math.max(
+      QUEST_LIST_PAGE_SIZE,
+      contentRef.current?.length ?? 0,
+    );
     if (hadContent) setRefreshError(null);
     else setListError(null);
     setNextPageError(null);
@@ -180,10 +187,28 @@ function QuestListContent({ ownerId }: { ownerId: string }) {
       );
       const page = await promise;
       if (request !== listRequestSequence.current) return;
-      contentRef.current = page.items;
-      setItems(page.items);
-      setTotal(page.total);
-      setNextOffset(page.items.length);
+      const pages = [page];
+      let refreshed = combineQuestListPages(pages);
+      while (
+        refreshed.items.length < refreshItemTarget &&
+        refreshed.nextOffset < refreshed.total
+      ) {
+        const nextPage = await questApi.list(
+          filters,
+          Math.min(
+            QUEST_LIST_PAGE_SIZE,
+            refreshItemTarget - refreshed.items.length,
+          ),
+          refreshed.nextOffset,
+        );
+        if (request !== listRequestSequence.current) return;
+        pages.push(nextPage);
+        refreshed = combineQuestListPages(pages);
+      }
+      contentRef.current = refreshed.items;
+      setItems(refreshed.items);
+      setTotal(refreshed.total);
+      setNextOffset(refreshed.nextOffset);
       setListError(null);
       setRefreshError(null);
       if (reason === "manual") {
@@ -200,6 +225,9 @@ function QuestListContent({ ownerId }: { ownerId: string }) {
         AccessibilityInfo.announceForAccessibility(`Quest refresh failed. ${message}`);
       }
     } finally {
+      if (listRefreshRequestRef.current === request) {
+        listRefreshRequestRef.current = null;
+      }
       if (reason === "manual" && manualGeneration === manualRefreshGeneration.current) {
         manualRefreshRef.current = false;
         setRefreshing(false);
@@ -212,13 +240,15 @@ function QuestListContent({ ownerId }: { ownerId: string }) {
     if (
       !ownerId ||
       !items ||
-      loadingMore ||
+      loadingMoreRef.current ||
+      listRefreshRequestRef.current !== null ||
       refreshing ||
       firstPageRequests.has(firstPageKey) ||
       nextOffset >= total
     ) return;
     const request = ++listRequestSequence.current;
     const offset = nextOffset;
+    loadingMoreRef.current = true;
     setLoadingMore(true);
     setNextPageError(null);
     try {
@@ -243,9 +273,12 @@ function QuestListContent({ ownerId }: { ownerId: string }) {
           : "More quests could not be loaded.",
       );
     } finally {
-      if (request === listRequestSequence.current) setLoadingMore(false);
+      if (request === listRequestSequence.current) {
+        loadingMoreRef.current = false;
+        setLoadingMore(false);
+      }
     }
-  }, [filters, firstPageRequests, items, loadingMore, nextOffset, ownerId, refreshing, total]);
+  }, [filters, firstPageRequests, items, nextOffset, ownerId, refreshing, total]);
 
   const loadChoices = useCallback(async () => {
     if (!ownerId) return;
@@ -282,9 +315,12 @@ function QuestListContent({ ownerId }: { ownerId: string }) {
       void loadFirstPage("focus");
       return () => {
         listRequestSequence.current += 1;
+        listRefreshRequestRef.current = null;
+        loadingMoreRef.current = false;
         manualRefreshGeneration.current += 1;
         manualRefreshRef.current = false;
         setRefreshing(false);
+        setLoadingMore(false);
       };
     }, [loadFirstPage]),
   );
@@ -316,6 +352,7 @@ function QuestListContent({ ownerId }: { ownerId: string }) {
     listRequestSequence.current += 1;
     manualRefreshGeneration.current += 1;
     manualRefreshRef.current = false;
+    listRefreshRequestRef.current = null;
     loadingMoreRef.current = false;
     setRefreshing(false);
     setLoadingMore(false);

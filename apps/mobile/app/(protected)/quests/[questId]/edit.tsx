@@ -173,7 +173,7 @@ function QuestEditForm({ quest, options, ownerId, onSaved }: { quest: Quest; opt
         </View>
       ) : null}
       <AppButton disabled={staleCurrent !== null} label="Save quest" loading={submitting} onPress={() => void submit()} />
-      <DirtyFormDialog guard={guard} />
+      <DirtyFormDialog busy={submitting} guard={guard} />
     </>
   );
 }

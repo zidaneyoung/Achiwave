@@ -131,7 +131,7 @@ function CampaignEditForm({ campaign, onSaved }: CampaignEditFormProps) {
         loading={submitting}
         onPress={() => void submit()}
       />
-      <DirtyFormDialog guard={guard} />
+      <DirtyFormDialog busy={submitting} guard={guard} />
     </>
   );
 }
