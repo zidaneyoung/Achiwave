@@ -25,6 +25,7 @@ interface OverlayProps {
 }
 
 export interface AppDialogProps extends OverlayProps {
+  busy?: boolean;
   kind?: "information" | "confirmation" | "destructive";
   confirmLabel?: string;
   dismissLabel?: string;
@@ -32,6 +33,7 @@ export interface AppDialogProps extends OverlayProps {
 }
 
 export function AppDialog({
+  busy = false,
   children,
   confirmLabel = "Confirm",
   description,
@@ -47,7 +49,9 @@ export function AppDialog({
   return (
     <Modal
       animationType={reduceMotion ? "none" : "fade"}
-      onRequestClose={onDismiss}
+      onRequestClose={() => {
+        if (!busy) onDismiss();
+      }}
       statusBarTranslucent
       transparent
       visible={visible}
@@ -63,11 +67,17 @@ export function AppDialog({
             {kind !== "information" && onConfirm ? (
               <AppButton
                 label={confirmLabel}
+                loading={busy}
                 onPress={onConfirm}
                 variant={kind === "destructive" ? "destructive" : "primary"}
               />
             ) : null}
-            <AppButton label={dismissLabel ?? (kind === "information" ? "Close" : "Cancel")} onPress={onDismiss} variant="secondary" />
+            <AppButton
+              disabled={busy}
+              label={dismissLabel ?? (kind === "information" ? "Close" : "Cancel")}
+              onPress={onDismiss}
+              variant="secondary"
+            />
           </View>
         </View>
       </SafeAreaView>

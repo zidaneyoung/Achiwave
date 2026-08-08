@@ -21,7 +21,9 @@ import { AppListItem } from "../../../src/components/ContentSurfaces";
 import { EmptyState } from "../../../src/components/EmptyState";
 import { ErrorState } from "../../../src/components/ErrorState";
 import { LoadingSkeleton } from "../../../src/components/LoadingSkeleton";
+import { AppDialog } from "../../../src/components/Overlays";
 import { StatusBadge, type StatusTone } from "../../../src/components/StatusBadge";
+import { campaignArchiveConfirmation } from "../../../src/lifecycle/archiveConfirmation";
 import { PROTECTED_ROUTES } from "../../../src/navigation/routes";
 import { preferenceApi } from "../../../src/preferences/api";
 import { formatPreferenceDateTime } from "../../../src/preferences/formatDate";
@@ -123,9 +125,11 @@ export default function CampaignDetailRoute() {
   const [error, setError] = useState<string | null>(null);
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [archiving, setArchiving] = useState(false);
+  const [archiveDialogVisible, setArchiveDialogVisible] = useState(false);
   const [archiveError, setArchiveError] = useState<string | null>(null);
   const [dateFormat, setDateFormat] = useState<DateFormatPreference | null>(null);
-  const archiveMutationId = useRef<string | null>(null);
+  const archivePending = useRef(false);
+  const archiveRequest = useRef<{ mutationId: string; recordVersion: number } | null>(null);
   const [restoring, setRestoring] = useState(false);
   const [restoreError, setRestoreError] = useState<string | null>(null);
   const restoreMutationId = useRef<string | null>(null);
@@ -249,6 +253,41 @@ export default function CampaignDetailRoute() {
     }
   }
 
+  function archiveCampaign() {
+    if (!detail || !ownerId || archivePending.current) return;
+    archivePending.current = true;
+    archiveRequest.current ??= {
+      mutationId: campaignApi.createMutationId(),
+      recordVersion: detail.recordVersion,
+    };
+    setArchiving(true);
+    setArchiveError(null);
+    void campaignApi
+      .archive(
+        detail.id,
+        archiveRequest.current.recordVersion,
+        archiveRequest.current.mutationId,
+      )
+      .then(() => {
+        setArchiveDialogVisible(false);
+        AccessibilityInfo.announceForAccessibility("Campaign archived.");
+        invalidateCachedCampaign(ownerId, detail.id);
+        router.replace(PROTECTED_ROUTES.campaigns);
+      })
+      .catch((caught) => {
+        const message =
+          caught instanceof CampaignRequestError
+            ? caught.message
+            : "The campaign could not be archived.";
+        setArchiveError(message);
+        AccessibilityInfo.announceForAccessibility(message);
+      })
+      .finally(() => {
+        archivePending.current = false;
+        setArchiving(false);
+      });
+  }
+
   useFocusEffect(
     useCallback(() => {
       void load("focus");
@@ -270,6 +309,7 @@ export default function CampaignDetailRoute() {
       </SafeAreaView>
     );
   }
+  const archiveConfirmation = detail ? campaignArchiveConfirmation(detail.title) : null;
 
   return (
     <SafeAreaView edges={["left", "right", "bottom"]} style={styles.safeArea}>
@@ -340,28 +380,10 @@ export default function CampaignDetailRoute() {
               {detail.status !== "archived" ? (
                 <AppButton
                   label="Archive campaign"
-                  loading={archiving}
                   onPress={() => {
-                    if (archiving) return;
-                    archiveMutationId.current ??= campaignApi.createMutationId();
-                    setArchiving(true);
+                    archiveRequest.current = null;
                     setArchiveError(null);
-                    void campaignApi
-                      .archive(detail.id, detail.recordVersion, archiveMutationId.current)
-                      .then(() => {
-                        AccessibilityInfo.announceForAccessibility("Campaign archived.");
-                        invalidateCachedCampaign(ownerId, detail.id);
-                        router.replace(PROTECTED_ROUTES.campaigns);
-                      })
-                      .catch((caught) => {
-                        const message =
-                          caught instanceof CampaignRequestError
-                            ? caught.message
-                            : "The campaign could not be archived.";
-                        setArchiveError(message);
-                        AccessibilityInfo.announceForAccessibility(message);
-                      })
-                      .finally(() => setArchiving(false));
+                    setArchiveDialogVisible(true);
                   }}
                   variant="destructive"
                 />
@@ -394,12 +416,6 @@ export default function CampaignDetailRoute() {
                   variant="primary"
                 />
               )}
-              {archiveError ? (
-                <View style={styles.footer}>
-                  <ErrorState kind="inline" />
-                  <AppText accessibilityLiveRegion="assertive" tone="error">{archiveError}</AppText>
-                </View>
-              ) : null}
               {restoreError ? (
                 <View style={styles.footer}>
                   <ErrorState kind="inline" />
@@ -459,6 +475,30 @@ export default function CampaignDetailRoute() {
           )}
         />
       ) : null}
+      {detail && archiveConfirmation && detail.status !== "archived" ? (
+        <AppDialog
+          busy={archiving}
+          confirmLabel="Archive"
+          description={archiveConfirmation.description}
+          dismissLabel="Cancel"
+          kind="destructive"
+          onConfirm={archiveCampaign}
+          onDismiss={() => {
+            if (archivePending.current) return;
+            setArchiveDialogVisible(false);
+            setArchiveError(null);
+          }}
+          title={archiveConfirmation.title}
+          visible={archiveDialogVisible}
+        >
+          {archiveError ? (
+            <View style={styles.dialogError}>
+              <ErrorState kind="inline" />
+              <AppText accessibilityLiveRegion="assertive" tone="error">{archiveError}</AppText>
+            </View>
+          ) : null}
+        </AppDialog>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -474,5 +514,6 @@ const createStyles = (theme: AchiwaveTheme) => StyleSheet.create({
   content: { gap: spacing.sm, padding: spacing.lg, paddingBottom: spacing.xxl },
   header: { gap: spacing.sm, marginBottom: spacing.sm },
   footer: { gap: spacing.xs, marginTop: spacing.md },
+  dialogError: { gap: spacing.xs },
   center: { textAlign: "center" },
 });

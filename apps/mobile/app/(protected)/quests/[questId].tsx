@@ -9,7 +9,9 @@ import { invalidateCachedCampaign } from "../../../src/campaigns/cache";
 import { AppButton } from "../../../src/components/AppButton";
 import { ErrorState } from "../../../src/components/ErrorState";
 import { LoadingSkeleton } from "../../../src/components/LoadingSkeleton";
+import { AppDialog } from "../../../src/components/Overlays";
 import { StatusBadge, type StatusTone } from "../../../src/components/StatusBadge";
+import { questArchiveConfirmation } from "../../../src/lifecycle/archiveConfirmation";
 import { PROTECTED_ROUTES } from "../../../src/navigation/routes";
 import { questApi, QuestRequestError } from "../../../src/quests/api";
 import type { Quest } from "../../../src/quests/types";
@@ -52,8 +54,11 @@ export default function QuestDetailRoute() {
   const [refreshing, setRefreshing] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
   const [transitionError, setTransitionError] = useState<string | null>(null);
+  const [archiveDialogVisible, setArchiveDialogVisible] = useState(false);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
   const [dateFormat, setDateFormat] = useState<DateFormatPreference | null>(null);
-  const archiveMutationId = useRef<string | null>(null);
+  const archivePending = useRef(false);
+  const archiveRequest = useRef<{ mutationId: string; recordVersion: number } | null>(null);
   const restoreMutationId = useRef<string | null>(null);
   const sequence = useRef(0);
   const contentRef = useRef(quest);
@@ -117,6 +122,40 @@ export default function QuestDetailRoute() {
     }
   }, [ownerId, questId, requests]);
 
+  function archiveQuest() {
+    if (!quest || !ownerId || archivePending.current) return;
+    archivePending.current = true;
+    archiveRequest.current ??= {
+      mutationId: questApi.createMutationId(),
+      recordVersion: quest.recordVersion,
+    };
+    setTransitioning(true);
+    setArchiveError(null);
+    void questApi
+      .archive(
+        quest.id,
+        archiveRequest.current.recordVersion,
+        archiveRequest.current.mutationId,
+      )
+      .then(() => {
+        setArchiveDialogVisible(false);
+        invalidateCachedCampaign(ownerId, quest.campaignId);
+        AccessibilityInfo.announceForAccessibility("Quest archived.");
+        router.replace(PROTECTED_ROUTES.campaignDetail(quest.campaignId));
+      })
+      .catch((caught) => {
+        const message = caught instanceof QuestRequestError
+          ? caught.message
+          : "The quest could not be archived.";
+        setArchiveError(message);
+        AccessibilityInfo.announceForAccessibility(message);
+      })
+      .finally(() => {
+        archivePending.current = false;
+        setTransitioning(false);
+      });
+  }
+
   useFocusEffect(useCallback(() => {
     void load("focus");
     return () => {
@@ -136,6 +175,7 @@ export default function QuestDetailRoute() {
       </SafeAreaView>
     );
   }
+  const archiveConfirmation = quest ? questArchiveConfirmation(quest.title) : null;
   const presentation = quest ? statusPresentation(quest) : null;
   return (
     <SafeAreaView edges={["left", "right", "bottom"]} style={styles.safeArea}>
@@ -200,35 +240,42 @@ export default function QuestDetailRoute() {
             />
           ) : null}
           {quest.campaignStatus !== "archived" ? (
-            <AppButton
-              label={quest.definitionState === "archived" ? "Restore quest" : "Archive quest"}
-              loading={transitioning}
-              onPress={() => {
-                if (transitioning) return;
-                const restoring = quest.definitionState === "archived";
-                const mutation = restoring ? restoreMutationId : archiveMutationId;
-                mutation.current ??= questApi.createMutationId();
-                setTransitioning(true);
-                setTransitionError(null);
-                const request = restoring
-                  ? questApi.restore(quest.id, quest.recordVersion, mutation.current)
-                  : questApi.archive(quest.id, quest.recordVersion, mutation.current);
-                void request
-                  .then(() => {
-                    invalidateCachedCampaign(ownerId, quest.campaignId);
-                    const message = restoring ? "Quest restored." : "Quest archived.";
-                    AccessibilityInfo.announceForAccessibility(message);
-                    router.replace(PROTECTED_ROUTES.campaignDetail(quest.campaignId));
-                  })
-                  .catch((caught) => {
-                    const message = caught instanceof QuestRequestError ? caught.message : "The quest lifecycle change failed.";
-                    setTransitionError(message);
-                    AccessibilityInfo.announceForAccessibility(message);
-                  })
-                  .finally(() => setTransitioning(false));
-              }}
-              variant={quest.definitionState === "archived" ? "primary" : "destructive"}
-            />
+            quest.definitionState === "archived" ? (
+              <AppButton
+                label="Restore quest"
+                loading={transitioning}
+                onPress={() => {
+                  if (transitioning) return;
+                  restoreMutationId.current ??= questApi.createMutationId();
+                  setTransitioning(true);
+                  setTransitionError(null);
+                  void questApi
+                    .restore(quest.id, quest.recordVersion, restoreMutationId.current)
+                    .then(() => {
+                      invalidateCachedCampaign(ownerId, quest.campaignId);
+                      AccessibilityInfo.announceForAccessibility("Quest restored.");
+                      router.replace(PROTECTED_ROUTES.campaignDetail(quest.campaignId));
+                    })
+                    .catch((caught) => {
+                      const message = caught instanceof QuestRequestError ? caught.message : "The quest lifecycle change failed.";
+                      setTransitionError(message);
+                      AccessibilityInfo.announceForAccessibility(message);
+                    })
+                    .finally(() => setTransitioning(false));
+                }}
+                variant="primary"
+              />
+            ) : (
+              <AppButton
+                label="Archive quest"
+                onPress={() => {
+                  archiveRequest.current = null;
+                  setArchiveError(null);
+                  setArchiveDialogVisible(true);
+                }}
+                variant="destructive"
+              />
+            )
           ) : (
             <AppText tone="muted">Restore the campaign before changing this quest.</AppText>
           )}
@@ -257,6 +304,30 @@ export default function QuestDetailRoute() {
             variant="secondary"
           />
         </ScrollView>
+      ) : null}
+      {quest && archiveConfirmation && quest.definitionState === "active" && quest.campaignStatus !== "archived" ? (
+        <AppDialog
+          busy={transitioning}
+          confirmLabel="Archive"
+          description={archiveConfirmation.description}
+          dismissLabel="Cancel"
+          kind="destructive"
+          onConfirm={archiveQuest}
+          onDismiss={() => {
+            if (archivePending.current) return;
+            setArchiveDialogVisible(false);
+            setArchiveError(null);
+          }}
+          title={archiveConfirmation.title}
+          visible={archiveDialogVisible}
+        >
+          {archiveError ? (
+            <View style={styles.snapshot}>
+              <ErrorState kind="inline" />
+              <AppText accessibilityLiveRegion="assertive" tone="error">{archiveError}</AppText>
+            </View>
+          ) : null}
+        </AppDialog>
       ) : null}
     </SafeAreaView>
   );
