@@ -48,6 +48,14 @@ touch-target values are shared rather than restated per screen. See the
 evidence is recorded in the
 [Stage 5 acceptance audit](../../docs/testing/stage-5-acceptance.md).
 
+## Stage 6 campaign and quest management
+
+Authenticated Android users can create, inspect, edit, archive, restore,
+filter, reorder, and refresh campaigns and one-time quests while the backend
+retains ownership, lifecycle, record-version, scheduling, and reward authority.
+See the [Stage 6 feature contract](../../docs/features/stage-6-campaigns-and-quests.md)
+and [acceptance audit](../../docs/testing/stage-6-acceptance.md).
+
 ## Android identity
 
 Stage 2 development builds use `com.zidaneyoung.achiwave.dev` and the `achiwave`

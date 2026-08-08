@@ -30,3 +30,5 @@ Stage 1 domain rules and acceptance evidence are indexed in
 - [Review Stage 2 issue-by-issue acceptance evidence](docs/testing/stage-2-acceptance.md)
 - [Review the Stage 3 PostgreSQL schema](docs/database/stage-3-schema.md)
 - [Review Stage 3 issue-by-issue acceptance evidence](docs/testing/stage-3-acceptance.md)
+- [Review the Stage 6 campaign and quest feature contract](docs/features/stage-6-campaigns-and-quests.md)
+- [Review Stage 6 issue-by-issue acceptance evidence](docs/testing/stage-6-acceptance.md)

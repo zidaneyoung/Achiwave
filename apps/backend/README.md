@@ -1,9 +1,10 @@
 # Achiwave backend
 
 The backend is a FastAPI service and shared worker package with the Stage 3 data
-model and Stage 4 authentication, device/session, profile, preference, and
-account-deactivation APIs. It does not contain campaign/quest APIs, reward
-services, recurrence workers, or notification delivery.
+model, Stage 4 authentication, device/session, profile, preference, and
+account-deactivation APIs, and Stage 6 campaign and one-time quest management.
+Reward services, recurrence workers, and notification delivery remain outside
+the implemented boundary.
 
 Create local settings before starting services:
 
@@ -69,6 +70,11 @@ Authentication requires `ACHIWAVE_ACCESS_TOKEN_SIGNING_KEY`; production rejects
 a missing or short key. Issuer, audience, access lifetime, refresh lifetime, and
 password length bounds are documented in `.env.example`. Never reuse the local
 Compose placeholder in production.
+
+Stage 6 campaign and one-time quest API behavior is documented in the
+[`Stage 6 feature contract`](../../docs/features/stage-6-campaigns-and-quests.md),
+with executed evidence in the
+[`Stage 6 acceptance audit`](../../docs/testing/stage-6-acceptance.md).
 
 The destructive migration tests require an explicitly disposable PostgreSQL URL:
 
