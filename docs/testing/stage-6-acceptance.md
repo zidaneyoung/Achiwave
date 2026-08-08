@@ -58,9 +58,10 @@ was made directly on `main`.
 | #128 | Named archive copy, busy AppDialog behavior, campaign/quest detail dialogs | Existing archive APIs; no restore/delete change |
 | #129 | `tests/history/test_archival_integrity.py` plus durable replay serializers/tests | Existing `0082` JSONB response field and unchanged PostgreSQL `RESTRICT` constraints |
 
-The only Stage 6 native dependency added was the Expo-compatible Android date
-and time picker at the version selected by `npx expo install`. No dependency was
-added for filtering, refresh, form guarding, dialogs, or historical tests.
+Stage 6 added `expo-crypto` for native stable client-mutation UUIDs and the
+Expo-compatible Android date/time picker selected by `npx expo install`. Existing
+Expo packages were patch-aligned with SDK 57. No dependency was added for
+filtering, refresh, form guarding, dialogs, or historical tests.
 
 ## Verification command map
 
