@@ -54,7 +54,7 @@ export default function QuestDetailRoute() {
     try {
       const [result, preferences] = await Promise.all([
         questApi.get(questId),
-        preferenceApi.get().catch(() => preferenceApi.getCached()),
+        preferenceApi.getAvailable(),
       ]);
       if (request === sequence.current) {
         setQuest(result);

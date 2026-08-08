@@ -101,7 +101,7 @@ export default function CampaignDetailRoute() {
     try {
       const [result, preferences] = await Promise.all([
         campaignApi.get(campaignId, includeArchived),
-        preferenceApi.get().catch(() => preferenceApi.getCached()),
+        preferenceApi.getAvailable(),
       ]);
       if (request !== requestSequence.current) return;
       setCachedCampaignDetail(ownerId, campaignId, includeArchived, result);

@@ -146,7 +146,7 @@ export default function CreateQuestRoute() {
     try {
       const [result, preferences] = await Promise.all([
         campaignApi.get(campaignId),
-        preferenceApi.get().catch(() => preferenceApi.getCached()),
+        preferenceApi.getAvailable(),
       ]);
       if (request !== sequence.current) return;
       if (result.status !== "active") {
