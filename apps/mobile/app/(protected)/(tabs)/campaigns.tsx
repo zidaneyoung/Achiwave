@@ -1,9 +1,10 @@
 import { useCallback, useRef, useState } from "react";
-import { FlatList, StyleSheet, View } from "react-native";
+import { AccessibilityInfo, FlatList, RefreshControl, StyleSheet, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuthentication } from "../../../src/auth/AuthContext";
+import { useReducedMotion } from "../../../src/accessibility/ReducedMotionProvider";
 import { campaignApi, CampaignRequestError } from "../../../src/campaigns/api";
 import {
   getCachedCampaigns,
@@ -20,9 +21,11 @@ import { ErrorState } from "../../../src/components/ErrorState";
 import { LoadingSkeleton } from "../../../src/components/LoadingSkeleton";
 import { StatusBadge } from "../../../src/components/StatusBadge";
 import { PROTECTED_ROUTES } from "../../../src/navigation/routes";
+import { createKeyedSingleFlight } from "../../../src/refresh/singleFlight";
 import { AppText } from "../../../src/theme/AppText";
 import {
   type AchiwaveTheme,
+  useAchiwaveTheme,
   useThemeStyles,
 } from "../../../src/theme/ThemeProvider";
 import { spacing } from "../../../src/theme/tokens";
@@ -58,6 +61,8 @@ function CampaignListRow({
 export default function CampaignsTabRoute() {
   const router = useRouter();
   const authentication = useAuthentication();
+  const reduceMotion = useReducedMotion();
+  const theme = useAchiwaveTheme();
   const styles = useThemeStyles(createStyles);
   const ownerId =
     authentication.state.status === "authenticated"
@@ -69,46 +74,89 @@ export default function CampaignsTabRoute() {
   );
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
   const requestSequence = useRef(0);
+  const contentRef = useRef(items);
+  const manualRefreshRef = useRef(false);
+  const manualRefreshGeneration = useRef(0);
+  const [requests] = useState(() => createKeyedSingleFlight<Awaited<ReturnType<typeof campaignApi.list>>>());
+  contentRef.current = items;
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (reason: "focus" | "manual" | "retry" = "focus") => {
     if (!ownerId) return;
+    let manualGeneration: number | null = null;
+    if (reason === "manual") {
+      if (manualRefreshRef.current) return;
+      manualRefreshRef.current = true;
+      manualGeneration = ++manualRefreshGeneration.current;
+      setRefreshing(true);
+    }
     const request = ++requestSequence.current;
     const cached = getCachedCampaigns(ownerId, view);
-    setItems(cached);
-    setRefreshing(cached !== null);
-    setError(null);
+    if (contentRef.current === null && cached !== null) {
+      contentRef.current = cached;
+      setItems(cached);
+    }
+    const hadContent = contentRef.current !== null;
+    if (hadContent) setRefreshError(null);
+    else setError(null);
     try {
-      const page = await campaignApi.list(view);
+      const { promise } = requests.run(
+        `${ownerId}:${view}`,
+        () => campaignApi.list(view),
+      );
+      const page = await promise;
       if (request !== requestSequence.current) return;
       setCachedCampaigns(ownerId, view, page.items);
+      contentRef.current = page.items;
       setItems(page.items);
+      setError(null);
+      setRefreshError(null);
+      if (reason === "manual") {
+        AccessibilityInfo.announceForAccessibility("Campaigns refreshed.");
+      }
     } catch (caught) {
       if (request !== requestSequence.current) return;
-      setError(
-        caught instanceof CampaignRequestError
-          ? caught.message
-          : "Campaigns could not be loaded.",
-      );
+      const message = caught instanceof CampaignRequestError
+        ? caught.message
+        : "Campaigns could not be loaded.";
+      if (hadContent) setRefreshError(message);
+      else setError(message);
+      if (reason === "manual") {
+        AccessibilityInfo.announceForAccessibility(`Campaign refresh failed. ${message}`);
+      }
     } finally {
-      if (request === requestSequence.current) setRefreshing(false);
+      if (reason === "manual" && manualGeneration === manualRefreshGeneration.current) {
+        manualRefreshRef.current = false;
+        setRefreshing(false);
+      }
     }
-  }, [ownerId, view]);
+  }, [ownerId, requests, view]);
 
   useFocusEffect(
     useCallback(() => {
-      void load();
+      void load("focus");
       return () => {
         requestSequence.current += 1;
+        manualRefreshGeneration.current += 1;
+        manualRefreshRef.current = false;
+        setRefreshing(false);
       };
     }, [load]),
   );
 
   const selectView = useCallback((nextView: CampaignListView) => {
+    requestSequence.current += 1;
+    manualRefreshGeneration.current += 1;
+    manualRefreshRef.current = false;
+    setRefreshing(false);
     setView(nextView);
-    setItems(null);
+    const cached = ownerId ? getCachedCampaigns(ownerId, nextView) : null;
+    contentRef.current = cached;
+    setItems(cached);
     setError(null);
-  }, []);
+    setRefreshError(null);
+  }, [ownerId]);
 
   if (!ownerId) return null;
 
@@ -159,7 +207,7 @@ export default function CampaignsTabRoute() {
       ) : null}
       {items === null && error ? (
         <View style={styles.state}>
-          <ErrorState kind={error.includes("Reconnect") ? "network" : "fullScreen"} onRetry={() => void load()} />
+          <ErrorState kind={error.includes("Reconnect") ? "network" : "fullScreen"} onRetry={() => void load("retry")} />
           <AppText accessibilityLiveRegion="assertive" tone="error" style={styles.center}>{error}</AppText>
         </View>
       ) : null}
@@ -168,6 +216,16 @@ export default function CampaignsTabRoute() {
           contentContainerStyle={[styles.list, items.length === 0 && styles.emptyList]}
           data={items}
           keyExtractor={(item) => item.id}
+          refreshControl={
+            <RefreshControl
+              colors={[theme.colors.accent]}
+              enabled={!refreshing}
+              onRefresh={() => void load("manual")}
+              progressBackgroundColor={theme.colors.surface}
+              refreshing={refreshing && !reduceMotion}
+              tintColor={theme.colors.accent}
+            />
+          }
           ListEmptyComponent={
             <EmptyState
               actionLabel={view === "active" ? "Create campaign" : undefined}
@@ -182,12 +240,14 @@ export default function CampaignsTabRoute() {
             />
           }
           ListFooterComponent={
-            error ? (
+            refreshError ? (
               <View style={styles.sectionError}>
-                <ErrorState kind="section" onRetry={() => void load()} />
-                <AppText accessibilityLiveRegion="assertive" tone="error">{error}</AppText>
+                <ErrorState kind="section" onRetry={() => void load("retry")} />
+                <AppText accessibilityLiveRegion="assertive" tone="error">
+                  Campaign refresh failed. {refreshError}
+                </AppText>
               </View>
-            ) : refreshing ? (
+            ) : refreshing && reduceMotion ? (
               <AppText accessibilityLiveRegion="polite" tone="muted" style={styles.center}>
                 Refreshing campaigns…
               </AppText>

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FlatList, StyleSheet, View } from "react-native";
+import { AccessibilityInfo, FlatList, RefreshControl, StyleSheet, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuthentication } from "../../../src/auth/AuthContext";
+import { useReducedMotion } from "../../../src/accessibility/ReducedMotionProvider";
 import { campaignApi } from "../../../src/campaigns/api";
 import type { CampaignListItem } from "../../../src/campaigns/types";
 import { AppButton } from "../../../src/components/AppButton";
@@ -18,12 +19,14 @@ import { formatPreferenceDateTime } from "../../../src/preferences/formatDate";
 import type { DateFormatPreference } from "../../../src/preferences/types";
 import { questApi, QuestRequestError } from "../../../src/quests/api";
 import {
+  buildQuestListPath,
   countQuestListFilters,
   createEmptyQuestListFilters,
   QUEST_LIST_PAGE_SIZE,
   QUEST_LIST_STATUS_OPTIONS,
 } from "../../../src/quests/list";
 import { QuestListFiltersSheet } from "../../../src/quests/QuestListFilters";
+import { createKeyedSingleFlight } from "../../../src/refresh/singleFlight";
 import type {
   QuestAuthoringOption,
   QuestCategory,
@@ -34,6 +37,7 @@ import type {
 import { AppText } from "../../../src/theme/AppText";
 import {
   type AchiwaveTheme,
+  useAchiwaveTheme,
   useThemeStyles,
 } from "../../../src/theme/ThemeProvider";
 import { spacing } from "../../../src/theme/tokens";
@@ -121,6 +125,8 @@ export default function QuestListRoute() {
 
 function QuestListContent({ ownerId }: { ownerId: string }) {
   const router = useRouter();
+  const reduceMotion = useReducedMotion();
+  const theme = useAchiwaveTheme();
   const styles = useThemeStyles(createStyles);
   const [filters, setFilters] = useState<QuestListFilters>(createEmptyQuestListFilters);
   const [filterSheetVisible, setFilterSheetVisible] = useState(false);
@@ -128,7 +134,9 @@ function QuestListContent({ ownerId }: { ownerId: string }) {
   const [total, setTotal] = useState(0);
   const [nextOffset, setNextOffset] = useState(0);
   const [listError, setListError] = useState<string | null>(null);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
   const [nextPageError, setNextPageError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [campaignChoices, setCampaignChoices] = useState<CampaignListItem[]>([]);
   const [categoryOptions, setCategoryOptions] = useState<QuestAuthoringOption<QuestCategory>[]>([]);
@@ -137,31 +145,78 @@ function QuestListContent({ ownerId }: { ownerId: string }) {
   const [dateFormat, setDateFormat] = useState<DateFormatPreference>("system");
   const listRequestSequence = useRef(0);
   const choiceRequestSequence = useRef(0);
+  const contentRef = useRef(items);
+  const loadingMoreRef = useRef(loadingMore);
+  const manualRefreshRef = useRef(false);
+  const manualRefreshGeneration = useRef(0);
+  const [firstPageRequests] = useState(() => createKeyedSingleFlight<Awaited<ReturnType<typeof questApi.list>>>());
+  contentRef.current = items;
+  loadingMoreRef.current = loadingMore;
 
-  const loadFirstPage = useCallback(async () => {
+  const loadFirstPage = useCallback(async (
+    reason: "focus" | "manual" | "retry" = "focus",
+  ) => {
     if (!ownerId) return;
+    let manualGeneration: number | null = null;
+    if (reason === "manual") {
+      if (manualRefreshRef.current || loadingMoreRef.current) return;
+      manualRefreshRef.current = true;
+      manualGeneration = ++manualRefreshGeneration.current;
+      setRefreshing(true);
+    } else {
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
+    }
     const request = ++listRequestSequence.current;
-    setLoadingMore(false);
-    setListError(null);
+    const hadContent = contentRef.current !== null;
+    if (hadContent) setRefreshError(null);
+    else setListError(null);
     setNextPageError(null);
+    const requestKey = buildQuestListPath(filters, QUEST_LIST_PAGE_SIZE, 0);
     try {
-      const page = await questApi.list(filters, QUEST_LIST_PAGE_SIZE, 0);
+      const { promise } = firstPageRequests.run(
+        requestKey,
+        () => questApi.list(filters, QUEST_LIST_PAGE_SIZE, 0),
+      );
+      const page = await promise;
       if (request !== listRequestSequence.current) return;
+      contentRef.current = page.items;
       setItems(page.items);
       setTotal(page.total);
       setNextOffset(page.items.length);
+      setListError(null);
+      setRefreshError(null);
+      if (reason === "manual") {
+        AccessibilityInfo.announceForAccessibility("Quests refreshed.");
+      }
     } catch (caught) {
       if (request !== listRequestSequence.current) return;
-      setListError(
-        caught instanceof QuestRequestError
-          ? caught.message
-          : "Quests could not be loaded.",
-      );
+      const message = caught instanceof QuestRequestError
+        ? caught.message
+        : "Quests could not be loaded.";
+      if (hadContent) setRefreshError(message);
+      else setListError(message);
+      if (reason === "manual") {
+        AccessibilityInfo.announceForAccessibility(`Quest refresh failed. ${message}`);
+      }
+    } finally {
+      if (reason === "manual" && manualGeneration === manualRefreshGeneration.current) {
+        manualRefreshRef.current = false;
+        setRefreshing(false);
+      }
     }
-  }, [filters, ownerId]);
+  }, [filters, firstPageRequests, ownerId]);
 
   const loadNextPage = useCallback(async () => {
-    if (!ownerId || !items || loadingMore || nextOffset >= total) return;
+    const firstPageKey = buildQuestListPath(filters, QUEST_LIST_PAGE_SIZE, 0);
+    if (
+      !ownerId ||
+      !items ||
+      loadingMore ||
+      refreshing ||
+      firstPageRequests.has(firstPageKey) ||
+      nextOffset >= total
+    ) return;
     const request = ++listRequestSequence.current;
     const offset = nextOffset;
     setLoadingMore(true);
@@ -190,7 +245,7 @@ function QuestListContent({ ownerId }: { ownerId: string }) {
     } finally {
       if (request === listRequestSequence.current) setLoadingMore(false);
     }
-  }, [filters, items, loadingMore, nextOffset, ownerId, total]);
+  }, [filters, firstPageRequests, items, loadingMore, nextOffset, ownerId, refreshing, total]);
 
   const loadChoices = useCallback(async () => {
     if (!ownerId) return;
@@ -224,9 +279,12 @@ function QuestListContent({ ownerId }: { ownerId: string }) {
 
   useFocusEffect(
     useCallback(() => {
-      void loadFirstPage();
+      void loadFirstPage("focus");
       return () => {
         listRequestSequence.current += 1;
+        manualRefreshGeneration.current += 1;
+        manualRefreshRef.current = false;
+        setRefreshing(false);
       };
     }, [loadFirstPage]),
   );
@@ -256,10 +314,17 @@ function QuestListContent({ ownerId }: { ownerId: string }) {
 
   function applyFilters(nextFilters: QuestListFilters) {
     listRequestSequence.current += 1;
+    manualRefreshGeneration.current += 1;
+    manualRefreshRef.current = false;
+    loadingMoreRef.current = false;
+    setRefreshing(false);
+    setLoadingMore(false);
+    contentRef.current = null;
     setItems(null);
     setTotal(0);
     setNextOffset(0);
     setListError(null);
+    setRefreshError(null);
     setNextPageError(null);
     setFilters(nextFilters);
     setFilterSheetVisible(false);
@@ -313,6 +378,16 @@ function QuestListContent({ ownerId }: { ownerId: string }) {
         ]}
         data={items ?? []}
         keyExtractor={(item) => item.id}
+        refreshControl={
+          <RefreshControl
+            colors={[theme.colors.accent]}
+            enabled={!refreshing && !loadingMore}
+            onRefresh={() => void loadFirstPage("manual")}
+            progressBackgroundColor={theme.colors.surface}
+            refreshing={refreshing && !reduceMotion}
+            tintColor={theme.colors.accent}
+          />
+        }
         ListHeaderComponent={header}
         ListEmptyComponent={
           items === null ? (
@@ -320,7 +395,7 @@ function QuestListContent({ ownerId }: { ownerId: string }) {
               <View style={styles.state}>
                 <ErrorState
                   kind={listError.includes("Reconnect") ? "network" : "fullScreen"}
-                  onRetry={() => void loadFirstPage()}
+                  onRetry={() => void loadFirstPage("retry")}
                 />
                 <AppText accessibilityLiveRegion="assertive" tone="error" style={styles.center}>
                   {listError}
@@ -352,12 +427,14 @@ function QuestListContent({ ownerId }: { ownerId: string }) {
           )
         }
         ListFooterComponent={
-          items && items.length > 0 ? (
+          items !== null ? (
             <View style={styles.footer}>
-              {listError ? (
+              {refreshError ? (
                 <View style={styles.sectionError}>
-                  <ErrorState kind="section" onRetry={() => void loadFirstPage()} />
-                  <AppText accessibilityLiveRegion="assertive" tone="error">{listError}</AppText>
+                  <ErrorState kind="section" onRetry={() => void loadFirstPage("retry")} />
+                  <AppText accessibilityLiveRegion="assertive" tone="error">
+                    Quest refresh failed. {refreshError}
+                  </AppText>
                 </View>
               ) : null}
               {nextPageError ? (
@@ -372,6 +449,11 @@ function QuestListContent({ ownerId }: { ownerId: string }) {
                   onPress={() => void loadNextPage()}
                   variant="secondary"
                 />
+              ) : null}
+              {refreshing && reduceMotion ? (
+                <AppText accessibilityLiveRegion="polite" tone="muted" style={styles.center}>
+                  Refreshing quests…
+                </AppText>
               ) : null}
             </View>
           ) : null

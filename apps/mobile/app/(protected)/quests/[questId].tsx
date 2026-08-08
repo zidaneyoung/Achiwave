@@ -1,9 +1,10 @@
 import { useCallback, useRef, useState } from "react";
-import { AccessibilityInfo, ScrollView, StyleSheet, View } from "react-native";
+import { AccessibilityInfo, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuthentication } from "../../../src/auth/AuthContext";
+import { useReducedMotion } from "../../../src/accessibility/ReducedMotionProvider";
 import { invalidateCachedCampaign } from "../../../src/campaigns/cache";
 import { AppButton } from "../../../src/components/AppButton";
 import { ErrorState } from "../../../src/components/ErrorState";
@@ -12,11 +13,16 @@ import { StatusBadge, type StatusTone } from "../../../src/components/StatusBadg
 import { PROTECTED_ROUTES } from "../../../src/navigation/routes";
 import { questApi, QuestRequestError } from "../../../src/quests/api";
 import type { Quest } from "../../../src/quests/types";
+import { createKeyedSingleFlight } from "../../../src/refresh/singleFlight";
 import { preferenceApi } from "../../../src/preferences/api";
 import { formatPreferenceDateTime } from "../../../src/preferences/formatDate";
 import type { DateFormatPreference } from "../../../src/preferences/types";
 import { AppText } from "../../../src/theme/AppText";
-import { type AchiwaveTheme, useThemeStyles } from "../../../src/theme/ThemeProvider";
+import {
+  type AchiwaveTheme,
+  useAchiwaveTheme,
+  useThemeStyles,
+} from "../../../src/theme/ThemeProvider";
 import { spacing } from "../../../src/theme/tokens";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
@@ -37,38 +43,88 @@ export default function QuestDetailRoute() {
   const authentication = useAuthentication();
   const ownerId = authentication.state.status === "authenticated" ? authentication.state.user.id : null;
   const router = useRouter();
+  const reduceMotion = useReducedMotion();
+  const theme = useAchiwaveTheme();
   const styles = useThemeStyles(createStyles);
   const [quest, setQuest] = useState<Quest | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
   const [transitionError, setTransitionError] = useState<string | null>(null);
   const [dateFormat, setDateFormat] = useState<DateFormatPreference | null>(null);
   const archiveMutationId = useRef<string | null>(null);
   const restoreMutationId = useRef<string | null>(null);
   const sequence = useRef(0);
+  const contentRef = useRef(quest);
+  const manualRefreshRef = useRef(false);
+  const manualRefreshGeneration = useRef(0);
+  const [requests] = useState(() => createKeyedSingleFlight<{
+    dateFormat: DateFormatPreference | null;
+    quest: Quest;
+  }>());
+  contentRef.current = quest;
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (reason: "focus" | "manual" | "retry" = "focus") => {
     if (!ownerId || !questId) return;
+    let manualGeneration: number | null = null;
+    if (reason === "manual") {
+      if (manualRefreshRef.current) return;
+      manualRefreshRef.current = true;
+      manualGeneration = ++manualRefreshGeneration.current;
+      setRefreshing(true);
+    }
     const request = ++sequence.current;
-    setError(null);
+    const hadContent = contentRef.current !== null;
+    if (hadContent) setRefreshError(null);
+    else setError(null);
     try {
-      const [result, preferences] = await Promise.all([
-        questApi.get(questId),
-        preferenceApi.getAvailable(),
-      ]);
-      if (request === sequence.current) {
-        setQuest(result);
-        setDateFormat(preferences?.dateFormat ?? null);
+      const { promise } = requests.run(`${ownerId}:${questId}`, async () => {
+        const [result, preferences] = await Promise.all([
+          questApi.get(questId),
+          preferenceApi.getAvailable(),
+        ]);
+        return {
+          dateFormat: preferences?.dateFormat ?? null,
+          quest: result,
+        };
+      });
+      const result = await promise;
+      if (request !== sequence.current) return;
+      contentRef.current = result.quest;
+      setQuest(result.quest);
+      setDateFormat(result.dateFormat);
+      setError(null);
+      setRefreshError(null);
+      if (reason === "manual") {
+        AccessibilityInfo.announceForAccessibility("Quest refreshed.");
       }
     } catch (caught) {
       if (request !== sequence.current) return;
-      setError(caught instanceof QuestRequestError ? caught.message : "This quest could not be loaded.");
+      const message = caught instanceof QuestRequestError
+        ? caught.message
+        : "This quest could not be loaded.";
+      if (hadContent) setRefreshError(message);
+      else setError(message);
+      if (reason === "manual") {
+        AccessibilityInfo.announceForAccessibility(`Quest refresh failed. ${message}`);
+      }
+    } finally {
+      if (reason === "manual" && manualGeneration === manualRefreshGeneration.current) {
+        manualRefreshRef.current = false;
+        setRefreshing(false);
+      }
     }
-  }, [ownerId, questId]);
+  }, [ownerId, questId, requests]);
 
   useFocusEffect(useCallback(() => {
-    void load();
-    return () => { sequence.current += 1; };
+    void load("focus");
+    return () => {
+      sequence.current += 1;
+      manualRefreshGeneration.current += 1;
+      manualRefreshRef.current = false;
+      setRefreshing(false);
+    };
   }, [load]));
 
   if (!ownerId) return null;
@@ -87,12 +143,24 @@ export default function QuestDetailRoute() {
       {!quest && !error ? <View style={styles.content}><LoadingSkeleton label="Loading quest" layout="card" /></View> : null}
       {!quest && error ? (
         <View style={styles.state}>
-          <ErrorState kind={error.includes("Reconnect") ? "network" : "fullScreen"} onRetry={() => void load()} />
+          <ErrorState kind={error.includes("Reconnect") ? "network" : "fullScreen"} onRetry={() => void load("retry")} />
           <AppText accessibilityLiveRegion="assertive" tone="error" style={styles.center}>{error}</AppText>
         </View>
       ) : null}
       {quest && presentation ? (
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          refreshControl={
+            <RefreshControl
+              colors={[theme.colors.accent]}
+              enabled={!refreshing && !transitioning}
+              onRefresh={() => void load("manual")}
+              progressBackgroundColor={theme.colors.surface}
+              refreshing={refreshing && !reduceMotion}
+              tintColor={theme.colors.accent}
+            />
+          }
+        >
           <StatusBadge label={presentation.label} tone={presentation.tone} />
           <AppText accessibilityRole="header" variant="heading1">{quest.title}</AppText>
           {quest.description ? <AppText tone="muted">{quest.description}</AppText> : null}
@@ -169,6 +237,19 @@ export default function QuestDetailRoute() {
               <ErrorState kind="inline" />
               <AppText accessibilityLiveRegion="assertive" tone="error">{transitionError}</AppText>
             </View>
+          ) : null}
+          {refreshError ? (
+            <View style={styles.snapshot}>
+              <ErrorState kind="section" onRetry={() => void load("retry")} />
+              <AppText accessibilityLiveRegion="assertive" tone="error">
+                Quest refresh failed. {refreshError}
+              </AppText>
+            </View>
+          ) : null}
+          {refreshing && reduceMotion ? (
+            <AppText accessibilityLiveRegion="polite" tone="muted" style={styles.center}>
+              Refreshing quest…
+            </AppText>
           ) : null}
           <AppButton
             label="View campaign"
