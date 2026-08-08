@@ -105,8 +105,8 @@ export default function EditQuestRoute() {
     try {
       const result = await questApi.get(questId);
       if (request !== sequence.current) return;
-      if (result.definitionState !== "active" || result.campaignStatus !== "active") {
-        setError("Only active quests in active campaigns can be edited.");
+      if (result.definitionState !== "active" || result.campaignStatus === "archived") {
+        setError("Archived quests or campaigns must be restored before editing.");
         return;
       }
       setQuest(result);

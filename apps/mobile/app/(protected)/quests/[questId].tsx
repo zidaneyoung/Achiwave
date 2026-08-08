@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { AccessibilityInfo, StyleSheet, View } from "react-native";
+import { AccessibilityInfo, ScrollView, StyleSheet, View } from "react-native";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -82,7 +82,7 @@ export default function QuestDetailRoute() {
         </View>
       ) : null}
       {quest && presentation ? (
-        <View style={styles.content}>
+        <ScrollView contentContainerStyle={styles.content}>
           <StatusBadge label={presentation.label} tone={presentation.tone} />
           <AppText accessibilityRole="header" variant="heading1">{quest.title}</AppText>
           {quest.description ? <AppText tone="muted">{quest.description}</AppText> : null}
@@ -98,7 +98,7 @@ export default function QuestDetailRoute() {
           <AppText tone="subtle" variant="caption">
             Record version {quest.recordVersion} · Updated {new Date(quest.updatedAt).toLocaleString()}
           </AppText>
-          {quest.definitionState === "active" && quest.campaignStatus === "active" ? (
+          {quest.definitionState === "active" && quest.campaignStatus !== "archived" ? (
             <AppButton
               icon="pencil-outline"
               label="Edit quest"
@@ -149,7 +149,7 @@ export default function QuestDetailRoute() {
             onPress={() => router.push(PROTECTED_ROUTES.campaignDetail(quest.campaignId))}
             variant="secondary"
           />
-        </View>
+        </ScrollView>
       ) : null}
     </SafeAreaView>
   );

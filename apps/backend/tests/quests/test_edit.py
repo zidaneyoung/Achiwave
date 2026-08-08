@@ -1,9 +1,10 @@
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from achiwave_backend.models import ClientMutation, Quest, QuestOccurrence
+from achiwave_backend.models import Campaign, ClientMutation, Quest, QuestOccurrence
 from tests.campaigns.helpers import bearer, create_auth_client, register, registration_payload
 
 
@@ -153,3 +154,35 @@ def test_quest_detail_and_edit_hide_cross_user_identifier(
     with auth_session_factory() as session:
         quest = session.get(Quest, UUID(created["id"]))
         assert quest is not None and quest.title == "Original"
+
+
+def test_completed_campaign_allows_snapshot_safe_quest_content_edit(
+    auth_database_url: str,
+    auth_session_factory: sessionmaker[Session],
+) -> None:
+    with create_auth_client(auth_database_url, auth_session_factory) as client:
+        registration = register(client)
+        headers = bearer(registration["access_token"])
+        created = _create_quest(client, headers)
+        with auth_session_factory.begin() as session:
+            campaign = session.get(Campaign, UUID(created["campaign_id"]))
+            occurrence = session.get(QuestOccurrence, UUID(created["occurrence"]["id"]))
+            assert campaign is not None and occurrence is not None
+            completed_at = datetime.now(UTC)
+            campaign.campaign_state = "completed"
+            campaign.completed_at = completed_at
+            occurrence.occurrence_state = "completed"
+            occurrence.completed_at = completed_at
+        edited = client.patch(
+            f"/api/v1/quests/{created['id']}",
+            headers=headers,
+            json={
+                "description": "Post-completion notes",
+                "record_version": 1,
+                "client_mutation_id": "c0000000-0000-4000-8000-000000000009",
+            },
+        )
+
+    assert edited.status_code == 200
+    assert edited.json()["campaign_status"] == "completed"
+    assert edited.json()["occurrence"]["status"] == "completed"

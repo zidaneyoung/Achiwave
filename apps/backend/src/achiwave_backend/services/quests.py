@@ -336,7 +336,7 @@ class QuestService:
         )
         if campaign is None or occurrence is None:
             raise QuestNotFoundError
-        if campaign.campaign_state != "active":
+        if campaign.campaign_state == "archived":
             raise QuestNotFoundError
         fields = request.model_fields_set - {"record_version", "client_mutation_id"}
         payload_hash = _payload_hash(
