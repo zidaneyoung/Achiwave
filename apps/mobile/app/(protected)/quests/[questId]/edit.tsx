@@ -8,7 +8,15 @@ import { AppButton } from "../../../../src/components/AppButton";
 import { ErrorState } from "../../../../src/components/ErrorState";
 import { AppTextField } from "../../../../src/components/FormControls";
 import { LoadingSkeleton } from "../../../../src/components/LoadingSkeleton";
+import {
+  createQuestFormSnapshot,
+  questFormSnapshotsEqual,
+} from "../../../../src/forms/snapshots";
 import { PROTECTED_ROUTES } from "../../../../src/navigation/routes";
+import {
+  DirtyFormDialog,
+  useDirtyFormGuard,
+} from "../../../../src/navigation/useDirtyFormGuard";
 import { KeyboardAwareScreen } from "../../../../src/platform/KeyboardAwareScreen";
 import { questApi, QuestRequestError } from "../../../../src/quests/api";
 import { validateOneTimeQuestForm } from "../../../../src/quests/form";
@@ -35,6 +43,25 @@ function QuestEditForm({ quest, options, ownerId, onSaved }: { quest: Quest; opt
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [staleCurrent, setStaleCurrent] = useState<Quest | null>(null);
   const identity = useRef<{ payload: string; mutationId: string } | null>(null);
+  const baseline = useRef(createQuestFormSnapshot({
+    title: quest.title,
+    description: quest.description,
+    category: quest.category,
+    difficulty: quest.difficulty,
+    reward: String(quest.rewardXp),
+    committedDue: quest.dueAt,
+  })).current;
+  const currentSnapshot = createQuestFormSnapshot({
+    title,
+    description,
+    category,
+    difficulty,
+    reward,
+    committedDue: quest.dueAt,
+  });
+  const guard = useDirtyFormGuard(
+    !questFormSnapshotsEqual(baseline, currentSnapshot),
+  );
   const legacyCompatibleRewards = options.rewardXpValues.includes(quest.rewardXp)
     ? options.rewardXpValues
     : [...options.rewardXpValues, quest.rewardXp];
@@ -77,7 +104,7 @@ function QuestEditForm({ quest, options, ownerId, onSaved }: { quest: Quest; opt
       });
       invalidateCachedCampaign(ownerId, quest.campaignId);
       AccessibilityInfo.announceForAccessibility("Quest updated.");
-      onSaved(updated);
+      guard.completeNavigation(() => onSaved(updated));
     } catch (caught) {
       const message = caught instanceof QuestRequestError ? caught.message : "The quest could not be updated.";
       if (caught instanceof QuestRequestError && caught.currentQuest) setStaleCurrent(caught.currentQuest);
@@ -146,6 +173,7 @@ function QuestEditForm({ quest, options, ownerId, onSaved }: { quest: Quest; opt
         </View>
       ) : null}
       <AppButton disabled={staleCurrent !== null} label="Save quest" loading={submitting} onPress={() => void submit()} />
+      <DirtyFormDialog busy={submitting} guard={guard} />
     </>
   );
 }
@@ -189,7 +217,7 @@ export default function EditQuestRoute() {
   if (!ownerId) return null;
   return (
     <KeyboardAwareScreen contentContainerStyle={styles.content}>
-      <Stack.Screen options={{ title: "Edit quest" }} />
+      <Stack.Screen options={{ headerBackButtonMenuEnabled: false, title: "Edit quest" }} />
       {(!quest || !options) && !error && questId ? <LoadingSkeleton label="Loading quest form" layout="card" /> : null}
       {((!quest || !options) && error) || !questId ? (
         <View style={styles.error}>
@@ -197,7 +225,7 @@ export default function EditQuestRoute() {
           <AppText accessibilityLiveRegion="assertive" tone="error">{questId ? error : "This quest link is invalid."}</AppText>
         </View>
       ) : null}
-      {quest && options ? <QuestEditForm key={`${quest.id}:${quest.recordVersion}`} quest={quest} options={options} ownerId={ownerId} onSaved={(saved) => router.replace(PROTECTED_ROUTES.questDetail(saved.id))} /> : null}
+      {quest && options ? <QuestEditForm key={`${ownerId}:${quest.id}:${quest.recordVersion}`} quest={quest} options={options} ownerId={ownerId} onSaved={(saved) => router.replace(PROTECTED_ROUTES.questDetail(saved.id))} /> : null}
     </KeyboardAwareScreen>
   );
 }

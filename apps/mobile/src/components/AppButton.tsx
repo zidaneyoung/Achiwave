@@ -36,7 +36,9 @@ export interface AppButtonProps extends Omit<PressableProps, "children" | "style
 
 export function AppButton({
   accessibilityHint,
+  accessibilityLabel,
   accessibilityRole = "button",
+  accessibilityState,
   disabled = false,
   icon,
   iconOnly = false,
@@ -60,9 +62,13 @@ export function AppButton({
     <Pressable
       {...pressableProps}
       accessibilityHint={accessibilityHint}
-      accessibilityLabel={label}
+      accessibilityLabel={accessibilityLabel ?? label}
       accessibilityRole={accessibilityRole}
-      accessibilityState={{ busy: loading, disabled: unavailable }}
+      accessibilityState={{
+        ...accessibilityState,
+        busy: loading,
+        disabled: unavailable,
+      }}
       android_ripple={createAndroidRipple(theme.colors.surfacePressed, iconOnly)}
       disabled={unavailable}
       onBlur={(event) => {

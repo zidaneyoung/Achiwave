@@ -4,6 +4,8 @@ import type {
   QuestAuthoringOptions,
   QuestCategory,
   QuestDifficulty,
+  QuestListPage,
+  QuestListStatus,
   QuestOrder,
 } from "./types";
 
@@ -123,6 +125,19 @@ function isOccurrenceStatus(
   );
 }
 
+function isQuestListStatus(value: unknown): value is QuestListStatus {
+  return (
+    value === "active" ||
+    value === "archived" ||
+    value === "scheduled" ||
+    value === "available" ||
+    value === "completed" ||
+    value === "reversed" ||
+    value === "expired" ||
+    value === "voided"
+  );
+}
+
 function parseOccurrence(value: unknown): OneTimeOccurrence | null {
   if (!isObject(value)) return null;
   const eligibilityExpiresAt = nullableString(value.eligibility_expires_at);
@@ -222,5 +237,43 @@ export function parseQuest(value: unknown): Quest | null {
     createdAt: value.created_at,
     updatedAt: value.updated_at,
     occurrence,
+  };
+}
+
+export function parseQuestList(value: unknown): QuestListPage | null {
+  if (
+    !isObject(value) ||
+    !Array.isArray(value.items) ||
+    !nonnegativeInteger(value.total) ||
+    !nonnegativeInteger(value.limit) ||
+    value.limit < 1 ||
+    !nonnegativeInteger(value.offset)
+  ) return null;
+  const items = value.items.map((item) => {
+    if (
+      !isObject(item) ||
+      typeof item.campaign_title !== "string" ||
+      item.campaign_title.length === 0 ||
+      !isQuestListStatus(item.status)
+    ) return null;
+    const quest = parseQuest(item);
+    if (!quest) return null;
+    return {
+      ...quest,
+      campaignTitle: item.campaign_title,
+      status: item.status as QuestListStatus,
+    };
+  });
+  if (
+    items.some((item) => item === null) ||
+    new Set(items.map((item) => item?.id)).size !== items.length ||
+    items.length > value.limit ||
+    value.total < items.length
+  ) return null;
+  return {
+    items: items as QuestListPage["items"],
+    total: value.total,
+    limit: value.limit,
+    offset: value.offset,
   };
 }

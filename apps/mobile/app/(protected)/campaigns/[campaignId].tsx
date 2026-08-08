@@ -1,9 +1,10 @@
 import { useCallback, useRef, useState } from "react";
-import { AccessibilityInfo, FlatList, StyleSheet, View } from "react-native";
+import { AccessibilityInfo, FlatList, RefreshControl, StyleSheet, View } from "react-native";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuthentication } from "../../../src/auth/AuthContext";
+import { useReducedMotion } from "../../../src/accessibility/ReducedMotionProvider";
 import { campaignApi, CampaignRequestError } from "../../../src/campaigns/api";
 import {
   getCachedCampaignDetail,
@@ -20,16 +21,20 @@ import { AppListItem } from "../../../src/components/ContentSurfaces";
 import { EmptyState } from "../../../src/components/EmptyState";
 import { ErrorState } from "../../../src/components/ErrorState";
 import { LoadingSkeleton } from "../../../src/components/LoadingSkeleton";
+import { AppDialog } from "../../../src/components/Overlays";
 import { StatusBadge, type StatusTone } from "../../../src/components/StatusBadge";
+import { campaignArchiveConfirmation } from "../../../src/lifecycle/archiveConfirmation";
 import { PROTECTED_ROUTES } from "../../../src/navigation/routes";
 import { preferenceApi } from "../../../src/preferences/api";
 import { formatPreferenceDateTime } from "../../../src/preferences/formatDate";
 import type { DateFormatPreference } from "../../../src/preferences/types";
 import { questApi, QuestRequestError } from "../../../src/quests/api";
 import { applyQuestOrder, moveQuest, type QuestMoveDirection } from "../../../src/quests/reorder";
+import { createKeyedSingleFlight } from "../../../src/refresh/singleFlight";
 import { AppText } from "../../../src/theme/AppText";
 import {
   type AchiwaveTheme,
+  useAchiwaveTheme,
   useThemeStyles,
 } from "../../../src/theme/ThemeProvider";
 import { spacing } from "../../../src/theme/tokens";
@@ -109,6 +114,8 @@ export default function CampaignDetailRoute() {
   const campaignId = typeof rawCampaignId === "string" && UUID.test(rawCampaignId) ? rawCampaignId : null;
   const authentication = useAuthentication();
   const ownerId = authentication.state.status === "authenticated" ? authentication.state.user.id : null;
+  const reduceMotion = useReducedMotion();
+  const theme = useAchiwaveTheme();
   const styles = useThemeStyles(createStyles);
   const [includeArchived, setIncludeArchived] = useState(false);
   const [detail, setDetail] = useState<CampaignDetail | null>(() =>
@@ -116,10 +123,13 @@ export default function CampaignDetailRoute() {
   );
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
   const [archiving, setArchiving] = useState(false);
+  const [archiveDialogVisible, setArchiveDialogVisible] = useState(false);
   const [archiveError, setArchiveError] = useState<string | null>(null);
   const [dateFormat, setDateFormat] = useState<DateFormatPreference | null>(null);
-  const archiveMutationId = useRef<string | null>(null);
+  const archivePending = useRef(false);
+  const archiveRequest = useRef<{ mutationId: string; recordVersion: number } | null>(null);
   const [restoring, setRestoring] = useState(false);
   const [restoreError, setRestoreError] = useState<string | null>(null);
   const restoreMutationId = useRef<string | null>(null);
@@ -127,34 +137,75 @@ export default function CampaignDetailRoute() {
   const [reorderError, setReorderError] = useState<string | null>(null);
   const reorderIdentity = useRef<{ payload: string; mutationId: string } | null>(null);
   const requestSequence = useRef(0);
+  const contentRef = useRef(detail);
+  const manualRefreshRef = useRef(false);
+  const manualRefreshGeneration = useRef(0);
+  const [requests] = useState(() => createKeyedSingleFlight<{
+    detail: CampaignDetail;
+    dateFormat: DateFormatPreference | null;
+  }>());
+  contentRef.current = detail;
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (reason: "focus" | "manual" | "retry" = "focus") => {
     if (!ownerId || !campaignId) return;
+    let manualGeneration: number | null = null;
+    if (reason === "manual") {
+      if (manualRefreshRef.current) return;
+      manualRefreshRef.current = true;
+      manualGeneration = ++manualRefreshGeneration.current;
+      setRefreshing(true);
+    }
     const request = ++requestSequence.current;
     const cached = getCachedCampaignDetail(ownerId, campaignId, includeArchived);
-    setDetail(cached);
-    setRefreshing(cached !== null);
-    setError(null);
+    if (contentRef.current === null && cached !== null) {
+      contentRef.current = cached;
+      setDetail(cached);
+    }
+    const hadContent = contentRef.current !== null;
+    if (hadContent) setRefreshError(null);
+    else setError(null);
     try {
-      const [result, preferences] = await Promise.all([
-        campaignApi.get(campaignId, includeArchived),
-        preferenceApi.getAvailable(),
-      ]);
+      const { promise } = requests.run(
+        `${ownerId}:${campaignId}:${includeArchived ? "history" : "active"}`,
+        async () => {
+          const [result, preferences] = await Promise.all([
+            campaignApi.get(campaignId, includeArchived),
+            preferenceApi.getAvailable(),
+          ]);
+          return {
+            detail: result,
+            dateFormat: preferences?.dateFormat ?? null,
+          };
+        },
+      );
+      const result = await promise;
       if (request !== requestSequence.current) return;
-      setCachedCampaignDetail(ownerId, campaignId, includeArchived, result);
-      setDetail(result);
-      setDateFormat(preferences?.dateFormat ?? null);
+      setCachedCampaignDetail(ownerId, campaignId, includeArchived, result.detail);
+      contentRef.current = result.detail;
+      setDetail(result.detail);
+      setDateFormat(result.dateFormat);
+      setError(null);
+      setRefreshError(null);
+      if (reason === "manual") {
+        AccessibilityInfo.announceForAccessibility("Campaign refreshed.");
+      }
     } catch (caught) {
       if (request !== requestSequence.current) return;
-      setError(
-        caught instanceof CampaignRequestError
-          ? caught.message
-          : "This campaign could not be loaded.",
-      );
+      const message = caught instanceof CampaignRequestError
+        ? caught.message
+        : "This campaign could not be loaded.";
+      if (hadContent) setRefreshError(message);
+      else setError(message);
+      if (reason === "manual") {
+        AccessibilityInfo.announceForAccessibility(`Campaign refresh failed. ${message}`);
+      }
     } finally {
-      if (request === requestSequence.current) setRefreshing(false);
+      if (reason === "manual" && manualGeneration === manualRefreshGeneration.current) {
+        manualRefreshRef.current = false;
+        setRefreshing(false);
+      }
     }
-  }, [campaignId, includeArchived, ownerId]);
+  }, [campaignId, includeArchived, ownerId, requests]);
 
   async function reorderQuest(index: number, direction: QuestMoveDirection) {
     if (!detail || !ownerId || includeArchived || reordering) return;
@@ -202,11 +253,49 @@ export default function CampaignDetailRoute() {
     }
   }
 
+  function archiveCampaign() {
+    if (!detail || !ownerId || archivePending.current) return;
+    archivePending.current = true;
+    archiveRequest.current ??= {
+      mutationId: campaignApi.createMutationId(),
+      recordVersion: detail.recordVersion,
+    };
+    setArchiving(true);
+    setArchiveError(null);
+    void campaignApi
+      .archive(
+        detail.id,
+        archiveRequest.current.recordVersion,
+        archiveRequest.current.mutationId,
+      )
+      .then(() => {
+        setArchiveDialogVisible(false);
+        AccessibilityInfo.announceForAccessibility("Campaign archived.");
+        invalidateCachedCampaign(ownerId, detail.id);
+        router.replace(PROTECTED_ROUTES.campaigns);
+      })
+      .catch((caught) => {
+        const message =
+          caught instanceof CampaignRequestError
+            ? caught.message
+            : "The campaign could not be archived.";
+        setArchiveError(message);
+        AccessibilityInfo.announceForAccessibility(message);
+      })
+      .finally(() => {
+        archivePending.current = false;
+        setArchiving(false);
+      });
+  }
+
   useFocusEffect(
     useCallback(() => {
-      void load();
+      void load("focus");
       return () => {
         requestSequence.current += 1;
+        manualRefreshGeneration.current += 1;
+        manualRefreshRef.current = false;
+        setRefreshing(false);
       };
     }, [load]),
   );
@@ -220,6 +309,7 @@ export default function CampaignDetailRoute() {
       </SafeAreaView>
     );
   }
+  const archiveConfirmation = detail ? campaignArchiveConfirmation(detail.title) : null;
 
   return (
     <SafeAreaView edges={["left", "right", "bottom"]} style={styles.safeArea}>
@@ -232,7 +322,7 @@ export default function CampaignDetailRoute() {
       ) : null}
       {!detail && error ? (
         <View style={styles.state}>
-          <ErrorState kind={error.includes("Reconnect") ? "network" : "fullScreen"} onRetry={() => void load()} />
+          <ErrorState kind={error.includes("Reconnect") ? "network" : "fullScreen"} onRetry={() => void load("retry")} />
           <AppText accessibilityLiveRegion="assertive" tone="error" style={styles.center}>{error}</AppText>
         </View>
       ) : null}
@@ -241,6 +331,16 @@ export default function CampaignDetailRoute() {
           contentContainerStyle={styles.content}
           data={detail.quests}
           keyExtractor={(quest) => quest.id}
+          refreshControl={
+            <RefreshControl
+              colors={[theme.colors.accent]}
+              enabled={!refreshing && !reordering && !archiving && !restoring}
+              onRefresh={() => void load("manual")}
+              progressBackgroundColor={theme.colors.surface}
+              refreshing={refreshing && !reduceMotion}
+              tintColor={theme.colors.accent}
+            />
+          }
           ListHeaderComponent={
             <View style={styles.header}>
               <StatusBadge
@@ -264,9 +364,15 @@ export default function CampaignDetailRoute() {
               <AppButton
                 label={includeArchived ? "Hide archived quests" : "Show archived quests"}
                 onPress={() => {
+                  requestSequence.current += 1;
+                  manualRefreshGeneration.current += 1;
+                  manualRefreshRef.current = false;
+                  setRefreshing(false);
                   setIncludeArchived((current) => !current);
+                  contentRef.current = null;
                   setDetail(null);
                   setError(null);
+                  setRefreshError(null);
                   setReorderError(null);
                 }}
                 variant="secondary"
@@ -274,28 +380,10 @@ export default function CampaignDetailRoute() {
               {detail.status !== "archived" ? (
                 <AppButton
                   label="Archive campaign"
-                  loading={archiving}
                   onPress={() => {
-                    if (archiving) return;
-                    archiveMutationId.current ??= campaignApi.createMutationId();
-                    setArchiving(true);
+                    archiveRequest.current = null;
                     setArchiveError(null);
-                    void campaignApi
-                      .archive(detail.id, detail.recordVersion, archiveMutationId.current)
-                      .then(() => {
-                        AccessibilityInfo.announceForAccessibility("Campaign archived.");
-                        invalidateCachedCampaign(ownerId, detail.id);
-                        router.replace(PROTECTED_ROUTES.campaigns);
-                      })
-                      .catch((caught) => {
-                        const message =
-                          caught instanceof CampaignRequestError
-                            ? caught.message
-                            : "The campaign could not be archived.";
-                        setArchiveError(message);
-                        AccessibilityInfo.announceForAccessibility(message);
-                      })
-                      .finally(() => setArchiving(false));
+                    setArchiveDialogVisible(true);
                   }}
                   variant="destructive"
                 />
@@ -328,12 +416,6 @@ export default function CampaignDetailRoute() {
                   variant="primary"
                 />
               )}
-              {archiveError ? (
-                <View style={styles.footer}>
-                  <ErrorState kind="inline" />
-                  <AppText accessibilityLiveRegion="assertive" tone="error">{archiveError}</AppText>
-                </View>
-              ) : null}
               {restoreError ? (
                 <View style={styles.footer}>
                   <ErrorState kind="inline" />
@@ -368,12 +450,14 @@ export default function CampaignDetailRoute() {
                 <ErrorState kind="inline" />
                 <AppText accessibilityLiveRegion="assertive" tone="error">{reorderError}</AppText>
               </View>
-            ) : error ? (
+            ) : refreshError ? (
               <View style={styles.footer}>
-                <ErrorState kind="section" onRetry={() => void load()} />
-                <AppText accessibilityLiveRegion="assertive" tone="error">{error}</AppText>
+                <ErrorState kind="section" onRetry={() => void load("retry")} />
+                <AppText accessibilityLiveRegion="assertive" tone="error">
+                  Campaign refresh failed. {refreshError}
+                </AppText>
               </View>
-            ) : refreshing ? (
+            ) : refreshing && reduceMotion ? (
               <AppText accessibilityLiveRegion="polite" tone="muted" style={styles.center}>Refreshing campaign…</AppText>
             ) : null
           }
@@ -391,6 +475,30 @@ export default function CampaignDetailRoute() {
           )}
         />
       ) : null}
+      {detail && archiveConfirmation && detail.status !== "archived" ? (
+        <AppDialog
+          busy={archiving}
+          confirmLabel="Archive"
+          description={archiveConfirmation.description}
+          dismissLabel="Cancel"
+          kind="destructive"
+          onConfirm={archiveCampaign}
+          onDismiss={() => {
+            if (archivePending.current) return;
+            setArchiveDialogVisible(false);
+            setArchiveError(null);
+          }}
+          title={archiveConfirmation.title}
+          visible={archiveDialogVisible}
+        >
+          {archiveError ? (
+            <View style={styles.dialogError}>
+              <ErrorState kind="inline" />
+              <AppText accessibilityLiveRegion="assertive" tone="error">{archiveError}</AppText>
+            </View>
+          ) : null}
+        </AppDialog>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -406,5 +514,6 @@ const createStyles = (theme: AchiwaveTheme) => StyleSheet.create({
   content: { gap: spacing.sm, padding: spacing.lg, paddingBottom: spacing.xxl },
   header: { gap: spacing.sm, marginBottom: spacing.sm },
   footer: { gap: spacing.xs, marginTop: spacing.md },
+  dialogError: { gap: spacing.xs },
   center: { textAlign: "center" },
 });

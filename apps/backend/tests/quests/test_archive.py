@@ -1,11 +1,12 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, null, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from achiwave_backend.models import (
     Campaign,
+    ClientMutation,
     ProgressEvent,
     Quest,
     QuestOccurrence,
@@ -172,6 +173,211 @@ def test_quest_lifecycle_recalculates_campaign_from_authoritative_obligations(
             select(func.count())
             .select_from(ProgressEvent)
             .where(ProgressEvent.event_type == "campaign_reopened")
+        ) == 1
+
+
+def test_quest_lifecycle_replay_survives_inverse_and_parent_transitions(
+    auth_database_url: str,
+    auth_session_factory: sessionmaker[Session],
+) -> None:
+    archive_mutation_id = UUID("d0000000-0000-4000-8000-000000000030")
+    restore_mutation_id = UUID("d0000000-0000-4000-8000-000000000031")
+    with create_auth_client(auth_database_url, auth_session_factory) as client:
+        registration = register(client)
+        headers = bearer(registration["access_token"])
+        campaign, quest = _create_campaign_and_quest(client, headers)
+        archive_payload = {
+            "record_version": quest["record_version"],
+            "client_mutation_id": str(archive_mutation_id),
+        }
+        archived = client.post(
+            f"/api/v1/quests/{quest['id']}/archive",
+            headers=headers,
+            json=archive_payload,
+        )
+        archived_result = archived.json()
+        restore_payload = {
+            "record_version": archived_result["record_version"],
+            "client_mutation_id": str(restore_mutation_id),
+        }
+        restored = client.post(
+            f"/api/v1/quests/{quest['id']}/restore",
+            headers=headers,
+            json=restore_payload,
+        )
+        restored_result = restored.json()
+        delayed_archive_replay = client.post(
+            f"/api/v1/quests/{quest['id']}/archive",
+            headers=headers,
+            json=archive_payload,
+        )
+        rearchived = client.post(
+            f"/api/v1/quests/{quest['id']}/archive",
+            headers=headers,
+            json={
+                "record_version": restored_result["record_version"],
+                "client_mutation_id": "d0000000-0000-4000-8000-000000000032",
+            },
+        )
+        delayed_restore_replay = client.post(
+            f"/api/v1/quests/{quest['id']}/restore",
+            headers=headers,
+            json=restore_payload,
+        )
+        parent_archived = client.post(
+            f"/api/v1/campaigns/{campaign['id']}/archive",
+            headers=headers,
+            json={
+                "record_version": rearchived.json()["campaign_record_version"],
+                "client_mutation_id": "d0000000-0000-4000-8000-000000000033",
+            },
+        )
+        replay_archive_after_parent = client.post(
+            f"/api/v1/quests/{quest['id']}/archive",
+            headers=headers,
+            json=archive_payload,
+        )
+        replay_restore_after_parent = client.post(
+            f"/api/v1/quests/{quest['id']}/restore",
+            headers=headers,
+            json=restore_payload,
+        )
+        current = client.get(f"/api/v1/quests/{quest['id']}", headers=headers)
+
+    assert archived.status_code == 200
+    assert restored.status_code == 200
+    assert delayed_archive_replay.status_code == 200
+    assert delayed_archive_replay.json() == archived_result
+    assert rearchived.status_code == 200
+    assert delayed_restore_replay.status_code == 200
+    assert delayed_restore_replay.json() == restored_result
+    assert parent_archived.status_code == 200
+    assert replay_archive_after_parent.status_code == 200
+    assert replay_archive_after_parent.json() == archived_result
+    assert replay_restore_after_parent.status_code == 200
+    assert replay_restore_after_parent.json() == restored_result
+    assert current.status_code == 200
+    assert current.json()["definition_state"] == "archived"
+    assert current.json()["campaign_status"] == "archived"
+    assert current.json()["record_version"] == rearchived.json()["record_version"]
+    with auth_session_factory() as session:
+        archive_mutation = session.scalar(
+            select(ClientMutation).where(
+                ClientMutation.client_mutation_id == archive_mutation_id
+            )
+        )
+        restore_mutation = session.scalar(
+            select(ClientMutation).where(
+                ClientMutation.client_mutation_id == restore_mutation_id
+            )
+        )
+        lifecycle_mutations = session.scalar(
+            select(func.count())
+            .select_from(ClientMutation)
+            .where(
+                ClientMutation.operation_type.in_(
+                    (
+                        "one_time_quest_archive",
+                        "one_time_quest_restore",
+                        "campaign_archive",
+                    )
+                )
+            )
+        )
+        event_counts = {
+            event_type: session.scalar(
+                select(func.count())
+                .select_from(ProgressEvent)
+                .where(ProgressEvent.event_type == event_type)
+            )
+            for event_type in (
+                "quest_archived",
+                "quest_restored",
+                "campaign_archived",
+            )
+        }
+
+    assert archive_mutation is not None
+    assert archive_mutation.result_payload == archived_result
+    assert restore_mutation is not None
+    assert restore_mutation.result_payload == restored_result
+    assert lifecycle_mutations == 4
+    assert event_counts == {
+        "quest_archived": 2,
+        "quest_restored": 1,
+        "campaign_archived": 1,
+    }
+
+
+def test_quest_lifecycle_legacy_null_result_uses_current_parent_boundary(
+    auth_database_url: str,
+    auth_session_factory: sessionmaker[Session],
+) -> None:
+    archive_mutation_id = UUID("d0000000-0000-4000-8000-000000000040")
+    with create_auth_client(auth_database_url, auth_session_factory) as client:
+        registration = register(client)
+        headers = bearer(registration["access_token"])
+        campaign, quest = _create_campaign_and_quest(client, headers)
+        archive_payload = {
+            "record_version": quest["record_version"],
+            "client_mutation_id": str(archive_mutation_id),
+        }
+        archived = client.post(
+            f"/api/v1/quests/{quest['id']}/archive",
+            headers=headers,
+            json=archive_payload,
+        ).json()
+        with auth_session_factory.begin() as session:
+            updated = session.execute(
+                update(ClientMutation)
+                .where(
+                    ClientMutation.client_mutation_id == archive_mutation_id
+                )
+                .values(result_payload=null())
+            )
+            assert updated.rowcount == 1
+        restored = client.post(
+            f"/api/v1/quests/{quest['id']}/restore",
+            headers=headers,
+            json={
+                "record_version": archived["record_version"],
+                "client_mutation_id": "d0000000-0000-4000-8000-000000000041",
+            },
+        )
+        legacy_replay = client.post(
+            f"/api/v1/quests/{quest['id']}/archive",
+            headers=headers,
+            json=archive_payload,
+        )
+        parent_archived = client.post(
+            f"/api/v1/campaigns/{campaign['id']}/archive",
+            headers=headers,
+            json={
+                "record_version": restored.json()["campaign_record_version"],
+                "client_mutation_id": "d0000000-0000-4000-8000-000000000042",
+            },
+        )
+        legacy_replay_after_parent = client.post(
+            f"/api/v1/quests/{quest['id']}/archive",
+            headers=headers,
+            json=archive_payload,
+        )
+
+    assert restored.status_code == 200
+    assert legacy_replay.status_code == 200
+    assert legacy_replay.json() == restored.json()
+    assert parent_archived.status_code == 200
+    assert legacy_replay_after_parent.status_code == 404
+    with auth_session_factory() as session:
+        assert session.scalar(
+            select(func.count())
+            .select_from(ProgressEvent)
+            .where(ProgressEvent.event_type == "quest_archived")
+        ) == 1
+        assert session.scalar(
+            select(func.count())
+            .select_from(ProgressEvent)
+            .where(ProgressEvent.event_type == "quest_restored")
         ) == 1
 
 

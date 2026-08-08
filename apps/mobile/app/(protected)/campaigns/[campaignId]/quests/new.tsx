@@ -10,11 +10,20 @@ import { AppButton } from "../../../../../src/components/AppButton";
 import { ErrorState } from "../../../../../src/components/ErrorState";
 import { AppTextField } from "../../../../../src/components/FormControls";
 import { LoadingSkeleton } from "../../../../../src/components/LoadingSkeleton";
+import {
+  createQuestFormSnapshot,
+  questFormSnapshotsEqual,
+} from "../../../../../src/forms/snapshots";
 import { PROTECTED_ROUTES } from "../../../../../src/navigation/routes";
+import {
+  DirtyFormDialog,
+  useDirtyFormGuard,
+} from "../../../../../src/navigation/useDirtyFormGuard";
 import { KeyboardAwareScreen } from "../../../../../src/platform/KeyboardAwareScreen";
 import { preferenceApi } from "../../../../../src/preferences/api";
 import { questApi, QuestRequestError } from "../../../../../src/quests/api";
 import { validateOneTimeQuestForm } from "../../../../../src/quests/form";
+import { QuestDueDateTimeField } from "../../../../../src/quests/QuestDueDateTimeField";
 import { QuestOptionSelector } from "../../../../../src/quests/QuestOptionSelector";
 import type {
   QuestAuthoringOptions,
@@ -48,6 +57,25 @@ function QuestForm({
   const [submitting, setSubmitting] = useState(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const submissionIdentity = useRef<{ payload: string; mutationId: string } | null>(null);
+  const baseline = useRef(createQuestFormSnapshot({
+    title: "",
+    description: "",
+    category: null,
+    difficulty: "medium",
+    reward: "0",
+    committedDue: "",
+  })).current;
+  const currentSnapshot = createQuestFormSnapshot({
+    title,
+    description,
+    category,
+    difficulty,
+    reward,
+    committedDue: due,
+  });
+  const guard = useDirtyFormGuard(
+    !questFormSnapshotsEqual(baseline, currentSnapshot),
+  );
   const validation = validateOneTimeQuestForm(
     title,
     reward,
@@ -83,7 +111,9 @@ function QuestForm({
       });
       invalidateCachedCampaign(ownerId, campaign.id);
       AccessibilityInfo.announceForAccessibility("Quest created.");
-      router.replace(PROTECTED_ROUTES.campaignDetail(campaign.id));
+      guard.completeNavigation(() =>
+        router.replace(PROTECTED_ROUTES.campaignDetail(campaign.id)),
+      );
     } catch (error) {
       const message = error instanceof QuestRequestError ? error.message : "The quest could not be created.";
       setSubmissionError(message);
@@ -151,14 +181,11 @@ function QuestForm({
           required
           value={reward}
         />
-        <AppTextField
-          autoCapitalize="none"
-          editable={!submitting}
+        <QuestDueDateTimeField
+          disabled={submitting}
           errorText={attempted ? validation.dueError ?? undefined : undefined}
-          helperText={`Optional local time. Uses ${timezoneName ?? "your saved account timezone"}; the server validates and resolves it.`}
-          label="Due date and time"
-          onChangeText={setDue}
-          placeholder="YYYY-MM-DDTHH:MM"
+          onChange={setDue}
+          timeZoneName={timezoneName}
           value={due}
         />
       </View>
@@ -169,6 +196,7 @@ function QuestForm({
         </View>
       ) : null}
       <AppButton label="Create quest" loading={submitting} onPress={() => void submit()} />
+      <DirtyFormDialog busy={submitting} guard={guard} />
     </>
   );
 }
@@ -220,7 +248,7 @@ export default function CreateQuestRoute() {
   if (!ownerId) return null;
   return (
     <KeyboardAwareScreen contentContainerStyle={styles.content}>
-      <Stack.Screen options={{ title: "Create quest" }} />
+      <Stack.Screen options={{ headerBackButtonMenuEnabled: false, title: "Create quest" }} />
       {(!campaign || !options) && !error && campaignId ? <LoadingSkeleton label="Loading quest form" layout="card" /> : null}
       {((!campaign || !options) && error) || !campaignId ? (
         <View style={styles.error}>
@@ -228,7 +256,7 @@ export default function CreateQuestRoute() {
           <AppText accessibilityLiveRegion="assertive" tone="error">{campaignId ? error : "This campaign link is invalid."}</AppText>
         </View>
       ) : null}
-      {campaign && options ? <QuestForm campaign={campaign} options={options} ownerId={ownerId} timezoneName={timezoneName} /> : null}
+      {campaign && options ? <QuestForm key={`${ownerId}:${campaign.id}:${campaign.recordVersion}`} campaign={campaign} options={options} ownerId={ownerId} timezoneName={timezoneName} /> : null}
     </KeyboardAwareScreen>
   );
 }
