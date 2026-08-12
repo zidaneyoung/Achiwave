@@ -1,28 +1,11 @@
 import * as Crypto from "expo-crypto";
 
 import { authenticationService } from "../auth/service";
+import { AuthenticationRequestError } from "../auth/service";
 import { isObject, parseCompleteOccurrence, parseReverseCompletion } from "./contracts";
 import type { CompleteOccurrenceResult, ReverseCompletionResult } from "./types";
-
-export type CompletionErrorCode =
-  | "conflict"
-  | "invalid_response"
-  | "not_found"
-  | "offline"
-  | "server"
-  | "validation";
-
-export class CompletionRequestError extends Error {
-  constructor(
-    public readonly code: CompletionErrorCode,
-    message: string,
-    public readonly serverCode: string | null = null,
-    public readonly current: Record<string, unknown> | null = null,
-  ) {
-    super(message);
-    this.name = "CompletionRequestError";
-  }
-}
+import { CompletionRequestError } from "./errors";
+export { CompletionRequestError } from "./errors";
 
 export interface CompleteOccurrenceInput {
   occurrenceId: string;
@@ -87,6 +70,17 @@ export const completionApi = {
       return result;
     } catch (error) {
       if (error instanceof CompletionRequestError) throw error;
+      if (error instanceof AuthenticationRequestError) {
+        if (error.code === "session_rejected") {
+          throw new CompletionRequestError(
+            "authentication",
+            "Your session ended. Sign in again before completing this quest.",
+          );
+        }
+        if (error.code === "unavailable") {
+          throw new CompletionRequestError("offline", "Reconnect to complete this quest.");
+        }
+      }
       throw new CompletionRequestError("offline", "Reconnect to complete this quest.");
     }
   },
