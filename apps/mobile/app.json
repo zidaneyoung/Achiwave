@@ -11,12 +11,14 @@
       "ios"
     ],
     "android": {
+      "allowBackup": false,
       "package": "com.zidaneyoung.achiwave.dev",
       "softwareKeyboardLayoutMode": "resize"
     },
     "plugins": [
       "expo-router",
       "expo-secure-store",
+      "expo-sqlite",
       "expo-font"
     ],
     "experiments": {

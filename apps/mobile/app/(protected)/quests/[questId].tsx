@@ -15,6 +15,7 @@ import {
 import type { CompleteOccurrenceResult } from "../../../src/completions/types";
 import { CompletionSubmissionRegistry } from "../../../src/completions/submission";
 import { classifyCompletionFailure } from "../../../src/completions/failure";
+import { completionQueue } from "../../../src/completions/queue";
 import {
   beginCompletionPresentation,
   clearCompletionPresentation,
@@ -244,8 +245,22 @@ export default function QuestDetailRoute() {
           ? "Quest was already completed and is synchronized."
           : "Quest completion confirmed by the server.",
       );
-    }).catch((caught) => {
+    }).catch(async (caught) => {
       const failure = classifyCompletionFailure(caught);
+      if (failure.reason === "network") {
+        try {
+          const queued = await completionQueue.enqueue(ownerId, submission.input);
+          completionSubmissions.clear(key);
+          AccessibilityInfo.announceForAccessibility(
+            queued.reused
+              ? "Completion is already pending and will synchronize after reconnection."
+              : "Completion saved as pending and will synchronize after reconnection.",
+          );
+          return;
+        } catch {
+          // Fall through to the safe retryable failure presentation.
+        }
+      }
       const failed = failCompletionPresentation(
         ownerId,
         occurrence.id,

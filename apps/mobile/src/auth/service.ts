@@ -79,6 +79,10 @@ export interface AuthenticationService {
   restore(): Promise<AuthenticationState>;
   logout(): Promise<"confirmed" | "not_required" | "unconfirmed">;
   lockProtectedSession(): void;
+  getCurrentDeviceContext(): Promise<{
+    accountId: string;
+    deviceId: string;
+  }>;
   request(path: string, init?: RequestInit): Promise<Response>;
   handleCurrentSessionRevoked(): Promise<void>;
   handleAccountDeactivated(): Promise<void>;
@@ -483,6 +487,23 @@ export function createAuthenticationService({
 
     lockProtectedSession(): void {
       authenticationEpoch += 1;
+    },
+
+    async getCurrentDeviceContext(): Promise<{
+      accountId: string;
+      deviceId: string;
+    }> {
+      const result = await credentialStore.load();
+      if (result.status !== "ready") {
+        throw new AuthenticationRequestError(
+          "session_rejected",
+          "Your session is no longer available. Sign in again.",
+        );
+      }
+      return {
+        accountId: result.credentials.user.id,
+        deviceId: result.credentials.deviceId,
+      };
     },
 
     async request(path: string, init: RequestInit = {}): Promise<Response> {
