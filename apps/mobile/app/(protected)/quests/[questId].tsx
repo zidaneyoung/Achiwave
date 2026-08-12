@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, useSyncExternalStore } from "react";
 import { AccessibilityInfo, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -14,6 +14,13 @@ import {
 } from "../../../src/completions/api";
 import type { CompleteOccurrenceResult } from "../../../src/completions/types";
 import { CompletionSubmissionRegistry } from "../../../src/completions/submission";
+import {
+  beginCompletionPresentation,
+  confirmCompletionPresentation,
+  getCompletionPresentation,
+  refreshCompletionCanonical,
+  subscribeCompletionPresentation,
+} from "../../../src/completions/presentation";
 import { ErrorState } from "../../../src/components/ErrorState";
 import { LoadingSkeleton } from "../../../src/components/LoadingSkeleton";
 import { AppDialog } from "../../../src/components/Overlays";
@@ -92,6 +99,21 @@ export default function QuestDetailRoute() {
     quest: Quest;
   }>());
   contentRef.current = quest;
+  const presentationOccurrenceId = quest?.occurrence?.id ?? null;
+  const completionPresentation = useSyncExternalStore(
+    useCallback(
+      (listener) => subscribeCompletionPresentation(
+        ownerId,
+        presentationOccurrenceId,
+        listener,
+      ),
+      [ownerId, presentationOccurrenceId],
+    ),
+    useCallback(
+      () => getCompletionPresentation(ownerId, presentationOccurrenceId),
+      [ownerId, presentationOccurrenceId],
+    ),
+  );
 
   const load = useCallback(async (reason: "focus" | "manual" | "retry" = "focus") => {
     if (!ownerId || !questId) return;
@@ -120,6 +142,7 @@ export default function QuestDetailRoute() {
       const result = await promise;
       if (request !== sequence.current) return;
       contentRef.current = result.quest;
+      refreshCompletionCanonical(ownerId, result.quest);
       setQuest(result.quest);
       setDateFormat(result.dateFormat);
       setError(null);
@@ -194,10 +217,12 @@ export default function QuestDetailRoute() {
       }),
       (input) => completionApi.complete(input),
     );
+    beginCompletionPresentation(ownerId, quest, submission.input);
     completionPending.current = true;
     setCompleting(true);
     setCompletionError(null);
     void submission.promise.then((result) => {
+      confirmCompletionPresentation(ownerId, result);
       setQuest((current) => current?.occurrence ? {
         ...current,
         campaignRecordVersion: result.campaign.recordVersion,
@@ -323,8 +348,11 @@ export default function QuestDetailRoute() {
           }
         >
           <StatusBadge label={presentation.label} tone={presentation.tone} />
-          {completing ? (
-            <StatusBadge label="Submitting completion — awaiting server confirmation" tone="warning" />
+          {completionPresentation?.phase === "pending" ? (
+            <StatusBadge label="Pending completion — awaiting server confirmation" tone="warning" />
+          ) : null}
+          {completionPresentation?.phase === "synchronized" ? (
+            <StatusBadge label="Completion synchronized with the server" tone="success" />
           ) : null}
           <AppText accessibilityRole="header" variant="heading1">{quest.title}</AppText>
           {quest.description ? <AppText tone="muted">{quest.description}</AppText> : null}
