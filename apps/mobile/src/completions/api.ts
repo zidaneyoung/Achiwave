@@ -59,6 +59,8 @@ export const completionApi = {
     occurrenceId: string;
     expectedOccurrenceVersion: number;
     clientMutationId: string;
+    deviceObservedAt: string;
+    deviceTimezoneName: string;
   }): Promise<CompleteOccurrenceResult> {
     try {
       const response = await authenticationService.request(
@@ -67,6 +69,8 @@ export const completionApi = {
           body: JSON.stringify({
             client_mutation_id: input.clientMutationId,
             expected_occurrence_version: input.expectedOccurrenceVersion,
+            device_observed_at: input.deviceObservedAt,
+            device_timezone_name: input.deviceTimezoneName,
           }),
           headers: { "Content-Type": "application/json" },
           method: "POST",

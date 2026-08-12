@@ -69,6 +69,8 @@ export default function QuestDetailRoute() {
     mutationId: string;
     occurrenceId: string;
     recordVersion: number;
+    deviceObservedAt: string;
+    deviceTimezoneName: string;
   } | null>(null);
   const reversalPending = useRef(false);
   const reversalRequest = useRef<{
@@ -181,6 +183,8 @@ export default function QuestDetailRoute() {
       mutationId: completionApi.createMutationId(),
       occurrenceId: occurrence.id,
       recordVersion: occurrence.recordVersion,
+      deviceObservedAt: new Date().toISOString(),
+      deviceTimezoneName: occurrence.timezoneName,
     };
     completionPending.current = true;
     setCompleting(true);
@@ -189,6 +193,8 @@ export default function QuestDetailRoute() {
       clientMutationId: completionRequest.current.mutationId,
       expectedOccurrenceVersion: completionRequest.current.recordVersion,
       occurrenceId: completionRequest.current.occurrenceId,
+      deviceObservedAt: completionRequest.current.deviceObservedAt,
+      deviceTimezoneName: completionRequest.current.deviceTimezoneName,
     }).then((result) => {
       setQuest((current) => current?.occurrence ? {
         ...current,

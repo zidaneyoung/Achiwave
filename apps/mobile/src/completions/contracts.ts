@@ -49,6 +49,8 @@ function parseOccurrence(value: unknown): CompletionOccurrence | null {
 function parseCompletion(value: unknown): CompletionRecord | null {
   if (!isObject(value)) return null;
   const reversedAt = nullableString(value.reversed_at);
+  const deviceObservedAt = nullableString(value.device_observed_at);
+  const deviceTimezoneName = nullableString(value.device_timezone_name);
   if (
     typeof value.id !== "string" ||
     typeof value.occurrence_id !== "string" ||
@@ -56,7 +58,10 @@ function parseCompletion(value: unknown): CompletionRecord | null {
     typeof value.server_processed_at !== "string" ||
     typeof value.completion_effective_date !== "string" ||
     !positiveInteger(value.event_sequence) ||
-    reversedAt === undefined
+    reversedAt === undefined ||
+    deviceObservedAt === undefined ||
+    deviceTimezoneName === undefined ||
+    (value.client_time_valid !== null && typeof value.client_time_valid !== "boolean")
   ) return null;
   return {
     id: value.id,
@@ -66,6 +71,9 @@ function parseCompletion(value: unknown): CompletionRecord | null {
     completionEffectiveDate: value.completion_effective_date,
     eventSequence: value.event_sequence,
     reversedAt,
+    deviceObservedAt,
+    deviceTimezoneName,
+    clientTimeValid: value.client_time_valid,
   };
 }
 

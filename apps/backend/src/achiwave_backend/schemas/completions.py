@@ -2,7 +2,8 @@ from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 class CompleteOccurrenceRequest(BaseModel):
@@ -10,6 +11,26 @@ class CompleteOccurrenceRequest(BaseModel):
 
     client_mutation_id: UUID
     expected_occurrence_version: int = Field(ge=1)
+    device_observed_at: datetime | None = None
+    device_timezone_name: str | None = Field(default=None, min_length=1, max_length=128)
+
+    @field_validator("device_observed_at")
+    @classmethod
+    def require_observed_offset(cls, value: datetime | None) -> datetime | None:
+        if value is not None and (value.tzinfo is None or value.utcoffset() is None):
+            raise ValueError("Device-observed time requires an explicit offset.")
+        return value
+
+    @field_validator("device_timezone_name")
+    @classmethod
+    def require_iana_timezone(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        try:
+            ZoneInfo(value)
+        except (ValueError, ZoneInfoNotFoundError) as error:
+            raise ValueError("Device timezone must be a recognized IANA name.") from error
+        return value
 
 
 class ReverseCompletionRequest(BaseModel):
@@ -40,6 +61,9 @@ class CompletionRecordResponse(BaseModel):
     completion_effective_date: date
     event_sequence: int
     reversed_at: datetime | None
+    device_observed_at: datetime | None
+    device_timezone_name: str | None
+    client_time_valid: bool | None
 
 
 class CompletionCampaignResponse(BaseModel):

@@ -16,6 +16,9 @@ export interface CompletionRecord {
   completionEffectiveDate: string;
   eventSequence: number;
   reversedAt: string | null;
+  deviceObservedAt: string | null;
+  deviceTimezoneName: string | null;
+  clientTimeValid: boolean | null;
 }
 
 export interface CompletionCampaign {

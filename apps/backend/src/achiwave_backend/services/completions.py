@@ -1,6 +1,6 @@
 import hashlib
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -87,6 +87,9 @@ def _completion_response(
             completion_effective_date=completion.completion_effective_date,
             event_sequence=completion.event_sequence,
             reversed_at=completion.reversed_at,
+            device_observed_at=completion.device_observed_at,
+            device_timezone_name=completion.device_timezone_name,
+            client_time_valid=completion.client_time_valid,
         ),
         campaign=CompletionCampaignResponse(
             id=campaign.id,
@@ -166,6 +169,9 @@ def _reversal_response(
             completion_effective_date=completion.completion_effective_date,
             event_sequence=completion.event_sequence,
             reversed_at=completion.reversed_at,
+            device_observed_at=completion.device_observed_at,
+            device_timezone_name=completion.device_timezone_name,
+            client_time_valid=completion.client_time_valid,
         ),
         reversal=CompletionReversalResponse(
             id=reversal.id,
@@ -199,11 +205,18 @@ class CompletionService:
         )
         if user is None:
             raise RuntimeError("Authenticated user record is missing.")
+        received_at = datetime.now(UTC)
 
         payload_hash = _payload_hash(
             {
                 "occurrence_id": str(occurrence_id),
                 "expected_occurrence_version": request.expected_occurrence_version,
+                "device_observed_at": (
+                    request.device_observed_at.isoformat()
+                    if request.device_observed_at is not None
+                    else None
+                ),
+                "device_timezone_name": request.device_timezone_name,
             }
         )
         existing_mutation = database_session.scalar(
@@ -264,7 +277,7 @@ class CompletionService:
                 QuestCompletion.reversed_at.is_(None),
             )
         )
-        now = datetime.now(UTC)
+        now = received_at
         mutation = ClientMutation(
             id=uuid4(),
             user_id=user.id,
@@ -275,6 +288,7 @@ class CompletionService:
             target_id=occurrence.id,
             processing_status="processing",
             updated_at=now,
+            first_server_received_at=received_at,
         )
         database_session.add(mutation)
 
@@ -329,6 +343,12 @@ class CompletionService:
         except ZoneInfoNotFoundError as error:
             raise RuntimeError("Saved user timezone is unavailable.") from error
 
+        client_time_valid = (
+            request.device_observed_at is not None
+            and datetime(1970, 1, 1, tzinfo=UTC)
+            <= request.device_observed_at.astimezone(UTC)
+            <= received_at + timedelta(hours=24)
+        )
         event_sequence = user.next_event_sequence
         user.next_event_sequence += 1
         user.updated_at = now
@@ -340,6 +360,11 @@ class CompletionService:
             server_received_at=now,
             server_processed_at=now,
             completion_effective_date=effective_date,
+            device_observed_at=request.device_observed_at,
+            device_timezone_name=request.device_timezone_name,
+            client_time_valid=(
+                client_time_valid if request.device_observed_at is not None else None
+            ),
             event_sequence=event_sequence,
         )
         occurrence.occurrence_state = "completed"
@@ -369,6 +394,8 @@ class CompletionService:
                 campaign.completed_at = now
                 campaign.completion_reason = "quest_obligations_satisfied"
 
+        processed_at = datetime.now(UTC)
+        completion.server_processed_at = processed_at
         response = _completion_response(
             outcome="completed",
             occurrence=occurrence,
@@ -379,7 +406,8 @@ class CompletionService:
         mutation.result_type = "quest_completion"
         mutation.result_id = completion.id
         mutation.result_payload = response.model_dump(mode="json")
-        mutation.processed_at = now
+        mutation.processed_at = processed_at
+        mutation.updated_at = processed_at
         try:
             database_session.commit()
         except Exception:
@@ -399,6 +427,7 @@ class CompletionService:
         )
         if user is None:
             raise RuntimeError("Authenticated user record is missing.")
+        received_at = datetime.now(UTC)
 
         payload_hash = _payload_hash(
             {
@@ -473,7 +502,7 @@ class CompletionService:
                 QuestCompletionReversal.occurrence_id == occurrence.id,
             )
         )
-        now = datetime.now(UTC)
+        now = received_at
         mutation = ClientMutation(
             id=uuid4(),
             user_id=user.id,
@@ -484,6 +513,7 @@ class CompletionService:
             target_id=completion.id,
             processing_status="processing",
             updated_at=now,
+            first_server_received_at=received_at,
         )
         database_session.add(mutation)
         if (
@@ -571,6 +601,8 @@ class CompletionService:
                 campaign.record_version += 1
                 campaign.updated_at = now
 
+        processed_at = datetime.now(UTC)
+        reversal.server_processed_at = processed_at
         response = _reversal_response(
             outcome="reversed",
             occurrence=occurrence,
@@ -582,7 +614,8 @@ class CompletionService:
         mutation.result_type = "quest_completion_reversal"
         mutation.result_id = reversal.id
         mutation.result_payload = response.model_dump(mode="json")
-        mutation.processed_at = now
+        mutation.processed_at = processed_at
+        mutation.updated_at = processed_at
         try:
             database_session.commit()
         except Exception:

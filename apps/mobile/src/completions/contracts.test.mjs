@@ -22,6 +22,9 @@ const payload = {
     completion_effective_date: "2026-08-12",
     event_sequence: 1,
     reversed_at: null,
+    device_observed_at: "2026-08-12T11:59:58Z",
+    device_timezone_name: "America/Halifax",
+    client_time_valid: true,
   },
   campaign: {
     id: "d0000000-0000-4000-8000-000000000003",
