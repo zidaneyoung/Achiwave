@@ -17,6 +17,8 @@ import { CompletionSubmissionRegistry } from "../../../src/completions/submissio
 import { classifyCompletionFailure } from "../../../src/completions/failure";
 import { completionQueue } from "../../../src/completions/queue";
 import { subscribeCompletionRefresh } from "../../../src/completions/sync";
+import { manuallyRetryCompletion } from "../../../src/completions/sync";
+import { useCompletionQueueRecord } from "../../../src/completions/useCompletionQueueRecord";
 import {
   beginCompletionPresentation,
   clearCompletionPresentation,
@@ -78,6 +80,7 @@ export default function QuestDetailRoute() {
   const [transitioning, setTransitioning] = useState(false);
   const [transitionError, setTransitionError] = useState<string | null>(null);
   const [completing, setCompleting] = useState(false);
+  const [manualRetrying, setManualRetrying] = useState(false);
   const [reversing, setReversing] = useState(false);
   const [reversalDialogVisible, setReversalDialogVisible] = useState(false);
   const [reversalError, setReversalError] = useState<string | null>(null);
@@ -117,6 +120,10 @@ export default function QuestDetailRoute() {
       () => getCompletionPresentation(ownerId, presentationOccurrenceId),
       [ownerId, presentationOccurrenceId],
     ),
+  );
+  const queuedCompletion = useCompletionQueueRecord(
+    ownerId,
+    presentationOccurrenceId,
   );
 
   const load = useCallback(async (reason: "focus" | "manual" | "retry" = "focus") => {
@@ -329,6 +336,16 @@ export default function QuestDetailRoute() {
     });
   }
 
+  function retryQueuedCompletion(): void {
+    if (!ownerId || !queuedCompletion || manualRetrying) return;
+    setManualRetrying(true);
+    void manuallyRetryCompletion(ownerId, queuedCompletion.queueId)
+      .then((result) => {
+        AccessibilityInfo.announceForAccessibility(result.message);
+      })
+      .finally(() => setManualRetrying(false));
+  }
+
   useFocusEffect(useCallback(() => {
     void load("focus");
     return () => {
@@ -456,6 +473,17 @@ export default function QuestDetailRoute() {
                 />
               ) : null}
             </View>
+          ) : null}
+          {queuedCompletion?.state === "retryable_failure" ||
+          (queuedCompletion?.state === "in_flight" && manualRetrying) ? (
+            <AppButton
+              accessibilityHint="Checks connectivity and authentication, then retries this exact pending completion once."
+              accessibilityLabel="Retry pending completion synchronization"
+              label="Retry pending completion"
+              loading={manualRetrying}
+              onPress={retryQueuedCompletion}
+              variant="secondary"
+            />
           ) : null}
           {quest.occurrence?.status === "completed" && quest.occurrence.activeCompletionId ? (
             <AppButton

@@ -9,6 +9,32 @@ import { retainedTerminalCutoff } from "./queuePolicy";
 import { COMPLETION_RETRY_MAX_AUTOMATIC_ATTEMPTS } from "./retryPolicy";
 
 const DATABASE_NAME = "achiwave-protected-sync.db";
+const queueListeners = new Map<string, Set<() => void>>();
+
+function listenerKey(accountId: string, occurrenceId: string): string {
+  return `${accountId}:${occurrenceId}`;
+}
+
+function emitQueueChange(accountId: string, occurrenceId: string): void {
+  for (const listener of queueListeners.get(listenerKey(accountId, occurrenceId)) ?? []) {
+    listener();
+  }
+}
+
+export function subscribeCompletionQueueRecord(
+  accountId: string,
+  occurrenceId: string,
+  listener: () => void,
+): () => void {
+  const key = listenerKey(accountId, occurrenceId);
+  const listeners = queueListeners.get(key) ?? new Set();
+  listeners.add(listener);
+  queueListeners.set(key, listeners);
+  return () => {
+    listeners.delete(listener);
+    if (listeners.size === 0) queueListeners.delete(key);
+  };
+}
 
 interface QueueRow {
   queue_id: string;
@@ -202,7 +228,9 @@ export const completionQueueStorage = {
       "SELECT * FROM completion_queue WHERE account_id = ? ORDER BY created_at",
       accountId,
     );
-    return rows.map(fromRow);
+    const records = rows.map(fromRow);
+    for (const record of records) emitQueueChange(accountId, record.occurrenceId);
+    return records;
   },
 
   async listPartition(accountId: string): Promise<CompletionQueueRecord[]> {
@@ -240,6 +268,21 @@ export const completionQueueStorage = {
     return row ? fromRow(row) : null;
   },
 
+  async findLatest(
+    accountId: string,
+    occurrenceId: string,
+  ): Promise<CompletionQueueRecord | null> {
+    const db = await database();
+    const row = await db.getFirstAsync<QueueRow>(
+      `SELECT * FROM completion_queue
+       WHERE account_id = ? AND occurrence_id = ?
+       ORDER BY created_at DESC LIMIT 1`,
+      accountId,
+      occurrenceId,
+    );
+    return row ? fromRow(row) : null;
+  },
+
   async insert(record: NewCompletionQueueRecord): Promise<CompletionQueueRecord> {
     const db = await database();
     await db.runAsync(
@@ -264,6 +307,7 @@ export const completionQueueStorage = {
     );
     const inserted = await this.findActive(record.accountId, record.occurrenceId);
     if (!inserted) throw new Error("The offline completion was not stored.");
+    emitQueueChange(record.accountId, record.occurrenceId);
     return inserted;
   },
 
@@ -318,7 +362,50 @@ export const completionQueueStorage = {
        ORDER BY created_at`,
       ...leasedIds,
     );
-    return rows.map(fromRow);
+    const records = rows.map(fromRow);
+    for (const record of records) emitQueueChange(accountId, record.occurrenceId);
+    return records;
+  },
+
+  async leaseManualRetry(
+    accountId: string,
+    queueId: string,
+    now: Date,
+    leaseMilliseconds: number,
+  ): Promise<CompletionQueueRecord | null> {
+    const db = await database();
+    const nowIso = now.toISOString();
+    const leaseExpiresAt = new Date(now.getTime() + leaseMilliseconds).toISOString();
+    let occurrenceId: string | null = null;
+    await db.withExclusiveTransactionAsync(async (transaction) => {
+      const candidate = await transaction.getFirstAsync<{ occurrence_id: string }>(
+        `SELECT occurrence_id FROM completion_queue
+         WHERE account_id = ? AND queue_id = ? AND state = 'retryable_failure'`,
+        accountId,
+        queueId,
+      );
+      if (!candidate) return;
+      const result = await transaction.runAsync(
+        `UPDATE completion_queue
+         SET state = 'in_flight', lease_expires_at = ?, last_attempt_at = ?,
+             attempt_count = attempt_count + 1, updated_at = ?
+         WHERE account_id = ? AND queue_id = ? AND state = 'retryable_failure'`,
+        leaseExpiresAt,
+        nowIso,
+        nowIso,
+        accountId,
+        queueId,
+      );
+      if (result.changes === 1) occurrenceId = candidate.occurrence_id;
+    });
+    if (occurrenceId === null) return null;
+    const row = await db.getFirstAsync<QueueRow>(
+      "SELECT * FROM completion_queue WHERE account_id = ? AND queue_id = ?",
+      accountId,
+      queueId,
+    );
+    emitQueueChange(accountId, occurrenceId);
+    return row ? fromRow(row) : null;
   },
 
   async markSucceeded(
@@ -329,6 +416,11 @@ export const completionQueueStorage = {
   ): Promise<void> {
     const db = await database();
     const nowIso = now.toISOString();
+    const current = await db.getFirstAsync<{ occurrence_id: string }>(
+      "SELECT occurrence_id FROM completion_queue WHERE account_id = ? AND queue_id = ?",
+      accountId,
+      queueId,
+    );
     const updated = await db.runAsync(
       `UPDATE completion_queue
        SET state = 'succeeded', completion_id = ?, campaign_id = ?,
@@ -348,6 +440,7 @@ export const completionQueueStorage = {
     if (updated.changes !== 1) {
       throw new Error("The synchronized completion result was not persisted.");
     }
+    if (current) emitQueueChange(accountId, current.occurrence_id);
   },
 
   async markRetryableFailure(
@@ -360,7 +453,12 @@ export const completionQueueStorage = {
   ): Promise<void> {
     const db = await database();
     const nowIso = now.toISOString();
-    await db.runAsync(
+    const current = await db.getFirstAsync<{ occurrence_id: string }>(
+      "SELECT occurrence_id FROM completion_queue WHERE account_id = ? AND queue_id = ?",
+      accountId,
+      queueId,
+    );
+    const updated = await db.runAsync(
       `UPDATE completion_queue
        SET state = 'retryable_failure', safe_error_class = ?,
            safe_error_message = ?, next_attempt_at = ?,
@@ -373,6 +471,10 @@ export const completionQueueStorage = {
       queueId,
       accountId,
     );
+    if (updated.changes !== 1) {
+      throw new Error("The retryable synchronization failure was not persisted.");
+    }
+    if (current) emitQueueChange(accountId, current.occurrence_id);
   },
 
   async nextDueAt(accountId: string): Promise<string | null> {
@@ -393,12 +495,18 @@ export const completionQueueStorage = {
     queueId: string,
   ): Promise<boolean> {
     const db = await database();
+    const current = await db.getFirstAsync<{ occurrence_id: string }>(
+      "SELECT occurrence_id FROM completion_queue WHERE account_id = ? AND queue_id = ?",
+      accountId,
+      queueId,
+    );
     const result = await db.runAsync(
       `DELETE FROM completion_queue
        WHERE account_id = ? AND queue_id = ? AND state = 'permanent_failure'`,
       accountId,
       queueId,
     );
+    if (result.changes === 1 && current) emitQueueChange(accountId, current.occurrence_id);
     return result.changes === 1;
   },
 
@@ -430,6 +538,36 @@ export const completionQueueStorage = {
     if (updated.changes !== 1) {
       throw new Error("The permanent synchronization failure was not persisted.");
     }
+    const record = await db.getFirstAsync<{ occurrence_id: string }>(
+      "SELECT occurrence_id FROM completion_queue WHERE account_id = ? AND queue_id = ?",
+      accountId,
+      queueId,
+    );
+    if (record) emitQueueChange(accountId, record.occurrence_id);
+  },
+
+  async releaseManualLease(
+    accountId: string,
+    queueId: string,
+    now: Date,
+  ): Promise<void> {
+    const db = await database();
+    const record = await db.getFirstAsync<{ occurrence_id: string }>(
+      "SELECT occurrence_id FROM completion_queue WHERE account_id = ? AND queue_id = ?",
+      accountId,
+      queueId,
+    );
+    await db.runAsync(
+      `UPDATE completion_queue
+       SET state = 'retryable_failure', lease_expires_at = NULL,
+           attempt_count = CASE WHEN attempt_count > 0 THEN attempt_count - 1 ELSE 0 END,
+           updated_at = ?
+       WHERE account_id = ? AND queue_id = ? AND state = 'in_flight'`,
+      now.toISOString(),
+      accountId,
+      queueId,
+    );
+    if (record) emitQueueChange(accountId, record.occurrence_id);
   },
 
   async releaseLeases(
@@ -440,6 +578,12 @@ export const completionQueueStorage = {
     if (queueIds.length === 0) return;
     const db = await database();
     const placeholders = queueIds.map(() => "?").join(",");
+    const records = await db.getAllAsync<{ occurrence_id: string }>(
+      `SELECT occurrence_id FROM completion_queue
+       WHERE account_id = ? AND queue_id IN (${placeholders})`,
+      accountId,
+      ...queueIds,
+    );
     await db.runAsync(
       `UPDATE completion_queue
        SET state = 'pending', lease_expires_at = NULL,
@@ -454,6 +598,7 @@ export const completionQueueStorage = {
       accountId,
       ...queueIds,
     );
+    for (const record of records) emitQueueChange(accountId, record.occurrence_id);
   },
 
   async purgeAll(): Promise<void> {
@@ -471,5 +616,8 @@ export const completionQueueStorage = {
     await db.closeAsync();
     databasePromise = null;
     await SQLite.deleteDatabaseAsync(DATABASE_NAME);
+    for (const listeners of queueListeners.values()) {
+      for (const listener of listeners) listener();
+    }
   },
 };

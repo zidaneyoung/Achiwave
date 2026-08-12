@@ -3,7 +3,10 @@ import * as Crypto from "expo-crypto";
 import { authenticationService } from "../auth/service";
 import type { CompleteOccurrenceInput } from "./api";
 import { canonicalCompletionPayload } from "./queuePolicy";
-import { completionQueueStorage } from "./queueStorage";
+import {
+  completionQueueStorage,
+  subscribeCompletionQueueRecord,
+} from "./queueStorage";
 import type { CompletionQueueRecord } from "./queueTypes";
 
 export const completionQueue = {
@@ -21,6 +24,21 @@ export const completionQueue = {
 
   dismissPermanentFailure(accountId: string, queueId: string): Promise<boolean> {
     return completionQueueStorage.dismissPermanentFailure(accountId, queueId);
+  },
+
+  latest(
+    accountId: string,
+    occurrenceId: string,
+  ): Promise<CompletionQueueRecord | null> {
+    return completionQueueStorage.findLatest(accountId, occurrenceId);
+  },
+
+  subscribe(
+    accountId: string,
+    occurrenceId: string,
+    listener: () => void,
+  ): () => void {
+    return subscribeCompletionQueueRecord(accountId, occurrenceId, listener);
   },
 
   async enqueue(

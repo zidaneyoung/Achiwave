@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   activeQueueRecord,
   canAutomaticallyRetry,
+  canManuallyRetry,
   canonicalCompletionPayload,
   isLeaseExpired,
   retainedTerminalCutoff,
@@ -77,4 +78,11 @@ test("permanent, succeeded, and cancelled operations never retry", () => {
   assert.equal(canAutomaticallyRetry("permanent_failure", 0), false);
   assert.equal(canAutomaticallyRetry("succeeded", 0), false);
   assert.equal(canAutomaticallyRetry("cancelled", 0), false);
+});
+
+test("manual retry is offered only for retryable failure", () => {
+  assert.equal(canManuallyRetry("retryable_failure"), true);
+  for (const state of ["pending", "in_flight", "succeeded", "permanent_failure", "cancelled"]) {
+    assert.equal(canManuallyRetry(state), false);
+  }
 });

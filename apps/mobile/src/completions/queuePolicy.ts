@@ -60,3 +60,9 @@ export function canAutomaticallyRetry(
   return (state === "pending" || state === "retryable_failure") &&
     automaticAttemptCount < maximumAttempts;
 }
+
+export function canManuallyRetry(
+  state: CompletionQueueRecord["state"],
+): boolean {
+  return state === "retryable_failure";
+}
