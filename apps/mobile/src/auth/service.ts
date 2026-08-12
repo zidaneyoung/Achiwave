@@ -83,6 +83,10 @@ export interface AuthenticationService {
     accountId: string;
     deviceId: string;
   }>;
+  revalidateCurrentSession(): Promise<{
+    accountId: string;
+    deviceId: string;
+  }>;
   request(path: string, init?: RequestInit): Promise<Response>;
   handleCurrentSessionRevoked(): Promise<void>;
   handleAccountDeactivated(): Promise<void>;
@@ -503,6 +507,24 @@ export function createAuthenticationService({
       return {
         accountId: result.credentials.user.id,
         deviceId: result.credentials.deviceId,
+      };
+    },
+
+    async revalidateCurrentSession(): Promise<{
+      accountId: string;
+      deviceId: string;
+    }> {
+      const result = await credentialStore.load();
+      if (result.status !== "ready") {
+        throw new AuthenticationRequestError(
+          "session_rejected",
+          "Your session is no longer available. Sign in again.",
+        );
+      }
+      const credentials = await validateOrRefresh(result.credentials);
+      return {
+        accountId: credentials.user.id,
+        deviceId: credentials.deviceId,
       };
     },
 

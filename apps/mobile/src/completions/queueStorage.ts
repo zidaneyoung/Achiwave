@@ -152,6 +152,13 @@ export interface NewCompletionQueueRecord {
   now: string;
 }
 
+export interface PersistedCompletionResult {
+  completionId: string;
+  campaignId: string;
+  eventSequence: number;
+  canonicalResultJson: string;
+}
+
 export const completionQueueStorage = {
   async initializePartition(
     accountId: string,
@@ -243,6 +250,128 @@ export const completionQueueStorage = {
     const inserted = await this.findActive(record.accountId, record.occurrenceId);
     if (!inserted) throw new Error("The offline completion was not stored.");
     return inserted;
+  },
+
+  async leaseDueBatch(
+    accountId: string,
+    now: Date,
+    leaseMilliseconds: number,
+    limit: number,
+  ): Promise<CompletionQueueRecord[]> {
+    const db = await database();
+    const nowIso = now.toISOString();
+    const leaseExpiresAt = new Date(
+      now.getTime() + leaseMilliseconds,
+    ).toISOString();
+    const leasedIds: string[] = [];
+    await db.withExclusiveTransactionAsync(async (transaction) => {
+      const candidates = await transaction.getAllAsync<{ queue_id: string }>(
+        `SELECT queue_id FROM completion_queue
+         WHERE account_id = ?
+           AND state IN ('pending', 'retryable_failure')
+           AND (next_attempt_at IS NULL OR next_attempt_at <= ?)
+         ORDER BY created_at
+         LIMIT ?`,
+        accountId,
+        nowIso,
+        limit,
+      );
+      for (const candidate of candidates) {
+        const result = await transaction.runAsync(
+          `UPDATE completion_queue
+           SET state = 'in_flight', lease_expires_at = ?, last_attempt_at = ?,
+               attempt_count = attempt_count + 1, updated_at = ?
+           WHERE queue_id = ? AND account_id = ?
+             AND state IN ('pending', 'retryable_failure')`,
+          leaseExpiresAt,
+          nowIso,
+          nowIso,
+          candidate.queue_id,
+          accountId,
+        );
+        if (result.changes === 1) leasedIds.push(candidate.queue_id);
+      }
+    });
+    if (leasedIds.length === 0) return [];
+    const placeholders = leasedIds.map(() => "?").join(",");
+    const rows = await db.getAllAsync<QueueRow>(
+      `SELECT * FROM completion_queue WHERE queue_id IN (${placeholders})
+       ORDER BY created_at`,
+      ...leasedIds,
+    );
+    return rows.map(fromRow);
+  },
+
+  async markSucceeded(
+    accountId: string,
+    queueId: string,
+    result: PersistedCompletionResult,
+    now: Date,
+  ): Promise<void> {
+    const db = await database();
+    const nowIso = now.toISOString();
+    const updated = await db.runAsync(
+      `UPDATE completion_queue
+       SET state = 'succeeded', completion_id = ?, campaign_id = ?,
+           event_sequence = ?, canonical_result_json = ?, safe_error_class = NULL,
+           safe_error_message = NULL, lease_expires_at = NULL,
+           next_attempt_at = NULL, terminal_at = ?, updated_at = ?
+       WHERE queue_id = ? AND account_id = ? AND state = 'in_flight'`,
+      result.completionId,
+      result.campaignId,
+      result.eventSequence,
+      result.canonicalResultJson,
+      nowIso,
+      nowIso,
+      queueId,
+      accountId,
+    );
+    if (updated.changes !== 1) {
+      throw new Error("The synchronized completion result was not persisted.");
+    }
+  },
+
+  async markRetryableFailure(
+    accountId: string,
+    queueId: string,
+    safeErrorClass: string,
+    safeErrorMessage: string,
+    now: Date,
+  ): Promise<void> {
+    const db = await database();
+    const nowIso = now.toISOString();
+    await db.runAsync(
+      `UPDATE completion_queue
+       SET state = 'retryable_failure', safe_error_class = ?,
+           safe_error_message = ?, lease_expires_at = NULL, updated_at = ?
+       WHERE queue_id = ? AND account_id = ? AND state = 'in_flight'`,
+      safeErrorClass,
+      safeErrorMessage,
+      nowIso,
+      queueId,
+      accountId,
+    );
+  },
+
+  async releaseLeases(
+    accountId: string,
+    queueIds: string[],
+    now: Date,
+  ): Promise<void> {
+    if (queueIds.length === 0) return;
+    const db = await database();
+    const placeholders = queueIds.map(() => "?").join(",");
+    await db.runAsync(
+      `UPDATE completion_queue
+       SET state = 'pending', lease_expires_at = NULL,
+           attempt_count = CASE WHEN attempt_count > 0 THEN attempt_count - 1 ELSE 0 END,
+           updated_at = ?
+       WHERE account_id = ? AND state = 'in_flight'
+         AND queue_id IN (${placeholders})`,
+      now.toISOString(),
+      accountId,
+      ...queueIds,
+    );
   },
 
   async purgeAll(): Promise<void> {

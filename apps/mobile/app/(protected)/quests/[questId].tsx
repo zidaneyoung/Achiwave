@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AccessibilityInfo, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -16,6 +16,7 @@ import type { CompleteOccurrenceResult } from "../../../src/completions/types";
 import { CompletionSubmissionRegistry } from "../../../src/completions/submission";
 import { classifyCompletionFailure } from "../../../src/completions/failure";
 import { completionQueue } from "../../../src/completions/queue";
+import { subscribeCompletionRefresh } from "../../../src/completions/sync";
 import {
   beginCompletionPresentation,
   clearCompletionPresentation,
@@ -337,6 +338,13 @@ export default function QuestDetailRoute() {
       setRefreshing(false);
     };
   }, [load]));
+
+  useEffect(
+    () => subscribeCompletionRefresh((occurrenceId) => {
+      if (occurrenceId === presentationOccurrenceId) void load("retry");
+    }),
+    [load, presentationOccurrenceId],
+  );
 
   if (!ownerId) return null;
   if (!questId) {

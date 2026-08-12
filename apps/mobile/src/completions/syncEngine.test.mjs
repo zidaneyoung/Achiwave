@@ -1,0 +1,63 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import { createSynchronizationEngine } from "./syncEngine.ts";
+
+test("canonical result is persisted before synchronized presentation", async () => {
+  const order = [];
+  const engine = createSynchronizationEngine({
+    validateSession: async () => order.push("validated"),
+    leaseDue: async () => [{ queueId: "queue-1" }],
+    submit: async () => ({ completionId: "completion-1" }),
+    persistSuccess: async () => order.push("persisted"),
+    afterPersistedSuccess: async () => order.push("presented"),
+    classifyFailure: () => ({ kind: "retryable", safeClass: "network", safeMessage: "Reconnect." }),
+    persistRetryableFailure: async () => undefined,
+    releaseLeases: async () => undefined,
+  });
+  const summary = await engine.run("account-1");
+  assert.deepEqual(order, ["validated", "persisted", "presented"]);
+  assert.equal(summary.succeeded, 1);
+});
+
+test("overlapping synchronization calls share one run", async () => {
+  let release;
+  let validations = 0;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const engine = createSynchronizationEngine({
+    validateSession: async () => { validations += 1; await gate; },
+    leaseDue: async () => [],
+    submit: async () => ({}),
+    persistSuccess: async () => undefined,
+    afterPersistedSuccess: async () => undefined,
+    classifyFailure: () => ({ kind: "retryable", safeClass: "network", safeMessage: "Reconnect." }),
+    persistRetryableFailure: async () => undefined,
+    releaseLeases: async () => undefined,
+  });
+  const first = engine.run("account-1");
+  const second = engine.run("account-1");
+  assert.equal(first, second);
+  release();
+  await first;
+  assert.equal(validations, 1);
+});
+
+test("authentication failure pauses and releases unsubmitted leases", async () => {
+  const released = [];
+  const operations = [{ queueId: "queue-1" }, { queueId: "queue-2" }];
+  const engine = createSynchronizationEngine({
+    validateSession: async () => undefined,
+    leaseDue: async () => operations,
+    submit: async () => { throw Object.assign(new Error("session"), { authentication: true }); },
+    persistSuccess: async () => undefined,
+    afterPersistedSuccess: async () => undefined,
+    classifyFailure: (error) => error.authentication
+      ? { kind: "authentication" }
+      : { kind: "retryable", safeClass: "network", safeMessage: "Reconnect." },
+    persistRetryableFailure: async () => undefined,
+    releaseLeases: async (_accountId, pending) => released.push(...pending),
+  });
+  const summary = await engine.run("account-1");
+  assert.equal(summary.authenticationPaused, true);
+  assert.deepEqual(released, operations);
+});

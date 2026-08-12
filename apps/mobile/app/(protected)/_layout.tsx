@@ -1,27 +1,28 @@
-import { useEffect } from "react";
 import { Redirect, Stack, useSegments } from "expo-router";
 
 import { AuthStateScreen } from "../../src/auth/AuthStateScreen";
 import { useAuthentication } from "../../src/auth/AuthContext";
 import { useAchiwaveTheme } from "../../src/theme/ThemeProvider";
 import { useReducedMotion } from "../../src/accessibility/ReducedMotionProvider";
-import { completionQueue } from "../../src/completions/queue";
+import { useCompletionSynchronization } from "../../src/completions/useCompletionSynchronization";
 
 export const unstable_settings = {
   initialRouteName: "(tabs)",
 };
 
 export default function ProtectedLayout() {
-  const { state } = useAuthentication();
+  const { state, revalidate } = useAuthentication();
   const theme = useAchiwaveTheme();
   const reduceMotion = useReducedMotion();
   const segments = useSegments();
   const accountId = state.status === "authenticated" || state.status === "offline_limited"
     ? state.user.id
     : null;
-  useEffect(() => {
-    if (accountId) void completionQueue.initialize(accountId);
-  }, [accountId]);
+  useCompletionSynchronization(
+    accountId,
+    state.status === "authenticated",
+    state.status === "offline_limited" ? revalidate : null,
+  );
   if (state.status === "loading") {
     return (
       <AuthStateScreen
