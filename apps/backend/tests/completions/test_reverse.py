@@ -75,7 +75,7 @@ def test_owner_reverses_after_archive_without_erasing_history(
     assert result["completion"]["id"] == completed["completion"]["id"]
     assert result["completion"]["reversed_at"] is not None
     assert result["reversal"]["reason"] == "user_correction"
-    assert result["reversal"]["event_sequence"] == 3
+    assert result["reversal"]["event_sequence"] == 4
     assert result["campaign"]["status"] == "archived"
 
     with auth_session_factory() as session:
@@ -94,7 +94,7 @@ def test_owner_reverses_after_archive_without_erasing_history(
         occurrence = session.get(QuestOccurrence, occurrence_id)
         assert occurrence is not None and occurrence.completed_at is not None
         assert occurrence.reversed_at is not None
-        assert session.scalar(select(func.count()).select_from(ProgressEvent)) == 1
+        assert session.scalar(select(func.count()).select_from(ProgressEvent)) == 4
         assert session.scalar(select(func.count()).select_from(XpLedgerEntry)) == 0
 
 

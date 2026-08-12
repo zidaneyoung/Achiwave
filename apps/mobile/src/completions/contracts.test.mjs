@@ -32,13 +32,19 @@ const payload = {
     record_version: 3,
     completed_at: "2026-08-12T12:00:00Z",
   },
-  progress_events: [],
+  progress_events: [{
+    id: "d0000000-0000-4000-8000-000000000006",
+    event_type: "completion_accepted",
+    event_sequence: 1,
+    server_processed_at: "2026-08-12T12:00:00Z",
+  }],
 };
 
 test("parses a canonical completion without Stage 8 reward data", () => {
   const result = parseCompleteOccurrence(payload);
   assert.equal(result?.outcome, "completed");
   assert.equal(result?.completion.eventSequence, 1);
+  assert.equal(result?.progressEvents[0]?.eventType, "completion_accepted");
   assert.equal("xp" in (result ?? {}), false);
 });
 

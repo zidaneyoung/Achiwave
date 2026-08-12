@@ -47,7 +47,10 @@ def test_owner_completes_available_occurrence_with_canonical_state(
     assert result["completion"]["occurrence_id"] == occurrence["id"]
     assert result["completion"]["event_sequence"] == 1
     assert result["campaign"]["status"] == "completed"
-    assert result["progress_events"] == []
+    assert [event["event_type"] for event in result["progress_events"]] == [
+        "completion_accepted",
+        "campaign_completed",
+    ]
     assert detail.status_code == 200
     assert detail.json()["occurrence"]["active_completion_id"] == result["completion"]["id"]
 
@@ -63,7 +66,7 @@ def test_owner_completes_available_occurrence_with_canonical_state(
             .select_from(ClientMutation)
             .where(ClientMutation.operation_type == "quest_occurrence_complete")
         ) == 1
-        assert session.scalar(select(func.count()).select_from(ProgressEvent)) == 0
+        assert session.scalar(select(func.count()).select_from(ProgressEvent)) == 2
         assert session.scalar(select(func.count()).select_from(XpLedgerEntry)) == 0
         canonical_occurrence = session.get(QuestOccurrence, occurrence_id)
         assert canonical_occurrence is not None

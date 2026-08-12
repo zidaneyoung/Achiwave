@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from achiwave_backend.models import (
     Campaign,
     ClientMutation,
+    ProgressEvent,
     Quest,
     QuestCompletion,
     QuestCompletionReversal,
@@ -24,6 +25,7 @@ from achiwave_backend.schemas.completions import (
     CompletionReversalResponse,
     CompletionOccurrenceResponse,
     CompletionRecordResponse,
+    ProgressEventReferenceResponse,
     ReverseCompletionRequest,
     ReverseCompletionResponse,
 )
@@ -65,6 +67,7 @@ def _completion_response(
     occurrence: QuestOccurrence,
     completion: QuestCompletion,
     campaign: Campaign,
+    progress_events: list[ProgressEvent] | None = None,
 ) -> CompleteOccurrenceResponse:
     if completion.server_processed_at is None:
         raise RuntimeError("Completion result is not finalized.")
@@ -97,7 +100,16 @@ def _completion_response(
             record_version=campaign.record_version,
             completed_at=campaign.completed_at,
         ),
-        progress_events=[],
+        progress_events=[
+            ProgressEventReferenceResponse(
+                id=event.id,
+                event_type=event.event_type,
+                event_sequence=event.event_sequence,
+                server_processed_at=event.server_processed_at,
+            )
+            for event in progress_events or []
+            if event.server_processed_at is not None
+        ],
     )
 
 
@@ -147,6 +159,7 @@ def _reversal_response(
     completion: QuestCompletion,
     reversal: QuestCompletionReversal,
     campaign: Campaign,
+    progress_events: list[ProgressEvent] | None = None,
 ) -> ReverseCompletionResponse:
     if completion.server_processed_at is None or reversal.server_processed_at is None:
         raise RuntimeError("Reversal result is not finalized.")
@@ -188,7 +201,35 @@ def _reversal_response(
             record_version=campaign.record_version,
             completed_at=campaign.completed_at,
         ),
-        progress_events=[],
+        progress_events=[
+            ProgressEventReferenceResponse(
+                id=event.id,
+                event_type=event.event_type,
+                event_sequence=event.event_sequence,
+                server_processed_at=event.server_processed_at,
+            )
+            for event in progress_events or []
+            if event.server_processed_at is not None
+        ],
+    )
+
+
+def _source_progress_events(
+    database_session: Session,
+    user_id: UUID,
+    source_type: str,
+    source_id: UUID,
+) -> list[ProgressEvent]:
+    return list(
+        database_session.scalars(
+            select(ProgressEvent)
+            .where(
+                ProgressEvent.user_id == user_id,
+                ProgressEvent.source_type == source_type,
+                ProgressEvent.source_id == source_id,
+            )
+            .order_by(ProgressEvent.event_sequence)
+        )
     )
 
 
@@ -293,11 +334,18 @@ class CompletionService:
         database_session.add(mutation)
 
         if active_completion is not None and occurrence.occurrence_state == "completed":
+            progress_events = _source_progress_events(
+                database_session,
+                user.id,
+                "quest_completion",
+                active_completion.id,
+            )
             response = _completion_response(
                 outcome="duplicate_completion",
                 occurrence=occurrence,
                 completion=active_completion,
                 campaign=campaign,
+                progress_events=progress_events,
             )
             mutation.processing_status = "succeeded"
             mutation.result_type = "quest_completion"
@@ -373,6 +421,26 @@ class CompletionService:
         occurrence.record_version += 1
         occurrence.updated_at = now
         database_session.add(completion)
+        completion_event = ProgressEvent(
+            id=uuid4(),
+            user_id=user.id,
+            event_sequence=event_sequence,
+            event_type="completion_accepted",
+            source_type="quest_completion",
+            source_id=completion.id,
+            client_mutation_id=request.client_mutation_id,
+            server_received_at=received_at,
+            server_processed_at=received_at,
+            effective_local_date=effective_date,
+            rule_version=occurrence.rule_version,
+            event_metadata={
+                "campaign_id": str(campaign.id),
+                "quest_id": str(quest.id),
+                "occurrence_id": str(occurrence.id),
+            },
+        )
+        progress_events = [completion_event]
+        database_session.add(completion_event)
         database_session.flush()
 
         previous_campaign_state = campaign.campaign_state
@@ -393,14 +461,41 @@ class CompletionService:
             if campaign.campaign_state == "completed":
                 campaign.completed_at = now
                 campaign.completion_reason = "quest_obligations_satisfied"
+            campaign_sequence = user.next_event_sequence
+            user.next_event_sequence += 1
+            campaign_event = ProgressEvent(
+                id=uuid4(),
+                user_id=user.id,
+                event_sequence=campaign_sequence,
+                event_type=(
+                    "campaign_completed"
+                    if campaign.campaign_state == "completed"
+                    else "campaign_reopened"
+                ),
+                source_type="quest_completion",
+                source_id=completion.id,
+                client_mutation_id=request.client_mutation_id,
+                server_received_at=received_at,
+                server_processed_at=received_at,
+                rule_version=occurrence.rule_version,
+                event_metadata={
+                    "campaign_id": str(campaign.id),
+                    "previous_state": previous_campaign_state,
+                },
+            )
+            progress_events.append(campaign_event)
+            database_session.add(campaign_event)
 
         processed_at = datetime.now(UTC)
         completion.server_processed_at = processed_at
+        for event in progress_events:
+            event.server_processed_at = processed_at
         response = _completion_response(
             outcome="completed",
             occurrence=occurrence,
             completion=completion,
             campaign=campaign,
+            progress_events=progress_events,
         )
         mutation.processing_status = "succeeded"
         mutation.result_type = "quest_completion"
@@ -521,12 +616,19 @@ class CompletionService:
             and completion.reversed_at is not None
             and occurrence.occurrence_state == "reversed"
         ):
+            progress_events = _source_progress_events(
+                database_session,
+                user.id,
+                "quest_completion_reversal",
+                existing_reversal.id,
+            )
             response = _reversal_response(
                 outcome="already_reversed",
                 occurrence=occurrence,
                 completion=completion,
                 reversal=existing_reversal,
                 campaign=campaign,
+                progress_events=progress_events,
             )
             mutation.processing_status = "succeeded"
             mutation.result_type = "quest_completion_reversal"
@@ -582,6 +684,27 @@ class CompletionService:
         occurrence.record_version += 1
         occurrence.updated_at = now
         database_session.add(reversal)
+        reversal_event = ProgressEvent(
+            id=uuid4(),
+            user_id=user.id,
+            event_sequence=event_sequence,
+            event_type="completion_reversed",
+            source_type="quest_completion_reversal",
+            source_id=reversal.id,
+            client_mutation_id=request.client_mutation_id,
+            server_received_at=received_at,
+            server_processed_at=received_at,
+            effective_local_date=completion.completion_effective_date,
+            rule_version=occurrence.rule_version,
+            event_metadata={
+                "campaign_id": str(campaign.id),
+                "quest_id": str(quest.id),
+                "occurrence_id": str(occurrence.id),
+                "completion_id": str(completion.id),
+            },
+        )
+        progress_events = [reversal_event]
+        database_session.add(reversal_event)
         database_session.flush()
 
         if campaign.campaign_state != "archived":
@@ -600,15 +723,42 @@ class CompletionService:
             if campaign.campaign_state != previous_campaign_state:
                 campaign.record_version += 1
                 campaign.updated_at = now
+                campaign_sequence = user.next_event_sequence
+                user.next_event_sequence += 1
+                campaign_event = ProgressEvent(
+                    id=uuid4(),
+                    user_id=user.id,
+                    event_sequence=campaign_sequence,
+                    event_type=(
+                        "campaign_completed"
+                        if campaign.campaign_state == "completed"
+                        else "campaign_reopened"
+                    ),
+                    source_type="quest_completion_reversal",
+                    source_id=reversal.id,
+                    client_mutation_id=request.client_mutation_id,
+                    server_received_at=received_at,
+                    server_processed_at=received_at,
+                    rule_version=occurrence.rule_version,
+                    event_metadata={
+                        "campaign_id": str(campaign.id),
+                        "previous_state": previous_campaign_state,
+                    },
+                )
+                progress_events.append(campaign_event)
+                database_session.add(campaign_event)
 
         processed_at = datetime.now(UTC)
         reversal.server_processed_at = processed_at
+        for event in progress_events:
+            event.server_processed_at = processed_at
         response = _reversal_response(
             outcome="reversed",
             occurrence=occurrence,
             completion=completion,
             reversal=reversal,
             campaign=campaign,
+            progress_events=progress_events,
         )
         mutation.processing_status = "succeeded"
         mutation.result_type = "quest_completion_reversal"
