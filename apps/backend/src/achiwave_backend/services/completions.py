@@ -1,0 +1,335 @@
+import hashlib
+import json
+from datetime import UTC, datetime
+from uuid import UUID, uuid4
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from achiwave_backend.models import (
+    Campaign,
+    ClientMutation,
+    Quest,
+    QuestCompletion,
+    QuestOccurrence,
+    User,
+    UserPreference,
+)
+from achiwave_backend.schemas.completions import (
+    CompleteOccurrenceRequest,
+    CompleteOccurrenceResponse,
+    CompletionCampaignResponse,
+    CompletionOccurrenceResponse,
+    CompletionRecordResponse,
+)
+from achiwave_backend.services.campaigns import (
+    InvalidCampaignStructureError,
+    _derived_campaign_state,
+)
+
+
+class CompletionNotFoundError(Exception):
+    """No owner-visible completion target matches the request."""
+
+
+class CompletionMutationConflictError(Exception):
+    """The mutation identifier is bound to another canonical request."""
+
+
+class CompletionRejectedError(Exception):
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        *,
+        current: dict[str, object] | None = None,
+    ) -> None:
+        self.code = code
+        self.message = message
+        self.current = current
+
+
+def _payload_hash(payload: dict[str, object]) -> bytes:
+    canonical = json.dumps(payload, separators=(",", ":"), sort_keys=True)
+    return hashlib.sha256(canonical.encode("utf-8")).digest()
+
+
+def _completion_response(
+    *,
+    outcome: str,
+    occurrence: QuestOccurrence,
+    completion: QuestCompletion,
+    campaign: Campaign,
+) -> CompleteOccurrenceResponse:
+    if completion.server_processed_at is None:
+        raise RuntimeError("Completion result is not finalized.")
+    return CompleteOccurrenceResponse(
+        outcome=outcome,
+        occurrence=CompletionOccurrenceResponse(
+            id=occurrence.id,
+            quest_id=occurrence.quest_id,
+            campaign_id=occurrence.campaign_id,
+            status=occurrence.occurrence_state,
+            record_version=occurrence.record_version,
+            completed_at=occurrence.completed_at,
+            reversed_at=occurrence.reversed_at,
+        ),
+        completion=CompletionRecordResponse(
+            id=completion.id,
+            occurrence_id=completion.occurrence_id,
+            server_received_at=completion.server_received_at,
+            server_processed_at=completion.server_processed_at,
+            completion_effective_date=completion.completion_effective_date,
+            event_sequence=completion.event_sequence,
+            reversed_at=completion.reversed_at,
+        ),
+        campaign=CompletionCampaignResponse(
+            id=campaign.id,
+            status=campaign.campaign_state,
+            record_version=campaign.record_version,
+            completed_at=campaign.completed_at,
+        ),
+        progress_events=[],
+    )
+
+
+def _current_state(
+    occurrence: QuestOccurrence,
+    campaign: Campaign,
+    active_completion: QuestCompletion | None,
+) -> dict[str, object]:
+    return {
+        "occurrence": {
+            "id": str(occurrence.id),
+            "quest_id": str(occurrence.quest_id),
+            "campaign_id": str(occurrence.campaign_id),
+            "status": occurrence.occurrence_state,
+            "record_version": occurrence.record_version,
+            "completed_at": (
+                occurrence.completed_at.isoformat()
+                if occurrence.completed_at is not None
+                else None
+            ),
+            "reversed_at": (
+                occurrence.reversed_at.isoformat()
+                if occurrence.reversed_at is not None
+                else None
+            ),
+        },
+        "campaign": {
+            "id": str(campaign.id),
+            "status": campaign.campaign_state,
+            "record_version": campaign.record_version,
+            "completed_at": (
+                campaign.completed_at.isoformat()
+                if campaign.completed_at is not None
+                else None
+            ),
+        },
+        "active_completion_id": (
+            str(active_completion.id) if active_completion is not None else None
+        ),
+    }
+
+
+class CompletionService:
+    def complete(
+        self,
+        database_session: Session,
+        current_user: User,
+        occurrence_id: UUID,
+        request: CompleteOccurrenceRequest,
+    ) -> CompleteOccurrenceResponse:
+        user = database_session.scalar(
+            select(User).where(User.id == current_user.id).with_for_update()
+        )
+        if user is None:
+            raise RuntimeError("Authenticated user record is missing.")
+
+        payload_hash = _payload_hash(
+            {
+                "occurrence_id": str(occurrence_id),
+                "expected_occurrence_version": request.expected_occurrence_version,
+            }
+        )
+        existing_mutation = database_session.scalar(
+            select(ClientMutation).where(
+                ClientMutation.user_id == user.id,
+                ClientMutation.client_mutation_id == request.client_mutation_id,
+            )
+        )
+        if existing_mutation is not None:
+            if (
+                existing_mutation.operation_type != "quest_occurrence_complete"
+                or existing_mutation.target_type != "quest_occurrence"
+                or existing_mutation.target_id != occurrence_id
+                or existing_mutation.payload_hash != payload_hash
+                or existing_mutation.processing_status != "succeeded"
+                or existing_mutation.result_payload is None
+            ):
+                raise CompletionMutationConflictError
+            return CompleteOccurrenceResponse.model_validate(
+                existing_mutation.result_payload
+            )
+
+        occurrence = database_session.scalar(
+            select(QuestOccurrence)
+            .where(
+                QuestOccurrence.id == occurrence_id,
+                QuestOccurrence.user_id == user.id,
+            )
+            .with_for_update()
+        )
+        if occurrence is None:
+            raise CompletionNotFoundError
+        quest = database_session.scalar(
+            select(Quest).where(
+                Quest.id == occurrence.quest_id,
+                Quest.user_id == user.id,
+                Quest.campaign_id == occurrence.campaign_id,
+                Quest.quest_type == occurrence.quest_type,
+                Quest.deleted_at.is_(None),
+            )
+        )
+        campaign = database_session.scalar(
+            select(Campaign)
+            .where(
+                Campaign.id == occurrence.campaign_id,
+                Campaign.user_id == user.id,
+                Campaign.deleted_at.is_(None),
+            )
+            .with_for_update()
+        )
+        if quest is None or campaign is None:
+            raise CompletionNotFoundError
+
+        active_completion = database_session.scalar(
+            select(QuestCompletion).where(
+                QuestCompletion.occurrence_id == occurrence.id,
+                QuestCompletion.user_id == user.id,
+                QuestCompletion.reversed_at.is_(None),
+            )
+        )
+        now = datetime.now(UTC)
+        mutation = ClientMutation(
+            id=uuid4(),
+            user_id=user.id,
+            client_mutation_id=request.client_mutation_id,
+            operation_type="quest_occurrence_complete",
+            payload_hash=payload_hash,
+            target_type="quest_occurrence",
+            target_id=occurrence.id,
+            processing_status="processing",
+            updated_at=now,
+        )
+        database_session.add(mutation)
+
+        if active_completion is not None and occurrence.occurrence_state == "completed":
+            response = _completion_response(
+                outcome="duplicate_completion",
+                occurrence=occurrence,
+                completion=active_completion,
+                campaign=campaign,
+            )
+            mutation.processing_status = "succeeded"
+            mutation.result_type = "quest_completion"
+            mutation.result_id = active_completion.id
+            mutation.result_payload = response.model_dump(mode="json")
+            mutation.processed_at = now
+            database_session.commit()
+            return response
+
+        current = _current_state(occurrence, campaign, active_completion)
+        if occurrence.record_version != request.expected_occurrence_version:
+            database_session.rollback()
+            raise CompletionRejectedError(
+                "stale_occurrence_version",
+                "The occurrence changed before completion was applied.",
+                current=current,
+            )
+        if (
+            campaign.campaign_state != "active"
+            or quest.definition_state != "active"
+            or occurrence.occurrence_state not in {"available", "reversed"}
+            or occurrence.available_at > now
+            or (
+                occurrence.eligibility_expires_at is not None
+                and occurrence.eligibility_expires_at <= now
+            )
+            or active_completion is not None
+        ):
+            database_session.rollback()
+            raise CompletionRejectedError(
+                "occurrence_not_eligible",
+                "The occurrence is not eligible for completion.",
+                current=current,
+            )
+
+        preference = database_session.get(UserPreference, user.id)
+        if preference is None:
+            raise RuntimeError("Active user preference record is missing.")
+        try:
+            effective_date = now.astimezone(
+                ZoneInfo(preference.timezone_name)
+            ).date()
+        except ZoneInfoNotFoundError as error:
+            raise RuntimeError("Saved user timezone is unavailable.") from error
+
+        event_sequence = user.next_event_sequence
+        user.next_event_sequence += 1
+        user.updated_at = now
+        completion = QuestCompletion(
+            id=uuid4(),
+            user_id=user.id,
+            occurrence_id=occurrence.id,
+            client_mutation_id=request.client_mutation_id,
+            server_received_at=now,
+            server_processed_at=now,
+            completion_effective_date=effective_date,
+            event_sequence=event_sequence,
+        )
+        occurrence.occurrence_state = "completed"
+        occurrence.completed_at = now
+        occurrence.reversed_at = None
+        occurrence.record_version += 1
+        occurrence.updated_at = now
+        database_session.add(completion)
+        database_session.flush()
+
+        previous_campaign_state = campaign.campaign_state
+        try:
+            campaign.campaign_state = _derived_campaign_state(
+                database_session, campaign, now
+            )
+        except InvalidCampaignStructureError as error:
+            database_session.rollback()
+            raise CompletionRejectedError(
+                "campaign_structure_invalid",
+                "The campaign cannot accept this completion.",
+                current=current,
+            ) from error
+        if campaign.campaign_state != previous_campaign_state:
+            campaign.record_version += 1
+            campaign.updated_at = now
+            if campaign.campaign_state == "completed":
+                campaign.completed_at = now
+                campaign.completion_reason = "quest_obligations_satisfied"
+
+        response = _completion_response(
+            outcome="completed",
+            occurrence=occurrence,
+            completion=completion,
+            campaign=campaign,
+        )
+        mutation.processing_status = "succeeded"
+        mutation.result_type = "quest_completion"
+        mutation.result_id = completion.id
+        mutation.result_payload = response.model_dump(mode="json")
+        mutation.processed_at = now
+        try:
+            database_session.commit()
+        except Exception:
+            database_session.rollback()
+            raise
+        return response

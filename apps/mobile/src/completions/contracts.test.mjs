@@ -1,0 +1,47 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import { parseCompleteOccurrence } from "./contracts.ts";
+
+const payload = {
+  outcome: "completed",
+  occurrence: {
+    id: "d0000000-0000-4000-8000-000000000001",
+    quest_id: "d0000000-0000-4000-8000-000000000002",
+    campaign_id: "d0000000-0000-4000-8000-000000000003",
+    status: "completed",
+    record_version: 2,
+    completed_at: "2026-08-12T12:00:00Z",
+    reversed_at: null,
+  },
+  completion: {
+    id: "d0000000-0000-4000-8000-000000000004",
+    occurrence_id: "d0000000-0000-4000-8000-000000000001",
+    server_received_at: "2026-08-12T12:00:00Z",
+    server_processed_at: "2026-08-12T12:00:00Z",
+    completion_effective_date: "2026-08-12",
+    event_sequence: 1,
+    reversed_at: null,
+  },
+  campaign: {
+    id: "d0000000-0000-4000-8000-000000000003",
+    status: "completed",
+    record_version: 3,
+    completed_at: "2026-08-12T12:00:00Z",
+  },
+  progress_events: [],
+};
+
+test("parses a canonical completion without Stage 8 reward data", () => {
+  const result = parseCompleteOccurrence(payload);
+  assert.equal(result?.outcome, "completed");
+  assert.equal(result?.completion.eventSequence, 1);
+  assert.equal("xp" in (result ?? {}), false);
+});
+
+test("rejects mismatched occurrence ancestry", () => {
+  assert.equal(parseCompleteOccurrence({
+    ...payload,
+    completion: { ...payload.completion, occurrence_id: "other" },
+  }), null);
+});

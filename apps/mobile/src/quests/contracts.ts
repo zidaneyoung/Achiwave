@@ -141,6 +141,9 @@ function isQuestListStatus(value: unknown): value is QuestListStatus {
 function parseOccurrence(value: unknown): OneTimeOccurrence | null {
   if (!isObject(value)) return null;
   const eligibilityExpiresAt = nullableString(value.eligibility_expires_at);
+  const activeCompletionId = nullableString(value.active_completion_id);
+  const completedAt = nullableString(value.completed_at);
+  const reversedAt = nullableString(value.reversed_at);
   if (
     typeof value.id !== "string" ||
     !isOccurrenceStatus(value.status) ||
@@ -151,6 +154,9 @@ function parseOccurrence(value: unknown): OneTimeOccurrence | null {
     !nonnegativeInteger(value.reward_xp) ||
     !nonnegativeInteger(value.record_version) ||
     value.record_version < 1
+    || activeCompletionId === undefined
+    || completedAt === undefined
+    || reversedAt === undefined
   ) return null;
   return {
     id: value.id,
@@ -161,6 +167,9 @@ function parseOccurrence(value: unknown): OneTimeOccurrence | null {
     eligibilityExpiresAt,
     rewardXp: value.reward_xp,
     recordVersion: value.record_version,
+    activeCompletionId,
+    completedAt,
+    reversedAt,
   };
 }
 

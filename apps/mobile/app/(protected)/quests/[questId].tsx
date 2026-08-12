@@ -7,6 +7,7 @@ import { useAuthentication } from "../../../src/auth/AuthContext";
 import { useReducedMotion } from "../../../src/accessibility/ReducedMotionProvider";
 import { invalidateCachedCampaign } from "../../../src/campaigns/cache";
 import { AppButton } from "../../../src/components/AppButton";
+import { completionApi, CompletionRequestError } from "../../../src/completions/api";
 import { ErrorState } from "../../../src/components/ErrorState";
 import { LoadingSkeleton } from "../../../src/components/LoadingSkeleton";
 import { AppDialog } from "../../../src/components/Overlays";
@@ -54,10 +55,18 @@ export default function QuestDetailRoute() {
   const [refreshing, setRefreshing] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
   const [transitionError, setTransitionError] = useState<string | null>(null);
+  const [completing, setCompleting] = useState(false);
+  const [completionError, setCompletionError] = useState<string | null>(null);
   const [archiveDialogVisible, setArchiveDialogVisible] = useState(false);
   const [archiveError, setArchiveError] = useState<string | null>(null);
   const [dateFormat, setDateFormat] = useState<DateFormatPreference | null>(null);
   const archivePending = useRef(false);
+  const completionPending = useRef(false);
+  const completionRequest = useRef<{
+    mutationId: string;
+    occurrenceId: string;
+    recordVersion: number;
+  } | null>(null);
   const archiveRequest = useRef<{ mutationId: string; recordVersion: number } | null>(null);
   const restoreMutationId = useRef<string | null>(null);
   const sequence = useRef(0);
@@ -156,6 +165,54 @@ export default function QuestDetailRoute() {
       });
   }
 
+  function completeOccurrence() {
+    if (!quest?.occurrence || !ownerId || completionPending.current) return;
+    const occurrence = quest.occurrence;
+    completionRequest.current ??= {
+      mutationId: completionApi.createMutationId(),
+      occurrenceId: occurrence.id,
+      recordVersion: occurrence.recordVersion,
+    };
+    completionPending.current = true;
+    setCompleting(true);
+    setCompletionError(null);
+    void completionApi.complete({
+      clientMutationId: completionRequest.current.mutationId,
+      expectedOccurrenceVersion: completionRequest.current.recordVersion,
+      occurrenceId: completionRequest.current.occurrenceId,
+    }).then((result) => {
+      setQuest((current) => current?.occurrence ? {
+        ...current,
+        campaignRecordVersion: result.campaign.recordVersion,
+        campaignStatus: result.campaign.status,
+        occurrence: {
+          ...current.occurrence,
+          activeCompletionId: result.completion.id,
+          completedAt: result.occurrence.completedAt,
+          recordVersion: result.occurrence.recordVersion,
+          reversedAt: result.occurrence.reversedAt,
+          status: result.occurrence.status,
+        },
+      } : current);
+      completionRequest.current = null;
+      invalidateCachedCampaign(ownerId, result.campaign.id);
+      AccessibilityInfo.announceForAccessibility(
+        result.outcome === "duplicate_completion"
+          ? "Quest was already completed and is synchronized."
+          : "Quest completion confirmed by the server.",
+      );
+    }).catch((caught) => {
+      const message = caught instanceof CompletionRequestError
+        ? caught.message
+        : "The completion could not be confirmed.";
+      setCompletionError(message);
+      AccessibilityInfo.announceForAccessibility(message);
+    }).finally(() => {
+      completionPending.current = false;
+      setCompleting(false);
+    });
+  }
+
   useFocusEffect(useCallback(() => {
     void load("focus");
     return () => {
@@ -202,6 +259,9 @@ export default function QuestDetailRoute() {
           }
         >
           <StatusBadge label={presentation.label} tone={presentation.tone} />
+          {completing ? (
+            <StatusBadge label="Submitting completion — awaiting server confirmation" tone="warning" />
+          ) : null}
           <AppText accessibilityRole="header" variant="heading1">{quest.title}</AppText>
           {quest.description ? <AppText tone="muted">{quest.description}</AppText> : null}
           <AppText>Category: {quest.categoryLabel}</AppText>
@@ -232,6 +292,24 @@ export default function QuestDetailRoute() {
           <AppText tone="subtle" variant="caption">
             Record version {quest.recordVersion} · Updated {new Date(quest.updatedAt).toLocaleString()}
           </AppText>
+          {quest.occurrence &&
+          quest.definitionState === "active" &&
+          quest.campaignStatus === "active" &&
+          (quest.occurrence.status === "available" || quest.occurrence.status === "reversed") ? (
+            <AppButton
+              accessibilityHint="Submits this occurrence to the server for authoritative completion."
+              icon="check-circle-outline"
+              label={completionError ? "Retry completion" : "Complete quest"}
+              loading={completing}
+              onPress={completeOccurrence}
+            />
+          ) : null}
+          {completionError ? (
+            <View style={styles.snapshot}>
+              <ErrorState kind="inline" />
+              <AppText accessibilityLiveRegion="assertive" tone="error">{completionError}</AppText>
+            </View>
+          ) : null}
           {quest.definitionState === "active" && quest.campaignStatus !== "archived" ? (
             <AppButton
               icon="pencil-outline"

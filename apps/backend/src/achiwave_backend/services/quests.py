@@ -14,6 +14,7 @@ from achiwave_backend.models import (
     Campaign,
     ClientMutation,
     Quest,
+    QuestCompletion,
     QuestOccurrence,
     ProgressEvent,
     User,
@@ -83,10 +84,12 @@ class QuestResult:
         quest: Quest,
         occurrence: QuestOccurrence | None,
         campaign: Campaign,
+        active_completion: QuestCompletion | None = None,
     ) -> None:
         self.quest = quest
         self.occurrence = occurrence
         self.campaign = campaign
+        self.active_completion = active_completion
 
 
 @dataclass(frozen=True)
@@ -228,7 +231,10 @@ def quest_due_status(
     return "overdue" if quest.due_at <= (now or datetime.now(UTC)) else "upcoming"
 
 
-def _occurrence_response(occurrence: QuestOccurrence) -> QuestOccurrenceResponse:
+def _occurrence_response(
+    occurrence: QuestOccurrence,
+    active_completion: QuestCompletion | None,
+) -> QuestOccurrenceResponse:
     return QuestOccurrenceResponse(
         id=occurrence.id,
         status=occurrence.occurrence_state,
@@ -238,6 +244,11 @@ def _occurrence_response(occurrence: QuestOccurrence) -> QuestOccurrenceResponse
         eligibility_expires_at=occurrence.eligibility_expires_at,
         reward_xp=occurrence.reward_xp,
         record_version=occurrence.record_version,
+        active_completion_id=(
+            active_completion.id if active_completion is not None else None
+        ),
+        completed_at=occurrence.completed_at,
+        reversed_at=occurrence.reversed_at,
     )
 
 
@@ -283,7 +294,7 @@ def quest_response(
         created_at=quest.created_at,
         updated_at=quest.updated_at,
         occurrence=(
-            _occurrence_response(result.occurrence)
+            _occurrence_response(result.occurrence, result.active_completion)
             if result.occurrence is not None
             else None
         ),
@@ -755,9 +766,20 @@ class QuestService:
                 QuestOccurrence.user_id == current_user.id,
             )
         )
+        active_completion = (
+            database_session.scalar(
+                select(QuestCompletion).where(
+                    QuestCompletion.occurrence_id == occurrence.id,
+                    QuestCompletion.user_id == current_user.id,
+                    QuestCompletion.reversed_at.is_(None),
+                )
+            )
+            if occurrence is not None
+            else None
+        )
         if campaign is None or occurrence is None:
             raise QuestNotFoundError
-        return QuestResult(quest, occurrence, campaign)
+        return QuestResult(quest, occurrence, campaign, active_completion)
 
     def update_one_time(
         self,
