@@ -56,6 +56,31 @@ class CompletionRejectedError(Exception):
         self.message = message
         self.current = current
 
+    def to_payload(self) -> dict[str, object]:
+        return {
+            "error": {
+                "code": self.code,
+                "message": self.message,
+                "current": self.current,
+            }
+        }
+
+    @classmethod
+    def from_payload(cls, payload: dict[str, object]) -> "CompletionRejectedError":
+        error = payload.get("error")
+        if not isinstance(error, dict):
+            raise CompletionMutationConflictError
+        code = error.get("code")
+        message = error.get("message")
+        current = error.get("current")
+        if (
+            not isinstance(code, str)
+            or not isinstance(message, str)
+            or (current is not None and not isinstance(current, dict))
+        ):
+            raise CompletionMutationConflictError
+        return cls(code, message, current=current)
+
 
 def _payload_hash(payload: dict[str, object]) -> bytes:
     canonical = json.dumps(payload, separators=(",", ":"), sort_keys=True)
@@ -237,6 +262,26 @@ def _source_progress_events(
     )
 
 
+def _commit_permanent_rejection(
+    database_session: Session,
+    mutation: ClientMutation,
+    error: CompletionRejectedError,
+    processed_at: datetime,
+) -> None:
+    mutation.processing_status = "permanent_failure"
+    mutation.result_type = "completion_rejection"
+    mutation.result_payload = error.to_payload()
+    mutation.safe_error_class = error.code
+    mutation.processed_at = processed_at
+    mutation.updated_at = processed_at
+    try:
+        database_session.commit()
+    except Exception:
+        database_session.rollback()
+        raise
+    raise error
+
+
 class CompletionService:
     def complete(
         self,
@@ -279,7 +324,17 @@ class CompletionService:
                 or existing_mutation.target_type != "quest_occurrence"
                 or existing_mutation.target_id != occurrence_id
                 or existing_mutation.payload_hash != payload_hash
-                or existing_mutation.processing_status != "succeeded"
+            ):
+                raise CompletionMutationConflictError
+            if (
+                existing_mutation.processing_status == "permanent_failure"
+                and existing_mutation.result_payload is not None
+            ):
+                raise CompletionRejectedError.from_payload(
+                    existing_mutation.result_payload
+                )
+            if (
+                existing_mutation.processing_status != "succeeded"
                 or existing_mutation.result_payload is None
             ):
                 raise CompletionMutationConflictError
@@ -365,12 +420,12 @@ class CompletionService:
 
         current = _current_state(occurrence, campaign, active_completion)
         if occurrence.record_version != request.expected_occurrence_version:
-            database_session.rollback()
-            raise CompletionRejectedError(
+            error = CompletionRejectedError(
                 "stale_occurrence_version",
                 "The occurrence changed before completion was applied.",
                 current=current,
             )
+            _commit_permanent_rejection(database_session, mutation, error, now)
         if (
             campaign.campaign_state != "active"
             or quest.definition_state != "active"
@@ -382,12 +437,12 @@ class CompletionService:
             )
             or active_completion is not None
         ):
-            database_session.rollback()
-            raise CompletionRejectedError(
+            error = CompletionRejectedError(
                 "occurrence_not_eligible",
                 "The occurrence is not eligible for completion.",
                 current=current,
             )
+            _commit_permanent_rejection(database_session, mutation, error, now)
 
         preference = database_session.get(UserPreference, user.id)
         if preference is None:
@@ -555,7 +610,17 @@ class CompletionService:
                 or existing_mutation.target_type != "quest_completion"
                 or existing_mutation.target_id != completion_id
                 or existing_mutation.payload_hash != payload_hash
-                or existing_mutation.processing_status != "succeeded"
+            ):
+                raise CompletionMutationConflictError
+            if (
+                existing_mutation.processing_status == "permanent_failure"
+                and existing_mutation.result_payload is not None
+            ):
+                raise CompletionRejectedError.from_payload(
+                    existing_mutation.result_payload
+                )
+            if (
+                existing_mutation.processing_status != "succeeded"
                 or existing_mutation.result_payload is None
             ):
                 raise CompletionMutationConflictError
@@ -657,12 +722,12 @@ class CompletionService:
             completion if completion.reversed_at is None else None,
         )
         if occurrence.record_version != request.expected_occurrence_version:
-            database_session.rollback()
-            raise CompletionRejectedError(
+            error = CompletionRejectedError(
                 "stale_occurrence_version",
                 "The occurrence changed before reversal was applied.",
                 current=current,
             )
+            _commit_permanent_rejection(database_session, mutation, error, now)
         if (
             completion.reversed_at is not None
             or existing_reversal is not None
@@ -670,12 +735,12 @@ class CompletionService:
             or occurrence.expired_at is not None
             or occurrence.voided_at is not None
         ):
-            database_session.rollback()
-            raise CompletionRejectedError(
+            error = CompletionRejectedError(
                 "completion_not_active",
                 "The completion is not active and cannot be reversed.",
                 current=current,
             )
+            _commit_permanent_rejection(database_session, mutation, error, now)
 
         event_sequence = user.next_event_sequence
         user.next_event_sequence += 1
