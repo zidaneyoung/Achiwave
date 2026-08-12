@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   activeQueueRecord,
+  canAutomaticallyRetry,
   canonicalCompletionPayload,
   isLeaseExpired,
   retainedTerminalCutoff,
@@ -67,4 +68,13 @@ test("terminal queue evidence uses a bounded seven-day retention cutoff", () => 
     retainedTerminalCutoff(new Date("2026-08-12T12:00:00.000Z")),
     "2026-08-05T12:00:00.000Z",
   );
+});
+
+test("permanent, succeeded, and cancelled operations never retry", () => {
+  assert.equal(canAutomaticallyRetry("pending", 0), true);
+  assert.equal(canAutomaticallyRetry("retryable_failure", 7), true);
+  assert.equal(canAutomaticallyRetry("retryable_failure", 8), false);
+  assert.equal(canAutomaticallyRetry("permanent_failure", 0), false);
+  assert.equal(canAutomaticallyRetry("succeeded", 0), false);
+  assert.equal(canAutomaticallyRetry("cancelled", 0), false);
 });

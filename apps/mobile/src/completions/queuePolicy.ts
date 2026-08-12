@@ -51,3 +51,12 @@ export function retainedTerminalCutoff(now: Date): string {
     now.getTime() - COMPLETION_QUEUE_TERMINAL_RETENTION_MILLISECONDS,
   ).toISOString();
 }
+
+export function canAutomaticallyRetry(
+  state: CompletionQueueRecord["state"],
+  automaticAttemptCount: number,
+  maximumAttempts = 8,
+): boolean {
+  return (state === "pending" || state === "retryable_failure") &&
+    automaticAttemptCount < maximumAttempts;
+}

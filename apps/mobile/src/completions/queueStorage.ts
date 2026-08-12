@@ -170,6 +170,20 @@ export const completionQueueStorage = {
     await db.withExclusiveTransactionAsync(async (transaction) => {
       await transaction.runAsync(
         `UPDATE completion_queue
+         SET state = 'permanent_failure',
+             safe_error_class = 'unsupported_schema',
+             safe_error_message = 'This saved completion was created by an unsupported app version.',
+             next_attempt_at = NULL, lease_expires_at = NULL,
+             terminal_at = COALESCE(terminal_at, ?), updated_at = ?
+         WHERE account_id = ? AND schema_version <> ?
+           AND state IN ('pending', 'in_flight', 'retryable_failure')`,
+        nowIso,
+        nowIso,
+        accountId,
+        COMPLETION_QUEUE_SCHEMA_VERSION,
+      );
+      await transaction.runAsync(
+        `UPDATE completion_queue
          SET state = 'pending', lease_expires_at = NULL, updated_at = ?
          WHERE account_id = ? AND state = 'in_flight'
            AND lease_expires_at IS NOT NULL AND lease_expires_at <= ?`,
@@ -372,6 +386,20 @@ export const completionQueueStorage = {
       COMPLETION_RETRY_MAX_AUTOMATIC_ATTEMPTS,
     );
     return row?.due_at ?? null;
+  },
+
+  async dismissPermanentFailure(
+    accountId: string,
+    queueId: string,
+  ): Promise<boolean> {
+    const db = await database();
+    const result = await db.runAsync(
+      `DELETE FROM completion_queue
+       WHERE account_id = ? AND queue_id = ? AND state = 'permanent_failure'`,
+      accountId,
+      queueId,
+    );
+    return result.changes === 1;
   },
 
   async markPermanentFailure(

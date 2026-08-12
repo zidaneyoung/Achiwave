@@ -19,6 +19,10 @@ export const completionQueue = {
     return completionQueueStorage.nextDueAt(accountId);
   },
 
+  dismissPermanentFailure(accountId: string, queueId: string): Promise<boolean> {
+    return completionQueueStorage.dismissPermanentFailure(accountId, queueId);
+  },
+
   async enqueue(
     authenticatedAccountId: string,
     input: CompleteOccurrenceInput,
