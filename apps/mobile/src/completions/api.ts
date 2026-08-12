@@ -1,8 +1,8 @@
 import * as Crypto from "expo-crypto";
 
 import { authenticationService } from "../auth/service";
-import { isObject, parseCompleteOccurrence } from "./contracts";
-import type { CompleteOccurrenceResult } from "./types";
+import { isObject, parseCompleteOccurrence, parseReverseCompletion } from "./contracts";
+import type { CompleteOccurrenceResult, ReverseCompletionResult } from "./types";
 
 export type CompletionErrorCode =
   | "conflict"
@@ -82,6 +82,37 @@ export const completionApi = {
     } catch (error) {
       if (error instanceof CompletionRequestError) throw error;
       throw new CompletionRequestError("offline", "Reconnect to complete this quest.");
+    }
+  },
+
+  async reverse(input: {
+    completionId: string;
+    expectedOccurrenceVersion: number;
+    clientMutationId: string;
+  }): Promise<ReverseCompletionResult> {
+    try {
+      const response = await authenticationService.request(
+        `/api/v1/quest-completions/${encodeURIComponent(input.completionId)}/reverse`,
+        {
+          body: JSON.stringify({
+            client_mutation_id: input.clientMutationId,
+            expected_occurrence_version: input.expectedOccurrenceVersion,
+            reason: "user_correction",
+          }),
+          headers: { "Content-Type": "application/json" },
+          method: "POST",
+        },
+      );
+      const body = await readJson(response);
+      if (!response.ok) throw responseError(response, body);
+      const result = parseReverseCompletion(body);
+      if (!result) {
+        throw new CompletionRequestError("invalid_response", "Reversal confirmation is temporarily unavailable.");
+      }
+      return result;
+    } catch (error) {
+      if (error instanceof CompletionRequestError) throw error;
+      throw new CompletionRequestError("offline", "Reversal requires an online connection.");
     }
   },
 };

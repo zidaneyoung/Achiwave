@@ -12,6 +12,7 @@ from achiwave_backend.models import (
     ClientMutation,
     Quest,
     QuestCompletion,
+    QuestCompletionReversal,
     QuestOccurrence,
     User,
     UserPreference,
@@ -20,8 +21,11 @@ from achiwave_backend.schemas.completions import (
     CompleteOccurrenceRequest,
     CompleteOccurrenceResponse,
     CompletionCampaignResponse,
+    CompletionReversalResponse,
     CompletionOccurrenceResponse,
     CompletionRecordResponse,
+    ReverseCompletionRequest,
+    ReverseCompletionResponse,
 )
 from achiwave_backend.services.campaigns import (
     InvalidCampaignStructureError,
@@ -131,6 +135,55 @@ def _current_state(
             str(active_completion.id) if active_completion is not None else None
         ),
     }
+
+
+def _reversal_response(
+    *,
+    outcome: str,
+    occurrence: QuestOccurrence,
+    completion: QuestCompletion,
+    reversal: QuestCompletionReversal,
+    campaign: Campaign,
+) -> ReverseCompletionResponse:
+    if completion.server_processed_at is None or reversal.server_processed_at is None:
+        raise RuntimeError("Reversal result is not finalized.")
+    return ReverseCompletionResponse(
+        outcome=outcome,
+        occurrence=CompletionOccurrenceResponse(
+            id=occurrence.id,
+            quest_id=occurrence.quest_id,
+            campaign_id=occurrence.campaign_id,
+            status=occurrence.occurrence_state,
+            record_version=occurrence.record_version,
+            completed_at=occurrence.completed_at,
+            reversed_at=occurrence.reversed_at,
+        ),
+        completion=CompletionRecordResponse(
+            id=completion.id,
+            occurrence_id=completion.occurrence_id,
+            server_received_at=completion.server_received_at,
+            server_processed_at=completion.server_processed_at,
+            completion_effective_date=completion.completion_effective_date,
+            event_sequence=completion.event_sequence,
+            reversed_at=completion.reversed_at,
+        ),
+        reversal=CompletionReversalResponse(
+            id=reversal.id,
+            completion_id=reversal.completion_id,
+            occurrence_id=reversal.occurrence_id,
+            reason=reversal.reason,
+            server_received_at=reversal.server_received_at,
+            server_processed_at=reversal.server_processed_at,
+            event_sequence=reversal.event_sequence,
+        ),
+        campaign=CompletionCampaignResponse(
+            id=campaign.id,
+            status=campaign.campaign_state,
+            record_version=campaign.record_version,
+            completed_at=campaign.completed_at,
+        ),
+        progress_events=[],
+    )
 
 
 class CompletionService:
@@ -325,6 +378,209 @@ class CompletionService:
         mutation.processing_status = "succeeded"
         mutation.result_type = "quest_completion"
         mutation.result_id = completion.id
+        mutation.result_payload = response.model_dump(mode="json")
+        mutation.processed_at = now
+        try:
+            database_session.commit()
+        except Exception:
+            database_session.rollback()
+            raise
+        return response
+
+    def reverse(
+        self,
+        database_session: Session,
+        current_user: User,
+        completion_id: UUID,
+        request: ReverseCompletionRequest,
+    ) -> ReverseCompletionResponse:
+        user = database_session.scalar(
+            select(User).where(User.id == current_user.id).with_for_update()
+        )
+        if user is None:
+            raise RuntimeError("Authenticated user record is missing.")
+
+        payload_hash = _payload_hash(
+            {
+                "completion_id": str(completion_id),
+                "expected_occurrence_version": request.expected_occurrence_version,
+                "reason": request.reason,
+            }
+        )
+        existing_mutation = database_session.scalar(
+            select(ClientMutation).where(
+                ClientMutation.user_id == user.id,
+                ClientMutation.client_mutation_id == request.client_mutation_id,
+            )
+        )
+        if existing_mutation is not None:
+            if (
+                existing_mutation.operation_type != "quest_completion_reverse"
+                or existing_mutation.target_type != "quest_completion"
+                or existing_mutation.target_id != completion_id
+                or existing_mutation.payload_hash != payload_hash
+                or existing_mutation.processing_status != "succeeded"
+                or existing_mutation.result_payload is None
+            ):
+                raise CompletionMutationConflictError
+            return ReverseCompletionResponse.model_validate(
+                existing_mutation.result_payload
+            )
+
+        completion = database_session.scalar(
+            select(QuestCompletion)
+            .where(
+                QuestCompletion.id == completion_id,
+                QuestCompletion.user_id == user.id,
+            )
+            .with_for_update()
+        )
+        if completion is None:
+            raise CompletionNotFoundError
+        occurrence = database_session.scalar(
+            select(QuestOccurrence)
+            .where(
+                QuestOccurrence.id == completion.occurrence_id,
+                QuestOccurrence.user_id == user.id,
+            )
+            .with_for_update()
+        )
+        if occurrence is None:
+            raise CompletionNotFoundError
+        quest = database_session.scalar(
+            select(Quest).where(
+                Quest.id == occurrence.quest_id,
+                Quest.user_id == user.id,
+                Quest.campaign_id == occurrence.campaign_id,
+                Quest.quest_type == occurrence.quest_type,
+            )
+        )
+        campaign = database_session.scalar(
+            select(Campaign)
+            .where(
+                Campaign.id == occurrence.campaign_id,
+                Campaign.user_id == user.id,
+            )
+            .with_for_update()
+        )
+        if quest is None or campaign is None:
+            raise CompletionNotFoundError
+
+        existing_reversal = database_session.scalar(
+            select(QuestCompletionReversal).where(
+                QuestCompletionReversal.completion_id == completion.id,
+                QuestCompletionReversal.user_id == user.id,
+                QuestCompletionReversal.occurrence_id == occurrence.id,
+            )
+        )
+        now = datetime.now(UTC)
+        mutation = ClientMutation(
+            id=uuid4(),
+            user_id=user.id,
+            client_mutation_id=request.client_mutation_id,
+            operation_type="quest_completion_reverse",
+            payload_hash=payload_hash,
+            target_type="quest_completion",
+            target_id=completion.id,
+            processing_status="processing",
+            updated_at=now,
+        )
+        database_session.add(mutation)
+        if (
+            existing_reversal is not None
+            and completion.reversed_at is not None
+            and occurrence.occurrence_state == "reversed"
+        ):
+            response = _reversal_response(
+                outcome="already_reversed",
+                occurrence=occurrence,
+                completion=completion,
+                reversal=existing_reversal,
+                campaign=campaign,
+            )
+            mutation.processing_status = "succeeded"
+            mutation.result_type = "quest_completion_reversal"
+            mutation.result_id = existing_reversal.id
+            mutation.result_payload = response.model_dump(mode="json")
+            mutation.processed_at = now
+            database_session.commit()
+            return response
+
+        current = _current_state(
+            occurrence,
+            campaign,
+            completion if completion.reversed_at is None else None,
+        )
+        if occurrence.record_version != request.expected_occurrence_version:
+            database_session.rollback()
+            raise CompletionRejectedError(
+                "stale_occurrence_version",
+                "The occurrence changed before reversal was applied.",
+                current=current,
+            )
+        if (
+            completion.reversed_at is not None
+            or existing_reversal is not None
+            or occurrence.occurrence_state != "completed"
+            or occurrence.expired_at is not None
+            or occurrence.voided_at is not None
+        ):
+            database_session.rollback()
+            raise CompletionRejectedError(
+                "completion_not_active",
+                "The completion is not active and cannot be reversed.",
+                current=current,
+            )
+
+        event_sequence = user.next_event_sequence
+        user.next_event_sequence += 1
+        user.updated_at = now
+        reversal = QuestCompletionReversal(
+            id=uuid4(),
+            user_id=user.id,
+            occurrence_id=occurrence.id,
+            completion_id=completion.id,
+            client_mutation_id=request.client_mutation_id,
+            reason=request.reason,
+            server_received_at=now,
+            server_processed_at=now,
+            event_sequence=event_sequence,
+        )
+        completion.reversed_at = now
+        occurrence.occurrence_state = "reversed"
+        occurrence.reversed_at = now
+        occurrence.record_version += 1
+        occurrence.updated_at = now
+        database_session.add(reversal)
+        database_session.flush()
+
+        if campaign.campaign_state != "archived":
+            previous_campaign_state = campaign.campaign_state
+            try:
+                campaign.campaign_state = _derived_campaign_state(
+                    database_session, campaign, now
+                )
+            except InvalidCampaignStructureError as error:
+                database_session.rollback()
+                raise CompletionRejectedError(
+                    "campaign_structure_invalid",
+                    "The campaign cannot accept this reversal.",
+                    current=current,
+                ) from error
+            if campaign.campaign_state != previous_campaign_state:
+                campaign.record_version += 1
+                campaign.updated_at = now
+
+        response = _reversal_response(
+            outcome="reversed",
+            occurrence=occurrence,
+            completion=completion,
+            reversal=reversal,
+            campaign=campaign,
+        )
+        mutation.processing_status = "succeeded"
+        mutation.result_type = "quest_completion_reversal"
+        mutation.result_id = reversal.id
         mutation.result_payload = response.model_dump(mode="json")
         mutation.processed_at = now
         try:

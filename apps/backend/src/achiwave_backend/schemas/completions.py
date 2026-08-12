@@ -12,6 +12,14 @@ class CompleteOccurrenceRequest(BaseModel):
     expected_occurrence_version: int = Field(ge=1)
 
 
+class ReverseCompletionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    client_mutation_id: UUID
+    expected_occurrence_version: int = Field(ge=1)
+    reason: Literal["user_correction"] = "user_correction"
+
+
 class CompletionOccurrenceResponse(BaseModel):
     id: UUID
     quest_id: UUID
@@ -48,9 +56,28 @@ class ProgressEventReferenceResponse(BaseModel):
     server_processed_at: datetime
 
 
+class CompletionReversalResponse(BaseModel):
+    id: UUID
+    completion_id: UUID
+    occurrence_id: UUID
+    reason: Literal["user_correction"]
+    server_received_at: datetime
+    server_processed_at: datetime
+    event_sequence: int
+
+
 class CompleteOccurrenceResponse(BaseModel):
     outcome: Literal["completed", "duplicate_completion"]
     occurrence: CompletionOccurrenceResponse
     completion: CompletionRecordResponse
+    campaign: CompletionCampaignResponse
+    progress_events: list[ProgressEventReferenceResponse]
+
+
+class ReverseCompletionResponse(BaseModel):
+    outcome: Literal["reversed", "already_reversed"]
+    occurrence: CompletionOccurrenceResponse
+    completion: CompletionRecordResponse
+    reversal: CompletionReversalResponse
     campaign: CompletionCampaignResponse
     progress_events: list[ProgressEventReferenceResponse]

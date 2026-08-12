@@ -39,3 +39,22 @@ export interface CompleteOccurrenceResult {
   campaign: CompletionCampaign;
   progressEvents: ProgressEventReference[];
 }
+
+export interface CompletionReversal {
+  id: string;
+  completionId: string;
+  occurrenceId: string;
+  reason: "user_correction";
+  serverReceivedAt: string;
+  serverProcessedAt: string;
+  eventSequence: number;
+}
+
+export interface ReverseCompletionResult {
+  outcome: "reversed" | "already_reversed";
+  occurrence: CompletionOccurrence;
+  completion: CompletionRecord;
+  reversal: CompletionReversal;
+  campaign: CompletionCampaign;
+  progressEvents: ProgressEventReference[];
+}

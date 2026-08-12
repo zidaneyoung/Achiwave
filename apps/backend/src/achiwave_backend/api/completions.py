@@ -8,6 +8,8 @@ from achiwave_backend.api.errors import ApiError, ErrorResponse
 from achiwave_backend.schemas.completions import (
     CompleteOccurrenceRequest,
     CompleteOccurrenceResponse,
+    ReverseCompletionRequest,
+    ReverseCompletionResponse,
 )
 from achiwave_backend.services.completions import (
     CompletionMutationConflictError,
@@ -49,6 +51,47 @@ def create_completions_router(
                 status_code=status.HTTP_404_NOT_FOUND,
                 code="occurrence_not_found",
                 message="The quest occurrence was not found.",
+            ) from error
+        except CompletionMutationConflictError as error:
+            raise ApiError(
+                status_code=status.HTTP_409_CONFLICT,
+                code="client_mutation_conflict",
+                message="This request identifier was already used for another action.",
+            ) from error
+        except CompletionRejectedError as error:
+            raise ApiError(
+                status_code=status.HTTP_409_CONFLICT,
+                code=error.code,
+                message=error.message,
+                details={"current": error.current} if error.current else None,
+            ) from error
+
+    @router.post(
+        "/api/v1/quest-completions/{completion_id}/reverse",
+        response_model=ReverseCompletionResponse,
+        responses={
+            status.HTTP_404_NOT_FOUND: {"model": ErrorResponse},
+            status.HTTP_409_CONFLICT: {"model": ErrorResponse},
+        },
+    )
+    def reverse_completion(
+        completion_id: UUID,
+        request: ReverseCompletionRequest,
+        context: AuthenticationContext = Depends(authentication.current_context),
+        database_session: Session = Depends(authentication.database_session),
+    ) -> ReverseCompletionResponse:
+        try:
+            return service.reverse(
+                database_session,
+                context.user,
+                completion_id,
+                request,
+            )
+        except CompletionNotFoundError as error:
+            raise ApiError(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="completion_not_found",
+                message="The quest completion was not found.",
             ) from error
         except CompletionMutationConflictError as error:
             raise ApiError(

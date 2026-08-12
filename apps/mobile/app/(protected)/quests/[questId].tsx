@@ -57,6 +57,9 @@ export default function QuestDetailRoute() {
   const [transitionError, setTransitionError] = useState<string | null>(null);
   const [completing, setCompleting] = useState(false);
   const [completionError, setCompletionError] = useState<string | null>(null);
+  const [reversing, setReversing] = useState(false);
+  const [reversalDialogVisible, setReversalDialogVisible] = useState(false);
+  const [reversalError, setReversalError] = useState<string | null>(null);
   const [archiveDialogVisible, setArchiveDialogVisible] = useState(false);
   const [archiveError, setArchiveError] = useState<string | null>(null);
   const [dateFormat, setDateFormat] = useState<DateFormatPreference | null>(null);
@@ -65,6 +68,12 @@ export default function QuestDetailRoute() {
   const completionRequest = useRef<{
     mutationId: string;
     occurrenceId: string;
+    recordVersion: number;
+  } | null>(null);
+  const reversalPending = useRef(false);
+  const reversalRequest = useRef<{
+    completionId: string;
+    mutationId: string;
     recordVersion: number;
   } | null>(null);
   const archiveRequest = useRef<{ mutationId: string; recordVersion: number } | null>(null);
@@ -213,6 +222,54 @@ export default function QuestDetailRoute() {
     });
   }
 
+  function reverseCompletion() {
+    if (!quest?.occurrence?.activeCompletionId || !ownerId || reversalPending.current) return;
+    reversalRequest.current ??= {
+      completionId: quest.occurrence.activeCompletionId,
+      mutationId: completionApi.createMutationId(),
+      recordVersion: quest.occurrence.recordVersion,
+    };
+    reversalPending.current = true;
+    setReversing(true);
+    setReversalError(null);
+    void completionApi.reverse({
+      clientMutationId: reversalRequest.current.mutationId,
+      completionId: reversalRequest.current.completionId,
+      expectedOccurrenceVersion: reversalRequest.current.recordVersion,
+    }).then((result) => {
+      setQuest((current) => current?.occurrence ? {
+        ...current,
+        campaignRecordVersion: result.campaign.recordVersion,
+        campaignStatus: result.campaign.status,
+        occurrence: {
+          ...current.occurrence,
+          activeCompletionId: null,
+          completedAt: result.occurrence.completedAt,
+          recordVersion: result.occurrence.recordVersion,
+          reversedAt: result.occurrence.reversedAt,
+          status: result.occurrence.status,
+        },
+      } : current);
+      reversalRequest.current = null;
+      setReversalDialogVisible(false);
+      invalidateCachedCampaign(ownerId, result.campaign.id);
+      AccessibilityInfo.announceForAccessibility(
+        result.outcome === "already_reversed"
+          ? "Completion was already reversed and is synchronized."
+          : "Completion reversal confirmed by the server.",
+      );
+    }).catch((caught) => {
+      const message = caught instanceof CompletionRequestError
+        ? caught.message
+        : "The completion could not be reversed.";
+      setReversalError(message);
+      AccessibilityInfo.announceForAccessibility(message);
+    }).finally(() => {
+      reversalPending.current = false;
+      setReversing(false);
+    });
+  }
+
   useFocusEffect(useCallback(() => {
     void load("focus");
     return () => {
@@ -310,6 +367,18 @@ export default function QuestDetailRoute() {
               <AppText accessibilityLiveRegion="assertive" tone="error">{completionError}</AppText>
             </View>
           ) : null}
+          {quest.occurrence?.status === "completed" && quest.occurrence.activeCompletionId ? (
+            <AppButton
+              accessibilityHint="Opens an online-only confirmation to correct this completion while preserving history."
+              label="Reverse completion"
+              onPress={() => {
+                reversalRequest.current = null;
+                setReversalError(null);
+                setReversalDialogVisible(true);
+              }}
+              variant="secondary"
+            />
+          ) : null}
           {quest.definitionState === "active" && quest.campaignStatus !== "archived" ? (
             <AppButton
               icon="pencil-outline"
@@ -403,6 +472,30 @@ export default function QuestDetailRoute() {
             <View style={styles.snapshot}>
               <ErrorState kind="inline" />
               <AppText accessibilityLiveRegion="assertive" tone="error">{archiveError}</AppText>
+            </View>
+          ) : null}
+        </AppDialog>
+      ) : null}
+      {quest?.occurrence?.status === "completed" && quest.occurrence.activeCompletionId ? (
+        <AppDialog
+          busy={reversing}
+          confirmLabel="Reverse completion"
+          description="This online correction preserves the original completion and adds a reversal to its history."
+          dismissLabel="Cancel"
+          kind="destructive"
+          onConfirm={reverseCompletion}
+          onDismiss={() => {
+            if (reversalPending.current) return;
+            setReversalDialogVisible(false);
+            setReversalError(null);
+          }}
+          title="Reverse this completion?"
+          visible={reversalDialogVisible}
+        >
+          {reversalError ? (
+            <View style={styles.snapshot}>
+              <ErrorState kind="inline" />
+              <AppText accessibilityLiveRegion="assertive" tone="error">{reversalError}</AppText>
             </View>
           ) : null}
         </AppDialog>

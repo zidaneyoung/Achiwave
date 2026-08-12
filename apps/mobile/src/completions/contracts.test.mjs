@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parseCompleteOccurrence } from "./contracts.ts";
+import { parseCompleteOccurrence, parseReverseCompletion } from "./contracts.ts";
 
 const payload = {
   outcome: "completed",
@@ -44,4 +44,32 @@ test("rejects mismatched occurrence ancestry", () => {
     ...payload,
     completion: { ...payload.completion, occurrence_id: "other" },
   }), null);
+});
+
+test("parses an append-oriented reversal", () => {
+  const result = parseReverseCompletion({
+    ...payload,
+    outcome: "reversed",
+    occurrence: {
+      ...payload.occurrence,
+      status: "reversed",
+      record_version: 3,
+      reversed_at: "2026-08-12T12:05:00Z",
+    },
+    completion: {
+      ...payload.completion,
+      reversed_at: "2026-08-12T12:05:00Z",
+    },
+    reversal: {
+      id: "d0000000-0000-4000-8000-000000000005",
+      completion_id: payload.completion.id,
+      occurrence_id: payload.occurrence.id,
+      reason: "user_correction",
+      server_received_at: "2026-08-12T12:05:00Z",
+      server_processed_at: "2026-08-12T12:05:00Z",
+      event_sequence: 2,
+    },
+  });
+  assert.equal(result?.outcome, "reversed");
+  assert.equal(result?.reversal.eventSequence, 2);
 });
