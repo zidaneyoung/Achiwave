@@ -7,7 +7,13 @@ import { useAuthentication } from "../../../src/auth/AuthContext";
 import { useReducedMotion } from "../../../src/accessibility/ReducedMotionProvider";
 import { invalidateCachedCampaign } from "../../../src/campaigns/cache";
 import { AppButton } from "../../../src/components/AppButton";
-import { completionApi, CompletionRequestError } from "../../../src/completions/api";
+import {
+  completionApi,
+  CompletionRequestError,
+  type CompleteOccurrenceInput,
+} from "../../../src/completions/api";
+import type { CompleteOccurrenceResult } from "../../../src/completions/types";
+import { CompletionSubmissionRegistry } from "../../../src/completions/submission";
 import { ErrorState } from "../../../src/components/ErrorState";
 import { LoadingSkeleton } from "../../../src/components/LoadingSkeleton";
 import { AppDialog } from "../../../src/components/Overlays";
@@ -29,6 +35,10 @@ import {
 import { spacing } from "../../../src/theme/tokens";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+const completionSubmissions = new CompletionSubmissionRegistry<
+  CompleteOccurrenceInput,
+  CompleteOccurrenceResult
+>();
 
 function statusPresentation(quest: Quest): { label: string; tone: StatusTone } {
   const status = quest.definitionState === "archived" ? "archived" : quest.occurrence?.status ?? "active";
@@ -65,13 +75,6 @@ export default function QuestDetailRoute() {
   const [dateFormat, setDateFormat] = useState<DateFormatPreference | null>(null);
   const archivePending = useRef(false);
   const completionPending = useRef(false);
-  const completionRequest = useRef<{
-    mutationId: string;
-    occurrenceId: string;
-    recordVersion: number;
-    deviceObservedAt: string;
-    deviceTimezoneName: string;
-  } | null>(null);
   const reversalPending = useRef(false);
   const reversalRequest = useRef<{
     completionId: string;
@@ -179,23 +182,22 @@ export default function QuestDetailRoute() {
   function completeOccurrence() {
     if (!quest?.occurrence || !ownerId || completionPending.current) return;
     const occurrence = quest.occurrence;
-    completionRequest.current ??= {
-      mutationId: completionApi.createMutationId(),
-      occurrenceId: occurrence.id,
-      recordVersion: occurrence.recordVersion,
-      deviceObservedAt: new Date().toISOString(),
-      deviceTimezoneName: occurrence.timezoneName,
-    };
+    const key = `${ownerId}:${occurrence.id}`;
+    const submission = completionSubmissions.run(
+      key,
+      () => ({
+        clientMutationId: completionApi.createMutationId(),
+        deviceObservedAt: new Date().toISOString(),
+        deviceTimezoneName: occurrence.timezoneName,
+        expectedOccurrenceVersion: occurrence.recordVersion,
+        occurrenceId: occurrence.id,
+      }),
+      (input) => completionApi.complete(input),
+    );
     completionPending.current = true;
     setCompleting(true);
     setCompletionError(null);
-    void completionApi.complete({
-      clientMutationId: completionRequest.current.mutationId,
-      expectedOccurrenceVersion: completionRequest.current.recordVersion,
-      occurrenceId: completionRequest.current.occurrenceId,
-      deviceObservedAt: completionRequest.current.deviceObservedAt,
-      deviceTimezoneName: completionRequest.current.deviceTimezoneName,
-    }).then((result) => {
+    void submission.promise.then((result) => {
       setQuest((current) => current?.occurrence ? {
         ...current,
         campaignRecordVersion: result.campaign.recordVersion,
@@ -209,7 +211,6 @@ export default function QuestDetailRoute() {
           status: result.occurrence.status,
         },
       } : current);
-      completionRequest.current = null;
       invalidateCachedCampaign(ownerId, result.campaign.id);
       AccessibilityInfo.announceForAccessibility(
         result.outcome === "duplicate_completion"

@@ -24,6 +24,14 @@ export class CompletionRequestError extends Error {
   }
 }
 
+export interface CompleteOccurrenceInput {
+  occurrenceId: string;
+  expectedOccurrenceVersion: number;
+  clientMutationId: string;
+  deviceObservedAt: string;
+  deviceTimezoneName: string;
+}
+
 async function readJson(response: Response): Promise<unknown> {
   try { return await response.json(); } catch { return null; }
 }
@@ -55,13 +63,7 @@ function responseError(response: Response, body: unknown): CompletionRequestErro
 export const completionApi = {
   createMutationId(): string { return Crypto.randomUUID(); },
 
-  async complete(input: {
-    occurrenceId: string;
-    expectedOccurrenceVersion: number;
-    clientMutationId: string;
-    deviceObservedAt: string;
-    deviceTimezoneName: string;
-  }): Promise<CompleteOccurrenceResult> {
+  async complete(input: CompleteOccurrenceInput): Promise<CompleteOccurrenceResult> {
     try {
       const response = await authenticationService.request(
         `/api/v1/quest-occurrences/${encodeURIComponent(input.occurrenceId)}/complete`,
