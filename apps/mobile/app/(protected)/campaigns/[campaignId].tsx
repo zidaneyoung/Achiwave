@@ -428,7 +428,7 @@ export default function CampaignDetailRoute() {
                   Reordering is disabled while archived quests are shown. Hide archived quests to change active order.
                 </AppText>
               ) : null}
-              {detail.status === "active" ? (
+              {detail.status !== "archived" ? (
                 <AppButton
                   icon="plus"
                   label="Create one-time quest"
