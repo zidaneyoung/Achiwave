@@ -5,6 +5,7 @@ import {
   beginCompletionPresentation,
   clearCompletionPresentations,
   confirmCompletionPresentation,
+  failCompletionPresentation,
   getCompletionPresentation,
   refreshCompletionCanonical,
 } from "./presentation.ts";
@@ -84,4 +85,44 @@ test("account scope prevents another owner from seeing pending state", async () 
   await clearCompletionPresentations();
   beginCompletionPresentation("first-owner", quest(), input());
   assert.equal(getCompletionPresentation("second-owner", "occurrence"), null);
+});
+
+test("failure is stored before rollback and pending state cannot resurrect", async () => {
+  await clearCompletionPresentations();
+  beginCompletionPresentation("owner", quest(), input());
+  const failure = {
+    reason: "stale_version",
+    kind: "permanent_failure",
+    message: "Changed elsewhere.",
+    nextAction: "Review latest state",
+    refreshCanonical: true,
+  };
+  const first = failCompletionPresentation(
+    "owner",
+    "occurrence",
+    "mutation",
+    failure,
+  );
+  const repeated = failCompletionPresentation(
+    "owner",
+    "occurrence",
+    "mutation",
+    failure,
+  );
+  assert.equal(first.changed, true);
+  assert.equal(repeated.changed, false);
+  assert.equal(first.presentation?.phase, "permanent_failure");
+  assert.equal(first.presentation?.canonical.occurrenceStatus, "available");
+
+  refreshCompletionCanonical("owner", quest({
+    occurrence: {
+      id: "occurrence",
+      status: "expired",
+      recordVersion: 3,
+      activeCompletionId: null,
+    },
+  }));
+  const afterRestartEquivalent = getCompletionPresentation("owner", "occurrence");
+  assert.equal(afterRestartEquivalent?.phase, "permanent_failure");
+  assert.equal(afterRestartEquivalent?.canonical.occurrenceStatus, "expired");
 });

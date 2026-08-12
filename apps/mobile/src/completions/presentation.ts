@@ -1,5 +1,6 @@
 import type { CompleteOccurrenceInput } from "./api";
 import type { CompleteOccurrenceResult } from "./types";
+import type { CompletionFailure } from "./failure";
 import type { Quest } from "../quests/types";
 
 export interface CompletionCanonicalSnapshot {
@@ -26,6 +27,13 @@ export type CompletionPresentation =
       canonical: CompletionCanonicalSnapshot;
       mutationId: string;
       confirmedResult: CompleteOccurrenceResult;
+    }
+  | {
+      phase: "retryable_failure" | "permanent_failure";
+      canonical: CompletionCanonicalSnapshot;
+      mutationId: string;
+      confirmedResult: null;
+      failure: CompletionFailure;
     };
 
 const records = new Map<string, CompletionPresentation>();
@@ -109,6 +117,44 @@ export function refreshCompletionCanonical(
   records.set(recordKey, record);
   emit(recordKey);
   return record;
+}
+
+export function failCompletionPresentation(
+  ownerId: string,
+  occurrenceId: string,
+  mutationId: string,
+  failure: CompletionFailure,
+): { presentation: CompletionPresentation | null; changed: boolean } {
+  const recordKey = key(ownerId, occurrenceId);
+  const existing = records.get(recordKey);
+  if (!existing || existing.mutationId !== mutationId) {
+    return { presentation: existing ?? null, changed: false };
+  }
+  if (
+    (existing.phase === "retryable_failure" || existing.phase === "permanent_failure") &&
+    existing.failure.reason === failure.reason
+  ) {
+    return { presentation: existing, changed: false };
+  }
+  const record: CompletionPresentation = {
+    phase: failure.kind,
+    canonical: existing.canonical,
+    mutationId,
+    confirmedResult: null,
+    failure,
+  };
+  records.set(recordKey, record);
+  emit(recordKey);
+  return { presentation: record, changed: true };
+}
+
+export function clearCompletionPresentation(
+  ownerId: string,
+  occurrenceId: string,
+): void {
+  const recordKey = key(ownerId, occurrenceId);
+  records.delete(recordKey);
+  emit(recordKey);
 }
 
 export function getCompletionPresentation(

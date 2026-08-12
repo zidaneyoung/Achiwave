@@ -14,9 +14,12 @@ import {
 } from "../../../src/completions/api";
 import type { CompleteOccurrenceResult } from "../../../src/completions/types";
 import { CompletionSubmissionRegistry } from "../../../src/completions/submission";
+import { classifyCompletionFailure } from "../../../src/completions/failure";
 import {
   beginCompletionPresentation,
+  clearCompletionPresentation,
   confirmCompletionPresentation,
+  failCompletionPresentation,
   getCompletionPresentation,
   refreshCompletionCanonical,
   subscribeCompletionPresentation,
@@ -73,7 +76,6 @@ export default function QuestDetailRoute() {
   const [transitioning, setTransitioning] = useState(false);
   const [transitionError, setTransitionError] = useState<string | null>(null);
   const [completing, setCompleting] = useState(false);
-  const [completionError, setCompletionError] = useState<string | null>(null);
   const [reversing, setReversing] = useState(false);
   const [reversalDialogVisible, setReversalDialogVisible] = useState(false);
   const [reversalError, setReversalError] = useState<string | null>(null);
@@ -206,6 +208,7 @@ export default function QuestDetailRoute() {
     if (!quest?.occurrence || !ownerId || completionPending.current) return;
     const occurrence = quest.occurrence;
     const key = `${ownerId}:${occurrence.id}`;
+    if (completionPresentation?.phase === "permanent_failure") return;
     const submission = completionSubmissions.run(
       key,
       () => ({
@@ -220,7 +223,6 @@ export default function QuestDetailRoute() {
     beginCompletionPresentation(ownerId, quest, submission.input);
     completionPending.current = true;
     setCompleting(true);
-    setCompletionError(null);
     void submission.promise.then((result) => {
       confirmCompletionPresentation(ownerId, result);
       setQuest((current) => current?.occurrence ? {
@@ -243,11 +245,20 @@ export default function QuestDetailRoute() {
           : "Quest completion confirmed by the server.",
       );
     }).catch((caught) => {
-      const message = caught instanceof CompletionRequestError
-        ? caught.message
-        : "The completion could not be confirmed.";
-      setCompletionError(message);
-      AccessibilityInfo.announceForAccessibility(message);
+      const failure = classifyCompletionFailure(caught);
+      const failed = failCompletionPresentation(
+        ownerId,
+        occurrence.id,
+        submission.input.clientMutationId,
+        failure,
+      );
+      if (failure.kind === "permanent_failure") completionSubmissions.clear(key);
+      if (failure.refreshCanonical) void load("retry");
+      if (failed.changed) {
+        AccessibilityInfo.announceForAccessibility(
+          `${failure.message} ${failure.nextAction}.`,
+        );
+      }
     }).finally(() => {
       completionPending.current = false;
       setCompleting(false);
@@ -354,6 +365,12 @@ export default function QuestDetailRoute() {
           {completionPresentation?.phase === "synchronized" ? (
             <StatusBadge label="Completion synchronized with the server" tone="success" />
           ) : null}
+          {completionPresentation?.phase === "retryable_failure" ? (
+            <StatusBadge label="Completion not synchronized — retry available" tone="error" />
+          ) : null}
+          {completionPresentation?.phase === "permanent_failure" ? (
+            <StatusBadge label="Completion rejected — canonical state restored" tone="error" />
+          ) : null}
           <AppText accessibilityRole="header" variant="heading1">{quest.title}</AppText>
           {quest.description ? <AppText tone="muted">{quest.description}</AppText> : null}
           <AppText>Category: {quest.categoryLabel}</AppText>
@@ -391,15 +408,30 @@ export default function QuestDetailRoute() {
             <AppButton
               accessibilityHint="Submits this occurrence to the server for authoritative completion."
               icon="check-circle-outline"
-              label={completionError ? "Retry completion" : "Complete quest"}
-              loading={completing}
+              disabled={completionPresentation?.phase === "permanent_failure"}
+              label={completionPresentation?.phase === "retryable_failure" ? "Retry completion" : "Complete quest"}
+              loading={completing || completionPresentation?.phase === "pending"}
               onPress={completeOccurrence}
             />
           ) : null}
-          {completionError ? (
+          {completionPresentation &&
+          (completionPresentation.phase === "retryable_failure" ||
+            completionPresentation.phase === "permanent_failure") ? (
             <View style={styles.snapshot}>
               <ErrorState kind="inline" />
-              <AppText accessibilityLiveRegion="assertive" tone="error">{completionError}</AppText>
+              <AppText accessibilityLiveRegion="assertive" tone="error">
+                {completionPresentation.failure.message} {completionPresentation.failure.nextAction}.
+              </AppText>
+              {completionPresentation.phase === "permanent_failure" ? (
+                <AppButton
+                  label="Review refreshed quest"
+                  onPress={() => {
+                    clearCompletionPresentation(ownerId, quest.occurrence?.id ?? "");
+                    void load("manual");
+                  }}
+                  variant="secondary"
+                />
+              ) : null}
             </View>
           ) : null}
           {quest.occurrence?.status === "completed" && quest.occurrence.activeCompletionId ? (
