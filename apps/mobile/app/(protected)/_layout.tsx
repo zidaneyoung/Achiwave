@@ -1,9 +1,11 @@
+import { useEffect } from "react";
 import { Redirect, Stack, useSegments } from "expo-router";
 
 import { AuthStateScreen } from "../../src/auth/AuthStateScreen";
 import { useAuthentication } from "../../src/auth/AuthContext";
 import { useAchiwaveTheme } from "../../src/theme/ThemeProvider";
 import { useReducedMotion } from "../../src/accessibility/ReducedMotionProvider";
+import { completionQueue } from "../../src/completions/queue";
 
 export const unstable_settings = {
   initialRouteName: "(tabs)",
@@ -14,6 +16,12 @@ export default function ProtectedLayout() {
   const theme = useAchiwaveTheme();
   const reduceMotion = useReducedMotion();
   const segments = useSegments();
+  const accountId = state.status === "authenticated" || state.status === "offline_limited"
+    ? state.user.id
+    : null;
+  useEffect(() => {
+    if (accountId) void completionQueue.initialize(accountId);
+  }, [accountId]);
   if (state.status === "loading") {
     return (
       <AuthStateScreen

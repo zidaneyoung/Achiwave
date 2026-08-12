@@ -7,6 +7,10 @@ export const NON_TERMINAL_QUEUE_STATES = [
   "retryable_failure",
 ] as const;
 
+export const COMPLETION_QUEUE_LEASE_MILLISECONDS = 60_000;
+export const COMPLETION_QUEUE_TERMINAL_RETENTION_MILLISECONDS =
+  7 * 24 * 60 * 60 * 1_000;
+
 export function canonicalCompletionPayload(
   input: CompleteOccurrenceInput,
 ): string {
@@ -31,4 +35,19 @@ export function activeQueueRecord(
         record.state as (typeof NON_TERMINAL_QUEUE_STATES)[number],
       ),
   ) ?? null;
+}
+
+export function isLeaseExpired(
+  record: Pick<CompletionQueueRecord, "state" | "leaseExpiresAt">,
+  now: Date,
+): boolean {
+  return record.state === "in_flight" &&
+    record.leaseExpiresAt !== null &&
+    Date.parse(record.leaseExpiresAt) <= now.getTime();
+}
+
+export function retainedTerminalCutoff(now: Date): string {
+  return new Date(
+    now.getTime() - COMPLETION_QUEUE_TERMINAL_RETENTION_MILLISECONDS,
+  ).toISOString();
 }

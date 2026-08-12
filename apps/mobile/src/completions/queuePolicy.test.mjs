@@ -4,6 +4,8 @@ import test from "node:test";
 import {
   activeQueueRecord,
   canonicalCompletionPayload,
+  isLeaseExpired,
+  retainedTerminalCutoff,
 } from "./queuePolicy.ts";
 
 const input = {
@@ -33,4 +35,36 @@ test("duplicate taps resolve to one account-scoped active operation", () => {
     record,
   );
   assert.equal(activeQueueRecord([record], "account-b", "occurrence-1"), null);
+});
+
+test("only an expired in-flight lease is recoverable after restart", () => {
+  const now = new Date("2026-08-12T12:01:00.000Z");
+  assert.equal(
+    isLeaseExpired(
+      { state: "in_flight", leaseExpiresAt: "2026-08-12T12:00:59.000Z" },
+      now,
+    ),
+    true,
+  );
+  assert.equal(
+    isLeaseExpired(
+      { state: "in_flight", leaseExpiresAt: "2026-08-12T12:01:01.000Z" },
+      now,
+    ),
+    false,
+  );
+  assert.equal(
+    isLeaseExpired(
+      { state: "retryable_failure", leaseExpiresAt: "2026-08-12T12:00:59.000Z" },
+      now,
+    ),
+    false,
+  );
+});
+
+test("terminal queue evidence uses a bounded seven-day retention cutoff", () => {
+  assert.equal(
+    retainedTerminalCutoff(new Date("2026-08-12T12:00:00.000Z")),
+    "2026-08-05T12:00:00.000Z",
+  );
 });

@@ -5,6 +5,7 @@ import {
   type CompletionQueueRecord,
   type CompletionQueueState,
 } from "./queueTypes";
+import { retainedTerminalCutoff } from "./queuePolicy";
 
 const DATABASE_NAME = "achiwave-protected-sync.db";
 
@@ -70,6 +71,56 @@ function fromRow(row: QueueRow): CompletionQueueRecord {
 
 let databasePromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
+async function migrateDatabase(db: SQLite.SQLiteDatabase): Promise<void> {
+  const versionRow = await db.getFirstAsync<{ user_version: number }>(
+    "PRAGMA user_version",
+  );
+  const version = versionRow?.user_version ?? 0;
+  if (version > COMPLETION_QUEUE_SCHEMA_VERSION) {
+    throw new Error("This completion queue schema is not supported.");
+  }
+  if (version === 0) {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS completion_queue (
+        queue_id TEXT PRIMARY KEY NOT NULL,
+        schema_version INTEGER NOT NULL,
+        account_id TEXT NOT NULL,
+        device_id TEXT NOT NULL,
+        operation_type TEXT NOT NULL CHECK (operation_type = 'complete_occurrence'),
+        occurrence_id TEXT NOT NULL,
+        expected_occurrence_version INTEGER NOT NULL,
+        client_mutation_id TEXT NOT NULL,
+        canonical_payload_hash TEXT NOT NULL,
+        device_observed_at TEXT NOT NULL,
+        device_timezone_name TEXT NOT NULL,
+        state TEXT NOT NULL CHECK (state IN ('pending', 'in_flight', 'retryable_failure', 'succeeded', 'permanent_failure', 'cancelled')),
+        attempt_count INTEGER NOT NULL DEFAULT 0,
+        automatic_attempt_count INTEGER NOT NULL DEFAULT 0,
+        next_attempt_at TEXT,
+        last_attempt_at TEXT,
+        lease_expires_at TEXT,
+        safe_error_class TEXT,
+        safe_error_message TEXT,
+        completion_id TEXT,
+        campaign_id TEXT,
+        event_sequence INTEGER,
+        canonical_result_json TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        terminal_at TEXT
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_completion_queue_mutation
+        ON completion_queue (account_id, client_mutation_id);
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_completion_queue_active_occurrence
+        ON completion_queue (account_id, occurrence_id)
+        WHERE state IN ('pending', 'in_flight', 'retryable_failure');
+      CREATE INDEX IF NOT EXISTS ix_completion_queue_partition_due
+        ON completion_queue (account_id, state, next_attempt_at, created_at);
+      PRAGMA user_version = ${COMPLETION_QUEUE_SCHEMA_VERSION};
+    `);
+  }
+}
+
 async function database(): Promise<SQLite.SQLiteDatabase> {
   if (databasePromise === null) {
     databasePromise = SQLite.openDatabaseAsync(DATABASE_NAME).then(async (db) => {
@@ -77,43 +128,8 @@ async function database(): Promise<SQLite.SQLiteDatabase> {
         PRAGMA journal_mode = WAL;
         PRAGMA foreign_keys = ON;
         PRAGMA secure_delete = ON;
-        CREATE TABLE IF NOT EXISTS completion_queue (
-          queue_id TEXT PRIMARY KEY NOT NULL,
-          schema_version INTEGER NOT NULL,
-          account_id TEXT NOT NULL,
-          device_id TEXT NOT NULL,
-          operation_type TEXT NOT NULL CHECK (operation_type = 'complete_occurrence'),
-          occurrence_id TEXT NOT NULL,
-          expected_occurrence_version INTEGER NOT NULL,
-          client_mutation_id TEXT NOT NULL,
-          canonical_payload_hash TEXT NOT NULL,
-          device_observed_at TEXT NOT NULL,
-          device_timezone_name TEXT NOT NULL,
-          state TEXT NOT NULL CHECK (state IN ('pending', 'in_flight', 'retryable_failure', 'succeeded', 'permanent_failure', 'cancelled')),
-          attempt_count INTEGER NOT NULL DEFAULT 0,
-          automatic_attempt_count INTEGER NOT NULL DEFAULT 0,
-          next_attempt_at TEXT,
-          last_attempt_at TEXT,
-          lease_expires_at TEXT,
-          safe_error_class TEXT,
-          safe_error_message TEXT,
-          completion_id TEXT,
-          campaign_id TEXT,
-          event_sequence INTEGER,
-          canonical_result_json TEXT,
-          created_at TEXT NOT NULL,
-          updated_at TEXT NOT NULL,
-          terminal_at TEXT
-        );
-        CREATE UNIQUE INDEX IF NOT EXISTS uq_completion_queue_mutation
-          ON completion_queue (account_id, client_mutation_id);
-        CREATE UNIQUE INDEX IF NOT EXISTS uq_completion_queue_active_occurrence
-          ON completion_queue (account_id, occurrence_id)
-          WHERE state IN ('pending', 'in_flight', 'retryable_failure');
-        CREATE INDEX IF NOT EXISTS ix_completion_queue_partition_due
-          ON completion_queue (account_id, state, next_attempt_at, created_at);
-        PRAGMA user_version = ${COMPLETION_QUEUE_SCHEMA_VERSION};
       `);
+      await migrateDatabase(db);
       return db;
     }).catch((error) => {
       databasePromise = null;
@@ -137,6 +153,55 @@ export interface NewCompletionQueueRecord {
 }
 
 export const completionQueueStorage = {
+  async initializePartition(
+    accountId: string,
+    now = new Date(),
+  ): Promise<CompletionQueueRecord[]> {
+    const db = await database();
+    const nowIso = now.toISOString();
+    await db.withExclusiveTransactionAsync(async (transaction) => {
+      await transaction.runAsync(
+        `UPDATE completion_queue
+         SET state = 'pending', lease_expires_at = NULL, updated_at = ?
+         WHERE account_id = ? AND state = 'in_flight'
+           AND lease_expires_at IS NOT NULL AND lease_expires_at <= ?`,
+        nowIso,
+        accountId,
+        nowIso,
+      );
+      await transaction.runAsync(
+        `DELETE FROM completion_queue
+         WHERE account_id = ? AND terminal_at IS NOT NULL AND terminal_at < ?`,
+        accountId,
+        retainedTerminalCutoff(now),
+      );
+    });
+    const rows = await db.getAllAsync<QueueRow>(
+      "SELECT * FROM completion_queue WHERE account_id = ? ORDER BY created_at",
+      accountId,
+    );
+    return rows.map(fromRow);
+  },
+
+  async listPartition(accountId: string): Promise<CompletionQueueRecord[]> {
+    const db = await database();
+    const rows = await db.getAllAsync<QueueRow>(
+      "SELECT * FROM completion_queue WHERE account_id = ? ORDER BY created_at",
+      accountId,
+    );
+    return rows.map(fromRow);
+  },
+
+  async countPending(accountId: string): Promise<number> {
+    const db = await database();
+    const row = await db.getFirstAsync<{ count: number }>(
+      `SELECT COUNT(*) AS count FROM completion_queue
+       WHERE account_id = ? AND state IN ('pending', 'in_flight', 'retryable_failure')`,
+      accountId,
+    );
+    return row?.count ?? 0;
+  },
+
   async findActive(
     accountId: string,
     occurrenceId: string,
@@ -178,5 +243,22 @@ export const completionQueueStorage = {
     const inserted = await this.findActive(record.accountId, record.occurrenceId);
     if (!inserted) throw new Error("The offline completion was not stored.");
     return inserted;
+  },
+
+  async purgeAll(): Promise<void> {
+    const db = await database();
+    const now = new Date().toISOString();
+    await db.runAsync(
+      `UPDATE completion_queue
+       SET state = 'cancelled', safe_error_class = NULL,
+           safe_error_message = NULL, canonical_result_json = NULL,
+           terminal_at = ?, updated_at = ?, lease_expires_at = NULL
+       WHERE state IN ('pending', 'in_flight', 'retryable_failure')`,
+      now,
+      now,
+    );
+    await db.closeAsync();
+    databasePromise = null;
+    await SQLite.deleteDatabaseAsync(DATABASE_NAME);
   },
 };

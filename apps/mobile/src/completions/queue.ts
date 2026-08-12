@@ -7,6 +7,14 @@ import { completionQueueStorage } from "./queueStorage";
 import type { CompletionQueueRecord } from "./queueTypes";
 
 export const completionQueue = {
+  initialize(accountId: string): Promise<CompletionQueueRecord[]> {
+    return completionQueueStorage.initializePartition(accountId);
+  },
+
+  pendingCount(accountId: string): Promise<number> {
+    return completionQueueStorage.countPending(accountId);
+  },
+
   async enqueue(
     authenticatedAccountId: string,
     input: CompleteOccurrenceInput,
@@ -48,5 +56,9 @@ export const completionQueue = {
       if (raced) return { record: raced, reused: true };
       throw error;
     }
+  },
+
+  purge(): Promise<void> {
+    return completionQueueStorage.purgeAll();
   },
 };
