@@ -126,7 +126,9 @@ function QuestForm({
   return (
     <>
       <AppText accessibilityRole="header" variant="heading1">Create one-time quest</AppText>
-      <AppText tone="muted">Add one action to {campaign.title}. Completion remains a later-stage action.</AppText>
+      <AppText tone="muted">
+        Add one action to {campaign.title}. The server recalculates campaign status after creation.
+      </AppText>
       <View style={styles.fields}>
         <AppTextField
           editable={!submitting}
@@ -223,8 +225,8 @@ export default function CreateQuestRoute() {
         questApi.getAuthoringOptions(),
       ]);
       if (request !== sequence.current) return;
-      if (result.status !== "active") {
-        setError("Only active campaigns can accept new quests.");
+      if (result.status === "archived") {
+        setError("Archived campaigns cannot accept new quests.");
         return;
       }
       setCampaign(result);

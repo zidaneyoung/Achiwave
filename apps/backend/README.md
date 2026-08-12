@@ -76,6 +76,12 @@ Stage 6 campaign and one-time quest API behavior is documented in the
 with executed evidence in the
 [`Stage 6 acceptance audit`](../../docs/testing/stage-6-acceptance.md).
 
+Stage 7 server-authoritative completion, reversal, idempotency, owner history,
+multi-device convergence, and campaign recalculation are documented in the
+[`Stage 7 feature contract`](../../docs/features/stage-7-completion-and-synchronization.md),
+with executed PostgreSQL and regression evidence in the
+[`Stage 7 acceptance audit`](../../docs/testing/stage-7-acceptance.md).
+
 The destructive migration tests require an explicitly disposable PostgreSQL URL:
 
 ```powershell

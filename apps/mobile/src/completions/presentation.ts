@@ -13,6 +13,7 @@ export interface CompletionCanonicalSnapshot {
   campaignId: string;
   campaignStatus: Quest["campaignStatus"];
   campaignVersion: number;
+  eventSequence: number | null;
 }
 
 export type CompletionPresentation =
@@ -53,7 +54,30 @@ function canonicalFromQuest(quest: Quest): CompletionCanonicalSnapshot | null {
     campaignId: quest.campaignId,
     campaignStatus: quest.campaignStatus,
     campaignVersion: quest.campaignRecordVersion,
+    eventSequence: null,
   };
+}
+
+function resultEventSequence(result: CompleteOccurrenceResult): number {
+  return Math.max(
+    result.completion.eventSequence,
+    ...result.progressEvents.map((event) => event.eventSequence),
+  );
+}
+
+function isNotOlder(
+  current: CompletionCanonicalSnapshot,
+  incoming: CompletionCanonicalSnapshot,
+): boolean {
+  if (
+    incoming.occurrenceVersion < current.occurrenceVersion ||
+    incoming.campaignVersion < current.campaignVersion
+  ) {
+    return false;
+  }
+  return current.eventSequence === null ||
+    incoming.eventSequence === null ||
+    incoming.eventSequence >= current.eventSequence;
 }
 
 function emit(recordKey: string): void {
@@ -85,17 +109,20 @@ export function confirmCompletionPresentation(
 ): CompletionPresentation {
   const recordKey = key(ownerId, result.occurrence.id);
   const existing = records.get(recordKey);
+  const canonical: CompletionCanonicalSnapshot = {
+    occurrenceId: result.occurrence.id,
+    occurrenceStatus: result.occurrence.status,
+    occurrenceVersion: result.occurrence.recordVersion,
+    activeCompletionId: result.completion.id,
+    campaignId: result.campaign.id,
+    campaignStatus: result.campaign.status,
+    campaignVersion: result.campaign.recordVersion,
+    eventSequence: resultEventSequence(result),
+  };
+  if (existing && !isNotOlder(existing.canonical, canonical)) return existing;
   const record: CompletionPresentation = {
     phase: "synchronized",
-    canonical: {
-      occurrenceId: result.occurrence.id,
-      occurrenceStatus: result.occurrence.status,
-      occurrenceVersion: result.occurrence.recordVersion,
-      activeCompletionId: result.completion.id,
-      campaignId: result.campaign.id,
-      campaignStatus: result.campaign.status,
-      campaignVersion: result.campaign.recordVersion,
-    },
+    canonical,
     mutationId: existing?.mutationId ?? "server-confirmed",
     confirmedResult: result,
   };
@@ -113,7 +140,14 @@ export function refreshCompletionCanonical(
   const recordKey = key(ownerId, canonical.occurrenceId);
   const existing = records.get(recordKey);
   if (!existing) return null;
-  const record = { ...existing, canonical };
+  if (!isNotOlder(existing.canonical, canonical)) return existing;
+  const record = {
+    ...existing,
+    canonical: {
+      ...canonical,
+      eventSequence: canonical.eventSequence ?? existing.canonical.eventSequence,
+    },
+  };
   records.set(recordKey, record);
   emit(recordKey);
   return record;

@@ -177,6 +177,13 @@ export default function QuestDetailRoute() {
       });
       const result = await promise;
       if (request !== sequence.current) return;
+      const current = contentRef.current;
+      if (
+        current?.occurrence &&
+        result.quest.occurrence?.id === current.occurrence.id &&
+        (result.quest.occurrence.recordVersion < current.occurrence.recordVersion ||
+          result.quest.campaignRecordVersion < current.campaignRecordVersion)
+      ) return;
       contentRef.current = result.quest;
       refreshCompletionCanonical(ownerId, result.quest);
       setQuest(result.quest);
@@ -259,8 +266,13 @@ export default function QuestDetailRoute() {
     setCompleting(true);
     void submission.promise.then(async (result) => {
       await completionQueue.recordSynchronized(ownerId, submission.input, result);
-      confirmCompletionPresentation(ownerId, result);
-      setQuest((current) => current?.occurrence ? {
+      const confirmed = confirmCompletionPresentation(ownerId, result);
+      if (confirmed.confirmedResult !== result) {
+        void load("retry");
+        return;
+      }
+      const current = contentRef.current;
+      const canonical = current?.occurrence ? {
         ...current,
         campaignRecordVersion: result.campaign.recordVersion,
         campaignStatus: result.campaign.status,
@@ -272,7 +284,9 @@ export default function QuestDetailRoute() {
           reversedAt: result.occurrence.reversedAt,
           status: result.occurrence.status,
         },
-      } : current);
+      } : current;
+      contentRef.current = canonical;
+      setQuest(canonical);
       invalidateCachedCampaign(ownerId, result.campaign.id);
       AccessibilityInfo.announceForAccessibility(
         result.outcome === "duplicate_completion"
@@ -330,7 +344,16 @@ export default function QuestDetailRoute() {
       completionId: reversalRequest.current.completionId,
       expectedOccurrenceVersion: reversalRequest.current.recordVersion,
     }).then((result) => {
-      setQuest((current) => current?.occurrence ? {
+      const current = contentRef.current;
+      if (
+        current?.occurrence &&
+        (result.occurrence.recordVersion < current.occurrence.recordVersion ||
+          result.campaign.recordVersion < current.campaignRecordVersion)
+      ) {
+        void load("retry");
+        return;
+      }
+      const canonical = current?.occurrence ? {
         ...current,
         campaignRecordVersion: result.campaign.recordVersion,
         campaignStatus: result.campaign.status,
@@ -342,7 +365,9 @@ export default function QuestDetailRoute() {
           reversedAt: result.occurrence.reversedAt,
           status: result.occurrence.status,
         },
-      } : current);
+      } : current;
+      contentRef.current = canonical;
+      setQuest(canonical);
       reversalRequest.current = null;
       setReversalDialogVisible(false);
       invalidateCachedCampaign(ownerId, result.campaign.id);

@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from sqlalchemy import or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from achiwave_backend.models import (
@@ -23,6 +23,10 @@ from achiwave_backend.schemas.completions import (
     CompleteOccurrenceRequest,
     CompleteOccurrenceResponse,
     CompletionCampaignResponse,
+    CompletionHistoryCompletionResponse,
+    CompletionHistoryItemResponse,
+    CompletionHistoryResponse,
+    CompletionHistoryReversalResponse,
     CompletionOccurrenceResponse,
     CompletionRecordResponse,
     CompletionReversalResponse,
@@ -332,6 +336,145 @@ def _commit_permanent_rejection(
 
 
 class CompletionService:
+    def history(
+        self,
+        database_session: Session,
+        current_user: User,
+        occurrence_id: UUID,
+        *,
+        limit: int,
+        offset: int,
+    ) -> CompletionHistoryResponse:
+        occurrence = database_session.scalar(
+            select(QuestOccurrence).where(
+                QuestOccurrence.id == occurrence_id,
+                QuestOccurrence.user_id == current_user.id,
+            )
+        )
+        if occurrence is None:
+            raise CompletionNotFoundError
+        completion_filter = (
+            QuestCompletion.occurrence_id == occurrence.id,
+            QuestCompletion.user_id == current_user.id,
+        )
+        total = database_session.scalar(
+            select(func.count()).select_from(QuestCompletion).where(*completion_filter)
+        )
+        completions = list(
+            database_session.scalars(
+                select(QuestCompletion)
+                .where(*completion_filter)
+                .order_by(QuestCompletion.event_sequence)
+                .limit(limit)
+                .offset(offset)
+            )
+        )
+        completion_ids = [completion.id for completion in completions]
+        reversals = list(
+            database_session.scalars(
+                select(QuestCompletionReversal)
+                .where(
+                    QuestCompletionReversal.user_id == current_user.id,
+                    QuestCompletionReversal.occurrence_id == occurrence.id,
+                    QuestCompletionReversal.completion_id.in_(completion_ids),
+                )
+                .order_by(QuestCompletionReversal.event_sequence)
+            )
+        ) if completion_ids else []
+        reversal_by_completion = {
+            reversal.completion_id: reversal for reversal in reversals
+        }
+        source_ids = completion_ids + [reversal.id for reversal in reversals]
+        events = list(
+            database_session.scalars(
+                select(ProgressEvent)
+                .where(
+                    ProgressEvent.user_id == current_user.id,
+                    or_(
+                        and_(
+                            ProgressEvent.source_type == "quest_completion",
+                            ProgressEvent.source_id.in_(completion_ids),
+                        ),
+                        and_(
+                            ProgressEvent.source_type
+                            == "quest_completion_reversal",
+                            ProgressEvent.source_id.in_(
+                                [reversal.id for reversal in reversals]
+                            ),
+                        ),
+                    ),
+                )
+                .order_by(ProgressEvent.event_sequence)
+            )
+        ) if source_ids else []
+        events_by_source: dict[UUID, list[ProgressEventReferenceResponse]] = {}
+        for event in events:
+            if event.server_processed_at is None:
+                continue
+            events_by_source.setdefault(event.source_id, []).append(
+                ProgressEventReferenceResponse(
+                    id=event.id,
+                    event_type=event.event_type,
+                    event_sequence=event.event_sequence,
+                    server_processed_at=event.server_processed_at,
+                )
+            )
+
+        items: list[CompletionHistoryItemResponse] = []
+        for completion in completions:
+            if completion.server_processed_at is None:
+                raise RuntimeError("Completion history contains an unfinished result.")
+            reversal = reversal_by_completion.get(completion.id)
+            reversal_response = None
+            item_events = list(events_by_source.get(completion.id, []))
+            if reversal is not None:
+                if reversal.server_processed_at is None:
+                    raise RuntimeError(
+                        "Completion history contains an unfinished reversal."
+                    )
+                reversal_response = CompletionHistoryReversalResponse(
+                    id=reversal.id,
+                    completion_id=reversal.completion_id,
+                    occurrence_id=reversal.occurrence_id,
+                    device_id=reversal.device_id,
+                    client_mutation_id=reversal.client_mutation_id,
+                    reason=reversal.reason,
+                    server_received_at=reversal.server_received_at,
+                    server_processed_at=reversal.server_processed_at,
+                    event_sequence=reversal.event_sequence,
+                )
+                item_events.extend(events_by_source.get(reversal.id, []))
+                item_events.sort(key=lambda event: event.event_sequence)
+            items.append(
+                CompletionHistoryItemResponse(
+                    completion=CompletionHistoryCompletionResponse(
+                        id=completion.id,
+                        occurrence_id=completion.occurrence_id,
+                        device_id=completion.device_id,
+                        client_mutation_id=completion.client_mutation_id,
+                        server_received_at=completion.server_received_at,
+                        server_processed_at=completion.server_processed_at,
+                        completion_effective_date=completion.completion_effective_date,
+                        event_sequence=completion.event_sequence,
+                        reversed_at=completion.reversed_at,
+                        device_observed_at=completion.device_observed_at,
+                        device_timezone_name=completion.device_timezone_name,
+                        client_time_valid=completion.client_time_valid,
+                    ),
+                    reversal=reversal_response,
+                    progress_events=item_events,
+                )
+            )
+        return CompletionHistoryResponse(
+            occurrence_id=occurrence.id,
+            quest_id=occurrence.quest_id,
+            campaign_id=occurrence.campaign_id,
+            items=items,
+            total=int(total or 0),
+            limit=limit,
+            offset=offset,
+        )
+
     def complete(
         self,
         database_session: Session,

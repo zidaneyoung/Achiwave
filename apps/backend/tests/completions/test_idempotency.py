@@ -18,6 +18,7 @@ from achiwave_backend.models import (
 )
 from achiwave_backend.schemas.completions import CompleteOccurrenceRequest
 from achiwave_backend.services.completions import CompletionService
+from tests.auth.test_registration import PASSWORD, registration_payload
 from tests.completions.helpers import (
     bearer,
     create_auth_client,
@@ -178,15 +179,17 @@ def test_transaction_rollback_leaves_no_partial_effect_and_retry_can_succeed(
             client_mutation_id=mutation_id,
             expected_occurrence_version=1,
         )
-        with patch.object(session, "commit", side_effect=RuntimeError("interrupted")):
-            with pytest.raises(RuntimeError, match="interrupted"):
-                CompletionService().complete(
-                    session,
-                    user,
-                    device,
-                    UUID(quest["occurrence"]["id"]),
-                    request,
-                )
+        with (
+            patch.object(session, "commit", side_effect=RuntimeError("interrupted")),
+            pytest.raises(RuntimeError, match="interrupted"),
+        ):
+            CompletionService().complete(
+                session,
+                user,
+                device,
+                UUID(quest["occurrence"]["id"]),
+                request,
+            )
 
     with auth_session_factory() as session:
         occurrence = session.get(
@@ -215,3 +218,75 @@ def test_transaction_rollback_leaves_no_partial_effect_and_retry_can_succeed(
         )
     assert retry.status_code == 200
     assert retry.json()["outcome"] == "completed"
+
+
+def test_two_registered_devices_converge_to_one_canonical_completion(
+    auth_database_url: str,
+    auth_session_factory: sessionmaker[Session],
+) -> None:
+    with create_auth_client(auth_database_url, auth_session_factory) as client:
+        first = register(client)
+        first_headers = bearer(first["access_token"])
+        second_installation = {
+            **dict(registration_payload()["installation"]),
+            "installation_id": "d5000000-0000-4000-8000-000000000006",
+        }
+        second_response = client.post(
+            "/api/v1/auth/login",
+            json={
+                "email": "Person@example.com",
+                "password": PASSWORD,
+                "installation": second_installation,
+            },
+        )
+        assert second_response.status_code == 200
+        second = second_response.json()
+        second_headers = bearer(second["access_token"])
+        _, quest = create_campaign_and_quest(client, first_headers)
+
+    path = f"/api/v1/quest-occurrences/{quest['occurrence']['id']}/complete"
+    barrier = Barrier(2)
+
+    def submit(device_number: int) -> tuple[int, dict[str, object]]:
+        headers = first_headers if device_number == 1 else second_headers
+        with create_auth_client(auth_database_url, auth_session_factory) as client:
+            barrier.wait()
+            response = client.post(
+                path,
+                headers=headers,
+                json={
+                    "client_mutation_id": (
+                        f"d5000000-0000-4000-8000-{device_number + 6:012d}"
+                    ),
+                    "expected_occurrence_version": 1,
+                },
+            )
+            return response.status_code, response.json()
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(submit, (1, 2)))
+
+    assert [status for status, _ in results] == [200, 200]
+    payloads = [payload for _, payload in results]
+    assert {payload["outcome"] for payload in payloads} == {
+        "completed",
+        "duplicate_completion",
+    }
+    assert len({payload["completion"]["id"] for payload in payloads}) == 1
+    assert len({payload["completion"]["event_sequence"] for payload in payloads}) == 1
+    assert all(payload["occurrence"]["record_version"] == 2 for payload in payloads)
+    assert all(payload["campaign"]["record_version"] == 3 for payload in payloads)
+
+    with auth_session_factory() as session:
+        device_ids = set(
+            session.scalars(
+                select(ClientMutation.device_id).where(
+                    ClientMutation.operation_type == "quest_occurrence_complete"
+                )
+            )
+        )
+        assert device_ids == {UUID(str(first["device_id"])), UUID(str(second["device_id"]))}
+        assert session.scalar(select(func.count()).select_from(QuestCompletion)) == 1
+        assert session.scalars(
+            select(ProgressEvent.event_sequence).order_by(ProgressEvent.event_sequence)
+        ).all() == [1, 2]

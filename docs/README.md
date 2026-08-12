@@ -13,6 +13,8 @@
 - [Stage 5 acceptance audit](testing/stage-5-acceptance.md)
 - [Stage 6 campaigns and quests](features/stage-6-campaigns-and-quests.md)
 - [Stage 6 acceptance audit](testing/stage-6-acceptance.md)
+- [Stage 7 completion and synchronization](features/stage-7-completion-and-synchronization.md)
+- [Stage 7 acceptance audit](testing/stage-7-acceptance.md)
 
 This index is the normative entry point for Stage 1 product rules. If a later
 implementation conflicts with these documents, the implementation is wrong until

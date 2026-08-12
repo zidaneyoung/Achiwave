@@ -13,10 +13,10 @@ from sqlalchemy.orm import Session, aliased
 from achiwave_backend.models import (
     Campaign,
     ClientMutation,
+    ProgressEvent,
     Quest,
     QuestCompletion,
     QuestOccurrence,
-    ProgressEvent,
     User,
     UserPreference,
 )
@@ -36,7 +36,10 @@ from achiwave_backend.schemas.quests import (
     UpdateOneTimeQuestRequest,
 )
 from achiwave_backend.services.campaigns import _derived_campaign_state
-from achiwave_backend.services.preferences import InvalidTimezoneError, validate_timezone_name
+from achiwave_backend.services.preferences import (
+    InvalidTimezoneError,
+    validate_timezone_name,
+)
 
 
 class CampaignUnavailableError(Exception):
@@ -970,7 +973,7 @@ class QuestService:
             if quest is None or occurrence is None:
                 raise RuntimeError("Quest mutation result is incomplete.")
             return QuestResult(quest, occurrence, campaign)
-        if campaign.campaign_state != "active":
+        if campaign.campaign_state == "archived":
             raise CampaignUnavailableError
         if campaign.record_version != request.campaign_record_version:
             raise StaleCampaignVersionError(campaign)
@@ -1044,9 +1047,41 @@ class QuestService:
             processed_at=now,
             updated_at=now,
         )
+        previous_campaign_state = campaign.campaign_state
         campaign.record_version += 1
         campaign.updated_at = now
         database_session.add_all([quest, occurrence, mutation])
+        database_session.flush()
+        campaign.campaign_state = _derived_campaign_state(
+            database_session, campaign, now
+        )
+        if campaign.campaign_state != previous_campaign_state:
+            event_sequence = user.next_event_sequence
+            user.next_event_sequence += 1
+            user.updated_at = now
+            database_session.add(
+                ProgressEvent(
+                    id=uuid4(),
+                    user_id=user.id,
+                    event_sequence=event_sequence,
+                    event_type=(
+                        "campaign_completed"
+                        if campaign.campaign_state == "completed"
+                        else "campaign_reopened"
+                    ),
+                    source_type="client_mutation",
+                    source_id=mutation.id,
+                    client_mutation_id=request.client_mutation_id,
+                    server_received_at=now,
+                    server_processed_at=now,
+                    rule_version=1,
+                    event_metadata={
+                        "campaign_id": str(campaign.id),
+                        "quest_id": str(quest.id),
+                        "previous_state": previous_campaign_state,
+                    },
+                )
+            )
         try:
             database_session.commit()
         except Exception:
