@@ -14,10 +14,16 @@ export function useCompletionSynchronization(
     let active = true;
     let wasOffline = false;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let scheduleGeneration = 0;
     const scheduleNext = async () => {
       if (!active || !enabled) return;
+      const generation = ++scheduleGeneration;
+      if (retryTimer !== null) {
+        clearTimeout(retryTimer);
+        retryTimer = null;
+      }
       const dueAt = await completionQueue.nextDueAt(accountId);
-      if (!active || dueAt === null) return;
+      if (!active || generation !== scheduleGeneration || dueAt === null) return;
       const delay = Math.max(0, Date.parse(dueAt) - Date.now());
       retryTimer = setTimeout(() => {
         retryTimer = null;
@@ -52,10 +58,14 @@ export function useCompletionSynchronization(
         state.isInternetReachable,
       );
     });
+    const unsubscribeQueue = completionQueue.subscribePartition(accountId, () => {
+      void scheduleNext();
+    });
     return () => {
       active = false;
       if (retryTimer !== null) clearTimeout(retryTimer);
       unsubscribe();
+      unsubscribeQueue();
     };
   }, [accountId, enabled, onReconnectWhileLimited]);
 }

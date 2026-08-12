@@ -2,9 +2,11 @@ import * as Crypto from "expo-crypto";
 
 import { authenticationService } from "../auth/service";
 import type { CompleteOccurrenceInput } from "./api";
+import type { CompleteOccurrenceResult } from "./types";
 import { canonicalCompletionPayload } from "./queuePolicy";
 import {
   completionQueueStorage,
+  subscribeCompletionQueuePartition,
   subscribeCompletionQueueRecord,
 } from "./queueStorage";
 import type { CompletionQueueRecord } from "./queueTypes";
@@ -39,6 +41,10 @@ export const completionQueue = {
     listener: () => void,
   ): () => void {
     return subscribeCompletionQueueRecord(accountId, occurrenceId, listener);
+  },
+
+  subscribePartition(accountId: string, listener: () => void): () => void {
+    return subscribeCompletionQueuePartition(accountId, listener);
   },
 
   async enqueue(
@@ -82,6 +88,36 @@ export const completionQueue = {
       if (raced) return { record: raced, reused: true };
       throw error;
     }
+  },
+
+  async recordSynchronized(
+    authenticatedAccountId: string,
+    input: CompleteOccurrenceInput,
+    result: CompleteOccurrenceResult,
+  ): Promise<CompletionQueueRecord> {
+    const queued = await this.enqueue(authenticatedAccountId, input);
+    await completionQueueStorage.markSucceeded(
+      authenticatedAccountId,
+      queued.record.queueId,
+      {
+        completionId: result.completion.id,
+        campaignId: result.campaign.id,
+        eventSequence: Math.max(
+          result.completion.eventSequence,
+          ...result.progressEvents.map((event) => event.eventSequence),
+        ),
+        canonicalResultJson: JSON.stringify(result),
+      },
+      new Date(),
+    );
+    const stored = await completionQueueStorage.findLatest(
+      authenticatedAccountId,
+      input.occurrenceId,
+    );
+    if (!stored || stored.state !== "succeeded") {
+      throw new Error("The canonical completion was not stored durably.");
+    }
+    return stored;
   },
 
   purge(): Promise<void> {

@@ -10,6 +10,7 @@ import { COMPLETION_RETRY_MAX_AUTOMATIC_ATTEMPTS } from "./retryPolicy";
 
 const DATABASE_NAME = "achiwave-protected-sync.db";
 const queueListeners = new Map<string, Set<() => void>>();
+const partitionListeners = new Map<string, Set<() => void>>();
 
 function listenerKey(accountId: string, occurrenceId: string): string {
   return `${accountId}:${occurrenceId}`;
@@ -19,6 +20,7 @@ function emitQueueChange(accountId: string, occurrenceId: string): void {
   for (const listener of queueListeners.get(listenerKey(accountId, occurrenceId)) ?? []) {
     listener();
   }
+  for (const listener of partitionListeners.get(accountId) ?? []) listener();
 }
 
 export function subscribeCompletionQueueRecord(
@@ -33,6 +35,19 @@ export function subscribeCompletionQueueRecord(
   return () => {
     listeners.delete(listener);
     if (listeners.size === 0) queueListeners.delete(key);
+  };
+}
+
+export function subscribeCompletionQueuePartition(
+  accountId: string,
+  listener: () => void,
+): () => void {
+  const listeners = partitionListeners.get(accountId) ?? new Set();
+  listeners.add(listener);
+  partitionListeners.set(accountId, listeners);
+  return () => {
+    listeners.delete(listener);
+    if (listeners.size === 0) partitionListeners.delete(accountId);
   };
 }
 
@@ -276,7 +291,7 @@ export const completionQueueStorage = {
     const row = await db.getFirstAsync<QueueRow>(
       `SELECT * FROM completion_queue
        WHERE account_id = ? AND occurrence_id = ?
-       ORDER BY created_at DESC LIMIT 1`,
+       ORDER BY created_at DESC, updated_at DESC, queue_id DESC LIMIT 1`,
       accountId,
       occurrenceId,
     );
@@ -427,7 +442,8 @@ export const completionQueueStorage = {
            event_sequence = ?, canonical_result_json = ?, safe_error_class = NULL,
            safe_error_message = NULL, lease_expires_at = NULL,
            next_attempt_at = NULL, terminal_at = ?, updated_at = ?
-       WHERE queue_id = ? AND account_id = ? AND state = 'in_flight'`,
+       WHERE queue_id = ? AND account_id = ?
+         AND state IN ('pending', 'in_flight', 'retryable_failure')`,
       result.completionId,
       result.campaignId,
       result.eventSequence,
@@ -438,7 +454,17 @@ export const completionQueueStorage = {
       accountId,
     );
     if (updated.changes !== 1) {
-      throw new Error("The synchronized completion result was not persisted.");
+      const existing = await db.getFirstAsync<{
+        state: CompletionQueueState;
+        completion_id: string | null;
+      }>(
+        "SELECT state, completion_id FROM completion_queue WHERE account_id = ? AND queue_id = ?",
+        accountId,
+        queueId,
+      );
+      if (existing?.state !== "succeeded" || existing.completion_id !== result.completionId) {
+        throw new Error("The synchronized completion result was not persisted.");
+      }
     }
     if (current) emitQueueChange(accountId, current.occurrence_id);
   },
@@ -617,6 +643,9 @@ export const completionQueueStorage = {
     databasePromise = null;
     await SQLite.deleteDatabaseAsync(DATABASE_NAME);
     for (const listeners of queueListeners.values()) {
+      for (const listener of listeners) listener();
+    }
+    for (const listeners of partitionListeners.values()) {
       for (const listener of listeners) listener();
     }
   },
