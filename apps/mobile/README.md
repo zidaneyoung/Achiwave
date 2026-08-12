@@ -56,6 +56,14 @@ retains ownership, lifecycle, record-version, scheduling, and reward authority.
 See the [Stage 6 feature contract](../../docs/features/stage-6-campaigns-and-quests.md)
 and [acceptance audit](../../docs/testing/stage-6-acceptance.md).
 
+## Stage 7 completion and synchronization
+
+Android presents server-confirmed completion/reversal state, safe pending
+feedback, and the controlled durable offline completion queue. It does not award
+progression. See the
+[Stage 7 feature contract](../../docs/features/stage-7-completion-and-synchronization.md)
+and [acceptance audit](../../docs/testing/stage-7-acceptance.md).
+
 ## Android identity
 
 Stage 2 development builds use `com.zidaneyoung.achiwave.dev` and the `achiwave`

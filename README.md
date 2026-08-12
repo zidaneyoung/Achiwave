@@ -32,3 +32,5 @@ Stage 1 domain rules and acceptance evidence are indexed in
 - [Review Stage 3 issue-by-issue acceptance evidence](docs/testing/stage-3-acceptance.md)
 - [Review the Stage 6 campaign and quest feature contract](docs/features/stage-6-campaigns-and-quests.md)
 - [Review Stage 6 issue-by-issue acceptance evidence](docs/testing/stage-6-acceptance.md)
+- [Review the Stage 7 completion and synchronization contract](docs/features/stage-7-completion-and-synchronization.md)
+- [Review Stage 7 issue-by-issue acceptance evidence](docs/testing/stage-7-acceptance.md)
