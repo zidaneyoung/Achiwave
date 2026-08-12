@@ -1,0 +1,65 @@
+export interface CompletionOccurrence {
+  id: string;
+  questId: string;
+  campaignId: string;
+  status: "scheduled" | "available" | "completed" | "reversed" | "expired" | "voided";
+  recordVersion: number;
+  completedAt: string | null;
+  reversedAt: string | null;
+}
+
+export interface CompletionRecord {
+  id: string;
+  occurrenceId: string;
+  deviceId: string;
+  serverReceivedAt: string;
+  serverProcessedAt: string;
+  completionEffectiveDate: string;
+  eventSequence: number;
+  reversedAt: string | null;
+  deviceObservedAt: string | null;
+  deviceTimezoneName: string | null;
+  clientTimeValid: boolean | null;
+}
+
+export interface CompletionCampaign {
+  id: string;
+  status: "active" | "completed" | "archived";
+  recordVersion: number;
+  completedAt: string | null;
+}
+
+export interface ProgressEventReference {
+  id: string;
+  eventType: string;
+  eventSequence: number;
+  serverProcessedAt: string;
+}
+
+export interface CompleteOccurrenceResult {
+  outcome: "completed" | "duplicate_completion";
+  occurrence: CompletionOccurrence;
+  completion: CompletionRecord;
+  campaign: CompletionCampaign;
+  progressEvents: ProgressEventReference[];
+}
+
+export interface CompletionReversal {
+  id: string;
+  completionId: string;
+  occurrenceId: string;
+  deviceId: string;
+  reason: "user_correction";
+  serverReceivedAt: string;
+  serverProcessedAt: string;
+  eventSequence: number;
+}
+
+export interface ReverseCompletionResult {
+  outcome: "reversed" | "already_reversed";
+  occurrence: CompletionOccurrence;
+  completion: CompletionRecord;
+  reversal: CompletionReversal;
+  campaign: CompletionCampaign;
+  progressEvents: ProgressEventReference[];
+}

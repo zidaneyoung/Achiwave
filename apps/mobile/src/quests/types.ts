@@ -51,6 +51,9 @@ export interface OneTimeOccurrence {
   eligibilityExpiresAt: string | null;
   rewardXp: number;
   recordVersion: number;
+  activeCompletionId: string | null;
+  completedAt: string | null;
+  reversedAt: string | null;
 }
 
 export interface Quest {

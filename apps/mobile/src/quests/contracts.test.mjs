@@ -80,6 +80,7 @@ test("quest parser accepts canonical one-time occurrence snapshot", () => {
       id: "occurrence", status: "available", occurrence_local_date: "2026-08-07",
       timezone_name: "UTC", available_at: "2026-08-07T00:00:00Z",
       eligibility_expires_at: null, reward_xp: 20, record_version: 1,
+      active_completion_id: null, completed_at: null, reversed_at: null,
     },
   });
   assert.equal(quest?.occurrence?.rewardXp, 20);
@@ -106,6 +107,7 @@ test("quest list parser preserves authoritative status and campaign context", ()
       id: "occurrence", status: "available", occurrence_local_date: "2026-08-07",
       timezone_name: "America/Halifax", available_at: "2026-08-07T00:00:00Z",
       eligibility_expires_at: "2026-08-12T13:00:00Z", reward_xp: 20, record_version: 1,
+      active_completion_id: null, completed_at: null, reversed_at: null,
     },
   };
   const page = parseQuestList({ items: [item], total: 1, limit: 50, offset: 0 });

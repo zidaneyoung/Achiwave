@@ -129,6 +129,9 @@ class QuestOccurrenceResponse(BaseModel):
     eligibility_expires_at: datetime | None
     reward_xp: int
     record_version: int
+    active_completion_id: UUID | None = None
+    completed_at: datetime | None = None
+    reversed_at: datetime | None = None
 
 
 class QuestResponse(BaseModel):

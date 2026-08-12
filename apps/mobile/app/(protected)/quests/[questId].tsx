@@ -7,6 +7,13 @@ import { useAuthentication } from "../../../src/auth/AuthContext";
 import { useReducedMotion } from "../../../src/accessibility/ReducedMotionProvider";
 import { invalidateCachedCampaign } from "../../../src/campaigns/cache";
 import { AppButton } from "../../../src/components/AppButton";
+import {
+  completionApi,
+  CompletionRequestError,
+  type CompleteOccurrenceInput,
+} from "../../../src/completions/api";
+import type { CompleteOccurrenceResult } from "../../../src/completions/types";
+import { CompletionSubmissionRegistry } from "../../../src/completions/submission";
 import { ErrorState } from "../../../src/components/ErrorState";
 import { LoadingSkeleton } from "../../../src/components/LoadingSkeleton";
 import { AppDialog } from "../../../src/components/Overlays";
@@ -28,6 +35,10 @@ import {
 import { spacing } from "../../../src/theme/tokens";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+const completionSubmissions = new CompletionSubmissionRegistry<
+  CompleteOccurrenceInput,
+  CompleteOccurrenceResult
+>();
 
 function statusPresentation(quest: Quest): { label: string; tone: StatusTone } {
   const status = quest.definitionState === "archived" ? "archived" : quest.occurrence?.status ?? "active";
@@ -54,10 +65,22 @@ export default function QuestDetailRoute() {
   const [refreshing, setRefreshing] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
   const [transitionError, setTransitionError] = useState<string | null>(null);
+  const [completing, setCompleting] = useState(false);
+  const [completionError, setCompletionError] = useState<string | null>(null);
+  const [reversing, setReversing] = useState(false);
+  const [reversalDialogVisible, setReversalDialogVisible] = useState(false);
+  const [reversalError, setReversalError] = useState<string | null>(null);
   const [archiveDialogVisible, setArchiveDialogVisible] = useState(false);
   const [archiveError, setArchiveError] = useState<string | null>(null);
   const [dateFormat, setDateFormat] = useState<DateFormatPreference | null>(null);
   const archivePending = useRef(false);
+  const completionPending = useRef(false);
+  const reversalPending = useRef(false);
+  const reversalRequest = useRef<{
+    completionId: string;
+    mutationId: string;
+    recordVersion: number;
+  } | null>(null);
   const archiveRequest = useRef<{ mutationId: string; recordVersion: number } | null>(null);
   const restoreMutationId = useRef<string | null>(null);
   const sequence = useRef(0);
@@ -156,6 +179,104 @@ export default function QuestDetailRoute() {
       });
   }
 
+  function completeOccurrence() {
+    if (!quest?.occurrence || !ownerId || completionPending.current) return;
+    const occurrence = quest.occurrence;
+    const key = `${ownerId}:${occurrence.id}`;
+    const submission = completionSubmissions.run(
+      key,
+      () => ({
+        clientMutationId: completionApi.createMutationId(),
+        deviceObservedAt: new Date().toISOString(),
+        deviceTimezoneName: occurrence.timezoneName,
+        expectedOccurrenceVersion: occurrence.recordVersion,
+        occurrenceId: occurrence.id,
+      }),
+      (input) => completionApi.complete(input),
+    );
+    completionPending.current = true;
+    setCompleting(true);
+    setCompletionError(null);
+    void submission.promise.then((result) => {
+      setQuest((current) => current?.occurrence ? {
+        ...current,
+        campaignRecordVersion: result.campaign.recordVersion,
+        campaignStatus: result.campaign.status,
+        occurrence: {
+          ...current.occurrence,
+          activeCompletionId: result.completion.id,
+          completedAt: result.occurrence.completedAt,
+          recordVersion: result.occurrence.recordVersion,
+          reversedAt: result.occurrence.reversedAt,
+          status: result.occurrence.status,
+        },
+      } : current);
+      invalidateCachedCampaign(ownerId, result.campaign.id);
+      AccessibilityInfo.announceForAccessibility(
+        result.outcome === "duplicate_completion"
+          ? "Quest was already completed and is synchronized."
+          : "Quest completion confirmed by the server.",
+      );
+    }).catch((caught) => {
+      const message = caught instanceof CompletionRequestError
+        ? caught.message
+        : "The completion could not be confirmed.";
+      setCompletionError(message);
+      AccessibilityInfo.announceForAccessibility(message);
+    }).finally(() => {
+      completionPending.current = false;
+      setCompleting(false);
+    });
+  }
+
+  function reverseCompletion() {
+    if (!quest?.occurrence?.activeCompletionId || !ownerId || reversalPending.current) return;
+    reversalRequest.current ??= {
+      completionId: quest.occurrence.activeCompletionId,
+      mutationId: completionApi.createMutationId(),
+      recordVersion: quest.occurrence.recordVersion,
+    };
+    reversalPending.current = true;
+    setReversing(true);
+    setReversalError(null);
+    void completionApi.reverse({
+      clientMutationId: reversalRequest.current.mutationId,
+      completionId: reversalRequest.current.completionId,
+      expectedOccurrenceVersion: reversalRequest.current.recordVersion,
+    }).then((result) => {
+      setQuest((current) => current?.occurrence ? {
+        ...current,
+        campaignRecordVersion: result.campaign.recordVersion,
+        campaignStatus: result.campaign.status,
+        occurrence: {
+          ...current.occurrence,
+          activeCompletionId: null,
+          completedAt: result.occurrence.completedAt,
+          recordVersion: result.occurrence.recordVersion,
+          reversedAt: result.occurrence.reversedAt,
+          status: result.occurrence.status,
+        },
+      } : current);
+      reversalRequest.current = null;
+      setReversalDialogVisible(false);
+      invalidateCachedCampaign(ownerId, result.campaign.id);
+      AccessibilityInfo.announceForAccessibility(
+        result.outcome === "already_reversed"
+          ? "Completion was already reversed and is synchronized."
+          : "Completion reversal confirmed by the server.",
+      );
+    }).catch((caught) => {
+      const message = caught instanceof CompletionRequestError
+        ? caught.message
+        : "The completion could not be reversed.";
+      setReversalError(message);
+      AccessibilityInfo.announceForAccessibility(message);
+    }).finally(() => {
+      reversalPending.current = false;
+      setReversing(false);
+    });
+  }
+
   useFocusEffect(useCallback(() => {
     void load("focus");
     return () => {
@@ -202,6 +323,9 @@ export default function QuestDetailRoute() {
           }
         >
           <StatusBadge label={presentation.label} tone={presentation.tone} />
+          {completing ? (
+            <StatusBadge label="Submitting completion — awaiting server confirmation" tone="warning" />
+          ) : null}
           <AppText accessibilityRole="header" variant="heading1">{quest.title}</AppText>
           {quest.description ? <AppText tone="muted">{quest.description}</AppText> : null}
           <AppText>Category: {quest.categoryLabel}</AppText>
@@ -232,6 +356,36 @@ export default function QuestDetailRoute() {
           <AppText tone="subtle" variant="caption">
             Record version {quest.recordVersion} · Updated {new Date(quest.updatedAt).toLocaleString()}
           </AppText>
+          {quest.occurrence &&
+          quest.definitionState === "active" &&
+          quest.campaignStatus === "active" &&
+          (quest.occurrence.status === "available" || quest.occurrence.status === "reversed") ? (
+            <AppButton
+              accessibilityHint="Submits this occurrence to the server for authoritative completion."
+              icon="check-circle-outline"
+              label={completionError ? "Retry completion" : "Complete quest"}
+              loading={completing}
+              onPress={completeOccurrence}
+            />
+          ) : null}
+          {completionError ? (
+            <View style={styles.snapshot}>
+              <ErrorState kind="inline" />
+              <AppText accessibilityLiveRegion="assertive" tone="error">{completionError}</AppText>
+            </View>
+          ) : null}
+          {quest.occurrence?.status === "completed" && quest.occurrence.activeCompletionId ? (
+            <AppButton
+              accessibilityHint="Opens an online-only confirmation to correct this completion while preserving history."
+              label="Reverse completion"
+              onPress={() => {
+                reversalRequest.current = null;
+                setReversalError(null);
+                setReversalDialogVisible(true);
+              }}
+              variant="secondary"
+            />
+          ) : null}
           {quest.definitionState === "active" && quest.campaignStatus !== "archived" ? (
             <AppButton
               icon="pencil-outline"
@@ -325,6 +479,30 @@ export default function QuestDetailRoute() {
             <View style={styles.snapshot}>
               <ErrorState kind="inline" />
               <AppText accessibilityLiveRegion="assertive" tone="error">{archiveError}</AppText>
+            </View>
+          ) : null}
+        </AppDialog>
+      ) : null}
+      {quest?.occurrence?.status === "completed" && quest.occurrence.activeCompletionId ? (
+        <AppDialog
+          busy={reversing}
+          confirmLabel="Reverse completion"
+          description="This online correction preserves the original completion and adds a reversal to its history."
+          dismissLabel="Cancel"
+          kind="destructive"
+          onConfirm={reverseCompletion}
+          onDismiss={() => {
+            if (reversalPending.current) return;
+            setReversalDialogVisible(false);
+            setReversalError(null);
+          }}
+          title="Reverse this completion?"
+          visible={reversalDialogVisible}
+        >
+          {reversalError ? (
+            <View style={styles.snapshot}>
+              <ErrorState kind="inline" />
+              <AppText accessibilityLiveRegion="assertive" tone="error">{reversalError}</AppText>
             </View>
           ) : null}
         </AppDialog>

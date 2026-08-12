@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from achiwave_backend.api.auth import create_auth_router
 from achiwave_backend.api.account import create_account_router
 from achiwave_backend.api.campaigns import create_campaigns_router
+from achiwave_backend.api.completions import create_completions_router
 from achiwave_backend.api.dependencies import (
     create_authentication_dependencies,
     create_database_session_dependency,
@@ -93,6 +94,7 @@ def create_app(
     application.include_router(create_preferences_router(authentication))
     application.include_router(create_account_router(resolved_settings, authentication))
     application.include_router(create_campaigns_router(authentication))
+    application.include_router(create_completions_router(authentication))
     application.include_router(create_quests_router(authentication))
 
     @application.middleware("http")
