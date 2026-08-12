@@ -48,9 +48,12 @@ block correction. A reversal appends a `quest_completion_reversals` row and a
 and preserves its stable identifiers and timestamps. Recompletion, when still
 eligible, creates a new completion; it never rewrites the prior pair.
 
-`GET /api/v1/quest-occurrences/{occurrence_id}/completion-history` returns the
-owner's completion records in event order, each optional reversal, mutation and
+`GET /api/v1/quest-occurrences/{occurrence_id}/completion-history` returns a
+bounded owner-history page in event order, each optional reversal, mutation and
 device context, authoritative timestamps, and source progress-event references.
+Legacy retained records may have null device/mutation context and older nonblank
+reversal reasons; the read contract preserves those rows rather than hiding or
+rewriting them. Pagination defaults to 50 records and is capped at 100.
 Ordinary quest detail continues to return only `active_completion_id`, keeping
 the default view uncluttered. Cross-account targets are concealed as not found.
 

@@ -141,7 +141,13 @@ export function refreshCompletionCanonical(
   const existing = records.get(recordKey);
   if (!existing) return null;
   if (!isNotOlder(existing.canonical, canonical)) return existing;
-  const record = { ...existing, canonical };
+  const record = {
+    ...existing,
+    canonical: {
+      ...canonical,
+      eventSequence: canonical.eventSequence ?? existing.canonical.eventSequence,
+    },
+  };
   records.set(recordKey, record);
   emit(recordKey);
   return record;

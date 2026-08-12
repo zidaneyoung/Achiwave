@@ -88,11 +88,11 @@ The database URL used below named the explicitly disposable database
 | Command | Actual result | Status |
 | --- | --- | --- |
 | `python -m pytest tests/completions/test_idempotency.py -q` | 5 passed, including two registered devices racing through independent PostgreSQL sessions | Pass |
-| `python -m pytest tests/history/test_completion_history.py -q` | 1 passed: complete, exact replay, reverse, archive, restore, recomplete, logout/login, and cross-user concealment | Pass |
+| `python -m pytest tests/history/test_completion_history.py -q` | 2 passed: full current lifecycle plus paginated legacy rows with nullable device/mutation context and retained reversal reason | Pass |
 | `python -m pytest tests/campaigns/test_progress_recalculation.py -q` | 3 passed: obligation transitions, empty campaign, finite and open-ended recurrence predicates | Pass |
-| `python -m pytest tests/history tests/completions -q` | 21 passed | Pass |
+| `python -m pytest tests/history tests/completions -q` | 22 passed | Pass |
 | `python -m pytest tests/campaigns tests/quests tests/completions/test_progress_events.py tests/completions/test_reverse.py -q` | 62 passed | Pass |
-| `python -m pytest -q` | 200 passed in 467.53 seconds; migration autogenerate reported no new operations | Pass |
+| final post-review `python -m pytest -q` | 201 passed in 285.13 seconds; migration autogenerate reported no new operations | Pass |
 | changed-file `python -m ruff check` | all selected Stage 7 backend files passed; repository-required FastAPI `B008` and existing timezone parse rule were excluded consistently | Pass |
 | `python -m alembic heads` | one head: `20260812_0084` | Pass |
 | `python -m alembic current` | `20260812_0084 (head)` | Pass |

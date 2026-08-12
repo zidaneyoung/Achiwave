@@ -16,6 +16,7 @@ from tests.completions.helpers import (
     create_campaign_and_quest,
     register,
 )
+from tests.history.test_archival_integrity import _seed_populated_history
 
 
 def test_owner_history_survives_replay_reversal_archive_restore_logout_and_recompletion(
@@ -97,12 +98,25 @@ def test_owner_history_survives_replay_reversal_archive_restore_logout_and_recom
         assert "items" not in current.json()["occurrence"]
         assert history.status_code == 200
         assert history.json()["occurrence_id"] == occurrence_id
+        assert history.json()["total"] == 2
+        assert history.json()["limit"] == 50
+        assert history.json()["offset"] == 0
         assert len(history.json()["items"]) == 2
         assert history.json()["items"][0]["completion"]["id"] == first_completion["id"]
         assert history.json()["items"][0]["reversal"]["id"] == (
             reversed_response.json()["reversal"]["id"]
         )
         assert history.json()["items"][1]["reversal"] is None
+        second_page = client.get(
+            f"{history_path}?limit=1&offset=1", headers=headers
+        )
+        assert second_page.status_code == 200
+        assert second_page.json()["total"] == 2
+        assert second_page.json()["limit"] == 1
+        assert second_page.json()["offset"] == 1
+        assert [item["completion"]["id"] for item in second_page.json()["items"]] == [
+            recompleted.json()["completion"]["id"]
+        ]
         event_sequences = [
             event["event_sequence"]
             for item in history.json()["items"]
@@ -155,3 +169,29 @@ def test_owner_history_survives_replay_reversal_archive_restore_logout_and_recom
             .where(ProgressEvent.user_id == UUID(str(owner["user"]["id"])))
             .order_by(ProgressEvent.event_sequence)
         ).all() == list(range(1, 9))
+
+
+def test_owner_can_query_legacy_history_without_device_or_mutation_context(
+    auth_database_url: str,
+    auth_session_factory: sessionmaker[Session],
+) -> None:
+    with create_auth_client(auth_database_url, auth_session_factory) as client:
+        owner = register(client)
+        graph = _seed_populated_history(
+            auth_session_factory,
+            UUID(str(owner["user"]["id"])),
+        )
+        response = client.get(
+            "/api/v1/quest-occurrences/"
+            f"{graph.historical_occurrence_id}/completion-history",
+            headers=bearer(owner["access_token"]),
+        )
+
+    assert response.status_code == 200
+    assert response.json()["total"] == 1
+    item = response.json()["items"][0]
+    assert item["completion"]["device_id"] is None
+    assert item["completion"]["client_mutation_id"] is None
+    assert item["reversal"]["device_id"] is None
+    assert item["reversal"]["client_mutation_id"] is None
+    assert item["reversal"]["reason"] == "Correct historical completion"

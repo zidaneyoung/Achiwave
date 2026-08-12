@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from achiwave_backend.models import (
@@ -341,6 +341,9 @@ class CompletionService:
         database_session: Session,
         current_user: User,
         occurrence_id: UUID,
+        *,
+        limit: int,
+        offset: int,
     ) -> CompletionHistoryResponse:
         occurrence = database_session.scalar(
             select(QuestOccurrence).where(
@@ -350,14 +353,20 @@ class CompletionService:
         )
         if occurrence is None:
             raise CompletionNotFoundError
+        completion_filter = (
+            QuestCompletion.occurrence_id == occurrence.id,
+            QuestCompletion.user_id == current_user.id,
+        )
+        total = database_session.scalar(
+            select(func.count()).select_from(QuestCompletion).where(*completion_filter)
+        )
         completions = list(
             database_session.scalars(
                 select(QuestCompletion)
-                .where(
-                    QuestCompletion.occurrence_id == occurrence.id,
-                    QuestCompletion.user_id == current_user.id,
-                )
+                .where(*completion_filter)
                 .order_by(QuestCompletion.event_sequence)
+                .limit(limit)
+                .offset(offset)
             )
         )
         completion_ids = [completion.id for completion in completions]
@@ -461,6 +470,9 @@ class CompletionService:
             quest_id=occurrence.quest_id,
             campaign_id=occurrence.campaign_id,
             items=items,
+            total=int(total or 0),
+            limit=limit,
+            offset=offset,
         )
 
     def complete(

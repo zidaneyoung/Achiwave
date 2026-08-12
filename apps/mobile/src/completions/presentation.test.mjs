@@ -87,6 +87,18 @@ test("out-of-order completion responses cannot regress newer canonical state", a
   beginCompletionPresentation("owner", quest(), input());
   const current = confirmCompletionPresentation("owner", result());
 
+  refreshCompletionCanonical("owner", quest({
+    campaignRecordVersion: 5,
+    campaignStatus: "completed",
+    occurrence: {
+      id: "occurrence",
+      status: "completed",
+      recordVersion: 3,
+      activeCompletionId: "completion",
+    },
+  }));
+  assert.equal(getCompletionPresentation("owner", "occurrence")?.canonical.eventSequence, 8);
+
   const staleResult = result();
   staleResult.occurrence.recordVersion = 2;
   staleResult.campaign.recordVersion = 4;
@@ -101,7 +113,7 @@ test("out-of-order completion responses cannot regress newer canonical state", a
     },
   }));
 
-  assert.equal(delayed, current);
+  assert.equal(delayed.confirmedResult, current.confirmedResult);
   assert.equal(getCompletionPresentation("owner", "occurrence")?.canonical.occurrenceVersion, 3);
   assert.equal(getCompletionPresentation("owner", "occurrence")?.canonical.campaignVersion, 5);
 });

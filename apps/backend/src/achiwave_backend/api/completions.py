@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from achiwave_backend.api.dependencies import (
@@ -36,11 +36,19 @@ def create_completions_router(
     )
     def completion_history(
         occurrence_id: UUID,
+        limit: int = Query(default=50, ge=1, le=100),
+        offset: int = Query(default=0, ge=0),
         context: AuthenticationContext = Depends(authentication.current_context),
         database_session: Session = Depends(authentication.database_session),
     ) -> CompletionHistoryResponse:
         try:
-            return service.history(database_session, context.user, occurrence_id)
+            return service.history(
+                database_session,
+                context.user,
+                occurrence_id,
+                limit=limit,
+                offset=offset,
+            )
         except CompletionNotFoundError as error:
             raise ApiError(
                 status_code=status.HTTP_404_NOT_FOUND,

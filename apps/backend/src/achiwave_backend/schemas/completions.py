@@ -93,11 +93,14 @@ class CompletionReversalResponse(BaseModel):
 
 
 class CompletionHistoryCompletionResponse(CompletionRecordResponse):
+    device_id: UUID | None
     client_mutation_id: UUID | None
 
 
 class CompletionHistoryReversalResponse(CompletionReversalResponse):
+    device_id: UUID | None
     client_mutation_id: UUID | None
+    reason: str
 
 
 class CompletionHistoryItemResponse(BaseModel):
@@ -111,6 +114,9 @@ class CompletionHistoryResponse(BaseModel):
     quest_id: UUID
     campaign_id: UUID
     items: list[CompletionHistoryItemResponse]
+    total: int
+    limit: int
+    offset: int
 
 
 class CompleteOccurrenceResponse(BaseModel):
