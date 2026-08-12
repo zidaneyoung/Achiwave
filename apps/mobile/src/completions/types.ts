@@ -11,6 +11,7 @@ export interface CompletionOccurrence {
 export interface CompletionRecord {
   id: string;
   occurrenceId: string;
+  deviceId: string;
   serverReceivedAt: string;
   serverProcessedAt: string;
   completionEffectiveDate: string;
@@ -47,6 +48,7 @@ export interface CompletionReversal {
   id: string;
   completionId: string;
   occurrenceId: string;
+  deviceId: string;
   reason: "user_correction";
   serverReceivedAt: string;
   serverProcessedAt: string;

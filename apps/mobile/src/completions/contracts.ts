@@ -54,6 +54,7 @@ function parseCompletion(value: unknown): CompletionRecord | null {
   if (
     typeof value.id !== "string" ||
     typeof value.occurrence_id !== "string" ||
+    typeof value.device_id !== "string" ||
     typeof value.server_received_at !== "string" ||
     typeof value.server_processed_at !== "string" ||
     typeof value.completion_effective_date !== "string" ||
@@ -66,6 +67,7 @@ function parseCompletion(value: unknown): CompletionRecord | null {
   return {
     id: value.id,
     occurrenceId: value.occurrence_id,
+    deviceId: value.device_id,
     serverReceivedAt: value.server_received_at,
     serverProcessedAt: value.server_processed_at,
     completionEffectiveDate: value.completion_effective_date,
@@ -151,6 +153,7 @@ export function parseReverseCompletion(value: unknown): ReverseCompletionResult 
     typeof reversal.id !== "string" ||
     typeof reversal.completion_id !== "string" ||
     typeof reversal.occurrence_id !== "string" ||
+    typeof reversal.device_id !== "string" ||
     reversal.reason !== "user_correction" ||
     typeof reversal.server_received_at !== "string" ||
     typeof reversal.server_processed_at !== "string" ||
@@ -168,6 +171,7 @@ export function parseReverseCompletion(value: unknown): ReverseCompletionResult 
       id: reversal.id,
       completionId: reversal.completion_id,
       occurrenceId: reversal.occurrence_id,
+      deviceId: reversal.device_id,
       reason: reversal.reason,
       serverReceivedAt: reversal.server_received_at,
       serverProcessedAt: reversal.server_processed_at,

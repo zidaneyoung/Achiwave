@@ -43,6 +43,7 @@ def create_completions_router(
             return service.complete(
                 database_session,
                 context.user,
+                context.device,
                 occurrence_id,
                 request,
             )
@@ -84,6 +85,7 @@ def create_completions_router(
             return service.reverse(
                 database_session,
                 context.user,
+                context.device,
                 completion_id,
                 request,
             )

@@ -56,6 +56,7 @@ class CompletionOccurrenceResponse(BaseModel):
 class CompletionRecordResponse(BaseModel):
     id: UUID
     occurrence_id: UUID
+    device_id: UUID
     server_received_at: datetime
     server_processed_at: datetime
     completion_effective_date: date
@@ -84,6 +85,7 @@ class CompletionReversalResponse(BaseModel):
     id: UUID
     completion_id: UUID
     occurrence_id: UUID
+    device_id: UUID
     reason: Literal["user_correction"]
     server_received_at: datetime
     server_processed_at: datetime

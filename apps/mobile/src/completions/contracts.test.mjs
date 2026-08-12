@@ -17,6 +17,7 @@ const payload = {
   completion: {
     id: "d0000000-0000-4000-8000-000000000004",
     occurrence_id: "d0000000-0000-4000-8000-000000000001",
+    device_id: "d0000000-0000-4000-8000-000000000007",
     server_received_at: "2026-08-12T12:00:00Z",
     server_processed_at: "2026-08-12T12:00:00Z",
     completion_effective_date: "2026-08-12",
@@ -73,6 +74,7 @@ test("parses an append-oriented reversal", () => {
       id: "d0000000-0000-4000-8000-000000000005",
       completion_id: payload.completion.id,
       occurrence_id: payload.occurrence.id,
+      device_id: payload.completion.device_id,
       reason: "user_correction",
       server_received_at: "2026-08-12T12:05:00Z",
       server_processed_at: "2026-08-12T12:05:00Z",

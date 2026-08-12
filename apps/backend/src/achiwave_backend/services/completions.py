@@ -15,6 +15,7 @@ from achiwave_backend.models import (
     QuestCompletion,
     QuestCompletionReversal,
     QuestOccurrence,
+    RegisteredDevice,
     User,
     UserPreference,
 )
@@ -85,6 +86,7 @@ def _completion_response(
         completion=CompletionRecordResponse(
             id=completion.id,
             occurrence_id=completion.occurrence_id,
+            device_id=completion.device_id,
             server_received_at=completion.server_received_at,
             server_processed_at=completion.server_processed_at,
             completion_effective_date=completion.completion_effective_date,
@@ -177,6 +179,7 @@ def _reversal_response(
         completion=CompletionRecordResponse(
             id=completion.id,
             occurrence_id=completion.occurrence_id,
+            device_id=completion.device_id,
             server_received_at=completion.server_received_at,
             server_processed_at=completion.server_processed_at,
             completion_effective_date=completion.completion_effective_date,
@@ -190,6 +193,7 @@ def _reversal_response(
             id=reversal.id,
             completion_id=reversal.completion_id,
             occurrence_id=reversal.occurrence_id,
+            device_id=reversal.device_id,
             reason=reversal.reason,
             server_received_at=reversal.server_received_at,
             server_processed_at=reversal.server_processed_at,
@@ -238,6 +242,7 @@ class CompletionService:
         self,
         database_session: Session,
         current_user: User,
+        current_device: RegisteredDevice,
         occurrence_id: UUID,
         request: CompleteOccurrenceRequest,
     ) -> CompleteOccurrenceResponse:
@@ -246,6 +251,8 @@ class CompletionService:
         )
         if user is None:
             raise RuntimeError("Authenticated user record is missing.")
+        if current_device.user_id != user.id:
+            raise RuntimeError("Authenticated device ownership is inconsistent.")
         received_at = datetime.now(UTC)
 
         payload_hash = _payload_hash(
@@ -322,6 +329,7 @@ class CompletionService:
         mutation = ClientMutation(
             id=uuid4(),
             user_id=user.id,
+            device_id=current_device.id,
             client_mutation_id=request.client_mutation_id,
             operation_type="quest_occurrence_complete",
             payload_hash=payload_hash,
@@ -404,6 +412,7 @@ class CompletionService:
             id=uuid4(),
             user_id=user.id,
             occurrence_id=occurrence.id,
+            device_id=current_device.id,
             client_mutation_id=request.client_mutation_id,
             server_received_at=now,
             server_processed_at=now,
@@ -514,6 +523,7 @@ class CompletionService:
         self,
         database_session: Session,
         current_user: User,
+        current_device: RegisteredDevice,
         completion_id: UUID,
         request: ReverseCompletionRequest,
     ) -> ReverseCompletionResponse:
@@ -522,6 +532,8 @@ class CompletionService:
         )
         if user is None:
             raise RuntimeError("Authenticated user record is missing.")
+        if current_device.user_id != user.id:
+            raise RuntimeError("Authenticated device ownership is inconsistent.")
         received_at = datetime.now(UTC)
 
         payload_hash = _payload_hash(
@@ -601,6 +613,7 @@ class CompletionService:
         mutation = ClientMutation(
             id=uuid4(),
             user_id=user.id,
+            device_id=current_device.id,
             client_mutation_id=request.client_mutation_id,
             operation_type="quest_completion_reverse",
             payload_hash=payload_hash,
@@ -672,6 +685,7 @@ class CompletionService:
             user_id=user.id,
             occurrence_id=occurrence.id,
             completion_id=completion.id,
+            device_id=current_device.id,
             client_mutation_id=request.client_mutation_id,
             reason=request.reason,
             server_received_at=now,

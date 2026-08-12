@@ -29,6 +29,12 @@ class ClientMutation(Base):
             name="fk_client_mutations_user_id_users",
             ondelete="RESTRICT",
         ),
+        ForeignKeyConstraint(
+            ["device_id", "user_id"],
+            ["registered_devices.id", "registered_devices.user_id"],
+            name="fk_client_mutations_device_user",
+            ondelete="RESTRICT",
+        ),
         UniqueConstraint(
             "user_id",
             "client_mutation_id",
@@ -68,6 +74,7 @@ class ClientMutation(Base):
                 "processing_status IN ('received', 'processing')"
             ),
         ),
+        Index("ix_client_mutations_device", "device_id", "user_id"),
     )
 
     id: Mapped[UUID] = mapped_column(
@@ -77,6 +84,7 @@ class ClientMutation(Base):
     client_mutation_id: Mapped[UUID] = mapped_column(
         PostgreSQLUUID(as_uuid=True), nullable=False
     )
+    device_id: Mapped[UUID | None] = mapped_column(PostgreSQLUUID(as_uuid=True))
     operation_type: Mapped[str] = mapped_column(Text, nullable=False)
     payload_hash: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     target_type: Mapped[str] = mapped_column(Text, nullable=False)
