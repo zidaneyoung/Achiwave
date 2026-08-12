@@ -6,6 +6,7 @@ import { isObject, parseCompleteOccurrence, parseReverseCompletion } from "./con
 import type { CompleteOccurrenceResult, ReverseCompletionResult } from "./types";
 import { CompletionRequestError } from "./errors";
 import { parseCompletionConflict } from "./conflicts";
+import { parseRetryAfterMilliseconds } from "./retryPolicy";
 export { CompletionRequestError } from "./errors";
 
 export interface CompleteOccurrenceInput {
@@ -41,7 +42,15 @@ function responseError(response: Response, body: unknown): CompletionRequestErro
   if (response.status === 422) {
     return new CompletionRequestError("validation", "The completion request is invalid.", serverCode);
   }
-  return new CompletionRequestError("server", "The completion could not be confirmed. Try again.", serverCode);
+  return new CompletionRequestError(
+    "server",
+    response.status === 429
+      ? "The service is busy. This completion will retry safely."
+      : "The completion could not be confirmed. Try again.",
+    serverCode,
+    null,
+    parseRetryAfterMilliseconds(response.headers.get("Retry-After")),
+  );
 }
 
 export const completionApi = {

@@ -13,6 +13,17 @@ export function useCompletionSynchronization(
     if (!accountId) return;
     let active = true;
     let wasOffline = false;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleNext = async () => {
+      if (!active || !enabled) return;
+      const dueAt = await completionQueue.nextDueAt(accountId);
+      if (!active || dueAt === null) return;
+      const delay = Math.max(0, Date.parse(dueAt) - Date.now());
+      retryTimer = setTimeout(() => {
+        retryTimer = null;
+        void synchronizeCompletionQueue(accountId).then(scheduleNext);
+      }, delay);
+    };
     const synchronizeIfOnline = async (
       connected: boolean,
       internetReachable: boolean | null,
@@ -31,6 +42,7 @@ export function useCompletionSynchronization(
       if (active && (wasOffline || online)) {
         wasOffline = false;
         await synchronizeCompletionQueue(accountId);
+        await scheduleNext();
       }
     };
     const unsubscribe = NetInfo.addEventListener((state) => {
@@ -42,6 +54,7 @@ export function useCompletionSynchronization(
     });
     return () => {
       active = false;
+      if (retryTimer !== null) clearTimeout(retryTimer);
       unsubscribe();
     };
   }, [accountId, enabled, onReconnectWhileLimited]);

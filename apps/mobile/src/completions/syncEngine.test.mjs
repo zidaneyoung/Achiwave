@@ -11,7 +11,7 @@ test("canonical result is persisted before synchronized presentation", async () 
     submit: async () => ({ completionId: "completion-1" }),
     persistSuccess: async () => order.push("persisted"),
     afterPersistedSuccess: async () => order.push("presented"),
-    classifyFailure: () => ({ kind: "retryable", safeClass: "network", safeMessage: "Reconnect." }),
+    classifyFailure: () => ({ kind: "retryable", safeClass: "network", safeMessage: "Reconnect.", retryAfterMilliseconds: null }),
     persistRetryableFailure: async () => undefined,
     persistPermanentFailure: async () => undefined,
     releaseLeases: async () => undefined,
@@ -31,7 +31,7 @@ test("overlapping synchronization calls share one run", async () => {
     submit: async () => ({}),
     persistSuccess: async () => undefined,
     afterPersistedSuccess: async () => undefined,
-    classifyFailure: () => ({ kind: "retryable", safeClass: "network", safeMessage: "Reconnect." }),
+    classifyFailure: () => ({ kind: "retryable", safeClass: "network", safeMessage: "Reconnect.", retryAfterMilliseconds: null }),
     persistRetryableFailure: async () => undefined,
     persistPermanentFailure: async () => undefined,
     releaseLeases: async () => undefined,
@@ -55,7 +55,7 @@ test("authentication failure pauses and releases unsubmitted leases", async () =
     afterPersistedSuccess: async () => undefined,
     classifyFailure: (error) => error.authentication
       ? { kind: "authentication" }
-      : { kind: "retryable", safeClass: "network", safeMessage: "Reconnect." },
+      : { kind: "retryable", safeClass: "network", safeMessage: "Reconnect.", retryAfterMilliseconds: null },
     persistRetryableFailure: async () => undefined,
     persistPermanentFailure: async () => undefined,
     releaseLeases: async (_accountId, pending) => released.push(...pending),

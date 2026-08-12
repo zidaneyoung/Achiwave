@@ -4,7 +4,12 @@ export interface SynchronizationOperation {
 
 export type SynchronizationFailure =
   | { kind: "authentication" }
-  | { kind: "retryable"; safeClass: string; safeMessage: string }
+  | {
+      kind: "retryable";
+      safeClass: string;
+      safeMessage: string;
+      retryAfterMilliseconds: number | null;
+    }
   | {
       kind: "permanent";
       safeClass: string;

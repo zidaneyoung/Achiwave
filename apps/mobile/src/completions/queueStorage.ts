@@ -6,6 +6,7 @@ import {
   type CompletionQueueState,
 } from "./queueTypes";
 import { retainedTerminalCutoff } from "./queuePolicy";
+import { COMPLETION_RETRY_MAX_AUTOMATIC_ATTEMPTS } from "./retryPolicy";
 
 const DATABASE_NAME = "achiwave-protected-sync.db";
 
@@ -270,17 +271,21 @@ export const completionQueueStorage = {
          WHERE account_id = ?
            AND state IN ('pending', 'retryable_failure')
            AND (next_attempt_at IS NULL OR next_attempt_at <= ?)
+           AND automatic_attempt_count < ?
          ORDER BY created_at
          LIMIT ?`,
         accountId,
         nowIso,
+        COMPLETION_RETRY_MAX_AUTOMATIC_ATTEMPTS,
         limit,
       );
       for (const candidate of candidates) {
         const result = await transaction.runAsync(
           `UPDATE completion_queue
            SET state = 'in_flight', lease_expires_at = ?, last_attempt_at = ?,
-               attempt_count = attempt_count + 1, updated_at = ?
+               attempt_count = attempt_count + 1,
+               automatic_attempt_count = automatic_attempt_count + 1,
+               updated_at = ?
            WHERE queue_id = ? AND account_id = ?
              AND state IN ('pending', 'retryable_failure')`,
           leaseExpiresAt,
@@ -336,6 +341,7 @@ export const completionQueueStorage = {
     queueId: string,
     safeErrorClass: string,
     safeErrorMessage: string,
+    nextAttemptAt: string | null,
     now: Date,
   ): Promise<void> {
     const db = await database();
@@ -343,14 +349,29 @@ export const completionQueueStorage = {
     await db.runAsync(
       `UPDATE completion_queue
        SET state = 'retryable_failure', safe_error_class = ?,
-           safe_error_message = ?, lease_expires_at = NULL, updated_at = ?
+           safe_error_message = ?, next_attempt_at = ?,
+           lease_expires_at = NULL, updated_at = ?
        WHERE queue_id = ? AND account_id = ? AND state = 'in_flight'`,
       safeErrorClass,
       safeErrorMessage,
+      nextAttemptAt,
       nowIso,
       queueId,
       accountId,
     );
+  },
+
+  async nextDueAt(accountId: string): Promise<string | null> {
+    const db = await database();
+    const row = await db.getFirstAsync<{ due_at: string | null }>(
+      `SELECT COALESCE(next_attempt_at, created_at) AS due_at FROM completion_queue
+       WHERE account_id = ? AND state IN ('pending', 'retryable_failure')
+         AND automatic_attempt_count < ?
+       ORDER BY COALESCE(next_attempt_at, created_at) LIMIT 1`,
+      accountId,
+      COMPLETION_RETRY_MAX_AUTOMATIC_ATTEMPTS,
+    );
+    return row?.due_at ?? null;
   },
 
   async markPermanentFailure(
@@ -395,6 +416,9 @@ export const completionQueueStorage = {
       `UPDATE completion_queue
        SET state = 'pending', lease_expires_at = NULL,
            attempt_count = CASE WHEN attempt_count > 0 THEN attempt_count - 1 ELSE 0 END,
+           automatic_attempt_count = CASE
+             WHEN automatic_attempt_count > 0 THEN automatic_attempt_count - 1 ELSE 0
+           END,
            updated_at = ?
        WHERE account_id = ? AND state = 'in_flight'
          AND queue_id IN (${placeholders})`,

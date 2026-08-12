@@ -9,6 +9,7 @@ import {
 } from "./queuePolicy";
 import { completionQueueStorage } from "./queueStorage";
 import { inputFromQueueRecord, type CompletionQueueRecord } from "./queueTypes";
+import { nextCompletionRetryAt } from "./retryPolicy";
 import { createSynchronizationEngine } from "./syncEngine";
 import type { CompleteOccurrenceResult } from "./types";
 
@@ -78,7 +79,14 @@ const engine = createSynchronizationEngine<
         canonicalResultJson: current ? JSON.stringify(current) : null,
       };
     }
-    return { kind: "retryable", safeClass: failure.reason, safeMessage: failure.message };
+    return {
+      kind: "retryable",
+      safeClass: failure.reason,
+      safeMessage: failure.message,
+      retryAfterMilliseconds: error instanceof CompletionRequestError
+        ? error.retryAfterMilliseconds
+        : null,
+    };
   },
   persistRetryableFailure(operation, failure) {
     return completionQueueStorage.markRetryableFailure(
@@ -86,6 +94,10 @@ const engine = createSynchronizationEngine<
       operation.queueId,
       failure.safeClass,
       failure.safeMessage,
+      nextCompletionRetryAt(
+        operation.automaticAttemptCount,
+        failure.retryAfterMilliseconds,
+      ),
       new Date(),
     );
   },

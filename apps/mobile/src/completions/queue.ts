@@ -15,6 +15,10 @@ export const completionQueue = {
     return completionQueueStorage.countPending(accountId);
   },
 
+  nextDueAt(accountId: string): Promise<string | null> {
+    return completionQueueStorage.nextDueAt(accountId);
+  },
+
   async enqueue(
     authenticatedAccountId: string,
     input: CompleteOccurrenceInput,
