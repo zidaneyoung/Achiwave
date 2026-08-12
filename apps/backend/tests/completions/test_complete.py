@@ -166,3 +166,56 @@ def test_completion_rejects_unknown_fields_and_requires_authentication(
     assert unauthenticated.status_code == 401
     assert unknown.status_code == 422
     assert unknown.json()["code"] == "validation_error"
+
+
+def test_stale_completion_conflict_returns_scoped_versions_and_event_identity(
+    auth_database_url: str,
+    auth_session_factory: sessionmaker[Session],
+) -> None:
+    with create_auth_client(auth_database_url, auth_session_factory) as client:
+        registration = register(client)
+        headers = bearer(registration["access_token"])
+        _, quest = create_campaign_and_quest(client, headers)
+        occurrence = quest["occurrence"]
+        completed = client.post(
+            f"/api/v1/quest-occurrences/{occurrence['id']}/complete",
+            headers=headers,
+            json={
+                "client_mutation_id": "d0000000-0000-4000-8000-000000000012",
+                "expected_occurrence_version": 1,
+            },
+        )
+        assert completed.status_code == 200
+        reversed_response = client.post(
+            f"/api/v1/quest-completions/{completed.json()['completion']['id']}/reverse",
+            headers=headers,
+            json={
+                "client_mutation_id": "d0000000-0000-4000-8000-000000000013",
+                "expected_occurrence_version": 2,
+                "reason": "user_correction",
+            },
+        )
+        assert reversed_response.status_code == 200
+        stale = client.post(
+            f"/api/v1/quest-occurrences/{occurrence['id']}/complete",
+            headers=headers,
+            json={
+                "client_mutation_id": "d0000000-0000-4000-8000-000000000014",
+                "expected_occurrence_version": 1,
+            },
+        )
+
+    assert stale.status_code == 409
+    current = stale.json()["current"]
+    assert current["occurrence"]["status"] == "reversed"
+    assert current["occurrence"]["record_version"] == 3
+    assert current["campaign"]["record_version"] >= 2
+    assert current["active_completion_id"] is None
+    assert current["event_sequence"] == max(
+        event["event_sequence"] for event in current["progress_events"]
+    )
+    assert {event["event_type"] for event in current["progress_events"]} >= {
+        "completion_accepted",
+        "completion_reversed",
+    }
+    assert all(event["id"] for event in current["progress_events"])

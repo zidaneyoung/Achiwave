@@ -1,3 +1,5 @@
+import type { CompletionConflictSnapshot } from "./conflicts";
+
 export type CompletionErrorCode =
   | "authentication"
   | "conflict"
@@ -10,18 +12,21 @@ export type CompletionErrorCode =
 export class CompletionRequestError extends Error {
   readonly code: CompletionErrorCode;
   readonly serverCode: string | null;
-  readonly current: Record<string, unknown> | null;
+  readonly current: CompletionConflictSnapshot | null;
+  readonly retryAfterMilliseconds: number | null;
 
   constructor(
     code: CompletionErrorCode,
     message: string,
     serverCode: string | null = null,
-    current: Record<string, unknown> | null = null,
+    current: CompletionConflictSnapshot | null = null,
+    retryAfterMilliseconds: number | null = null,
   ) {
     super(message);
     this.name = "CompletionRequestError";
     this.code = code;
     this.serverCode = serverCode;
     this.current = current;
+    this.retryAfterMilliseconds = retryAfterMilliseconds;
   }
 }

@@ -8,7 +8,18 @@ export type CompletionFailureReason =
   | "network"
   | "server"
   | "stale_version"
-  | "target_unavailable";
+  | "target_unavailable"
+  | "unsupported_schema";
+
+export function unsupportedQueueSchemaFailure(): CompletionFailure {
+  return {
+    reason: "unsupported_schema",
+    kind: "permanent_failure",
+    message: "This saved completion was created by an unsupported app version.",
+    nextAction: "Refresh and dismiss",
+    refreshCanonical: true,
+  };
+}
 
 export interface CompletionFailure {
   reason: CompletionFailureReason;
@@ -19,11 +30,12 @@ export interface CompletionFailure {
 }
 
 function stringAt(
-  source: Record<string, unknown> | null,
+  source: unknown,
   section: string,
   field: string,
 ): string | null {
-  const value = source?.[section];
+  if (typeof source !== "object" || source === null) return null;
+  const value = (source as Record<string, unknown>)[section];
   return typeof value === "object" && value !== null &&
     typeof (value as Record<string, unknown>)[field] === "string"
     ? (value as Record<string, string>)[field]

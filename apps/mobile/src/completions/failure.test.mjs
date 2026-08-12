@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { CompletionRequestError } from "./errors.ts";
-import { classifyCompletionFailure } from "./failure.ts";
+import {
+  classifyCompletionFailure,
+  unsupportedQueueSchemaFailure,
+} from "./failure.ts";
 
 test("classifies stale, archive, expiration, ownership, session, and malformed failures", () => {
   const cases = [
@@ -38,4 +41,14 @@ test("network and server failures remain explicitly retryable", () => {
     const failure = classifyCompletionFailure(new CompletionRequestError(code, code));
     assert.equal(failure.kind, "retryable_failure");
   }
+});
+
+test("unsupported queue schema is permanent and refreshes canonical state", () => {
+  assert.deepEqual(unsupportedQueueSchemaFailure(), {
+    reason: "unsupported_schema",
+    kind: "permanent_failure",
+    message: "This saved completion was created by an unsupported app version.",
+    nextAction: "Refresh and dismiss",
+    refreshCanonical: true,
+  });
 });

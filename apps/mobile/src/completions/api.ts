@@ -5,6 +5,8 @@ import { AuthenticationRequestError } from "../auth/service";
 import { isObject, parseCompleteOccurrence, parseReverseCompletion } from "./contracts";
 import type { CompleteOccurrenceResult, ReverseCompletionResult } from "./types";
 import { CompletionRequestError } from "./errors";
+import { parseCompletionConflict } from "./conflicts";
+import { parseRetryAfterMilliseconds } from "./retryPolicy";
 export { CompletionRequestError } from "./errors";
 
 export interface CompleteOccurrenceInput {
@@ -21,7 +23,7 @@ async function readJson(response: Response): Promise<unknown> {
 
 function responseError(response: Response, body: unknown): CompletionRequestError {
   const serverCode = isObject(body) && typeof body.code === "string" ? body.code : null;
-  const current = isObject(body) && isObject(body.current) ? body.current : null;
+  const current = isObject(body) ? parseCompletionConflict(body.current) : null;
   if (response.status === 404) {
     return new CompletionRequestError("not_found", "This occurrence is no longer available.", serverCode);
   }
@@ -40,7 +42,15 @@ function responseError(response: Response, body: unknown): CompletionRequestErro
   if (response.status === 422) {
     return new CompletionRequestError("validation", "The completion request is invalid.", serverCode);
   }
-  return new CompletionRequestError("server", "The completion could not be confirmed. Try again.", serverCode);
+  return new CompletionRequestError(
+    "server",
+    response.status === 429
+      ? "The service is busy. This completion will retry safely."
+      : "The completion could not be confirmed. Try again.",
+    serverCode,
+    null,
+    parseRetryAfterMilliseconds(response.headers.get("Retry-After")),
+  );
 }
 
 export const completionApi = {

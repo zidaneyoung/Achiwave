@@ -4,16 +4,25 @@ import { AuthStateScreen } from "../../src/auth/AuthStateScreen";
 import { useAuthentication } from "../../src/auth/AuthContext";
 import { useAchiwaveTheme } from "../../src/theme/ThemeProvider";
 import { useReducedMotion } from "../../src/accessibility/ReducedMotionProvider";
+import { useCompletionSynchronization } from "../../src/completions/useCompletionSynchronization";
 
 export const unstable_settings = {
   initialRouteName: "(tabs)",
 };
 
 export default function ProtectedLayout() {
-  const { state } = useAuthentication();
+  const { state, revalidate } = useAuthentication();
   const theme = useAchiwaveTheme();
   const reduceMotion = useReducedMotion();
   const segments = useSegments();
+  const accountId = state.status === "authenticated" || state.status === "offline_limited"
+    ? state.user.id
+    : null;
+  useCompletionSynchronization(
+    accountId,
+    state.status === "authenticated",
+    state.status === "offline_limited" ? revalidate : null,
+  );
   if (state.status === "loading") {
     return (
       <AuthStateScreen

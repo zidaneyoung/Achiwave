@@ -1,5 +1,5 @@
 import { Link } from "expo-router";
-import { Pressable, StyleSheet } from "react-native";
+import { Alert, Pressable, StyleSheet } from "react-native";
 
 import { useAuthentication } from "../../../src/auth/AuthContext";
 import { RootDestinationScreen } from "../../../src/navigation/RootDestinationScreen";
@@ -9,6 +9,7 @@ import {
   useThemeStyles,
 } from "../../../src/theme/ThemeProvider";
 import { AppText } from "../../../src/theme/AppText";
+import { completionQueue } from "../../../src/completions/queue";
 import { borders, radii, sizing, spacing } from "../../../src/theme/tokens";
 
 export default function ProfileTabRoute() {
@@ -16,6 +17,33 @@ export default function ProfileTabRoute() {
   const { state, signOut } = useAuthentication();
   if (state.status !== "authenticated") {
     return null;
+  }
+  async function requestSignOut(): Promise<void> {
+    if (state.status !== "authenticated") return;
+    let pendingCount: number | null = null;
+    try {
+      pendingCount = await completionQueue.pendingCount(state.user.id);
+    } catch {
+      // A storage failure must not skip the safety warning.
+    }
+    if (pendingCount === 0) {
+      await signOut();
+      return;
+    }
+    Alert.alert(
+      "Discard pending completions?",
+      pendingCount === null
+        ? "Pending completion status could not be checked. Signing out clears all queued work on this device."
+        : `${pendingCount} pending completion${pendingCount === 1 ? "" : "s"} will be cancelled and removed from this device.`,
+      [
+        { text: "Keep me signed in", style: "cancel" },
+        {
+          text: "Discard and sign out",
+          style: "destructive",
+          onPress: () => void signOut(),
+        },
+      ],
+    );
   }
   return (
     <RootDestinationScreen
@@ -34,7 +62,7 @@ export default function ProfileTabRoute() {
       <Pressable
         accessibilityHint="Ends this session and removes local credentials."
         accessibilityRole="button"
-        onPress={() => void signOut()}
+        onPress={() => void requestSignOut()}
         style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
       >
         <AppText variant="label">Sign out</AppText>

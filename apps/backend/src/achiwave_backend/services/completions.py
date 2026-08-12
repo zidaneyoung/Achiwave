@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from achiwave_backend.models import (
@@ -23,9 +23,9 @@ from achiwave_backend.schemas.completions import (
     CompleteOccurrenceRequest,
     CompleteOccurrenceResponse,
     CompletionCampaignResponse,
-    CompletionReversalResponse,
     CompletionOccurrenceResponse,
     CompletionRecordResponse,
+    CompletionReversalResponse,
     ProgressEventReferenceResponse,
     ReverseCompletionRequest,
     ReverseCompletionResponse,
@@ -141,10 +141,25 @@ def _completion_response(
 
 
 def _current_state(
+    database_session: Session,
     occurrence: QuestOccurrence,
     campaign: Campaign,
     active_completion: QuestCompletion | None,
 ) -> dict[str, object]:
+    related_events = database_session.scalars(
+        select(ProgressEvent)
+        .where(
+            ProgressEvent.user_id == occurrence.user_id,
+            or_(
+                ProgressEvent.event_metadata["occurrence_id"].astext
+                == str(occurrence.id),
+                ProgressEvent.event_metadata["campaign_id"].astext
+                == str(campaign.id),
+            ),
+        )
+        .order_by(ProgressEvent.event_sequence.desc())
+        .limit(20)
+    ).all()
     return {
         "occurrence": {
             "id": str(occurrence.id),
@@ -175,6 +190,40 @@ def _current_state(
         },
         "active_completion_id": (
             str(active_completion.id) if active_completion is not None else None
+        ),
+        "active_completion": (
+            {
+                "id": str(active_completion.id),
+                "event_sequence": active_completion.event_sequence,
+                "reversed_at": (
+                    active_completion.reversed_at.isoformat()
+                    if active_completion.reversed_at is not None
+                    else None
+                ),
+            }
+            if active_completion is not None
+            else None
+        ),
+        "progress_events": [
+            {
+                "id": str(event.id),
+                "event_type": event.event_type,
+                "event_sequence": event.event_sequence,
+                "server_processed_at": (
+                    event.server_processed_at.isoformat()
+                    if event.server_processed_at is not None
+                    else None
+                ),
+            }
+            for event in related_events
+        ],
+        "event_sequence": max(
+            (event.event_sequence for event in related_events),
+            default=(
+                active_completion.event_sequence
+                if active_completion is not None
+                else 0
+            ),
         ),
     }
 
@@ -418,7 +467,9 @@ class CompletionService:
             database_session.commit()
             return response
 
-        current = _current_state(occurrence, campaign, active_completion)
+        current = _current_state(
+            database_session, occurrence, campaign, active_completion
+        )
         if occurrence.record_version != request.expected_occurrence_version:
             error = CompletionRejectedError(
                 "stale_occurrence_version",
@@ -717,6 +768,7 @@ class CompletionService:
             return response
 
         current = _current_state(
+            database_session,
             occurrence,
             campaign,
             completion if completion.reversed_at is None else None,
