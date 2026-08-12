@@ -50,7 +50,7 @@ export function createSynchronizationEngine<
   Operation extends SynchronizationOperation,
   Result,
 >(dependencies: SynchronizationEngineDependencies<Operation, Result>) {
-  let activeRun: Promise<SynchronizationSummary> | null = null;
+  const activeRuns = new Map<string, Promise<SynchronizationSummary>>();
 
   async function execute(accountId: string): Promise<SynchronizationSummary> {
     const summary: SynchronizationSummary = {
@@ -77,7 +77,11 @@ export function createSynchronizationEngine<
         const result = await dependencies.submit(operation);
         await dependencies.persistSuccess(operation, result);
         summary.succeeded += 1;
-        await dependencies.afterPersistedSuccess(operation, result);
+        try {
+          await dependencies.afterPersistedSuccess(operation, result);
+        } catch {
+          // Presentation refresh cannot downgrade a durably persisted success.
+        }
       } catch (error) {
         const failure = dependencies.classifyFailure(error);
         if (failure.kind === "authentication") {
@@ -99,11 +103,13 @@ export function createSynchronizationEngine<
 
   return {
     run(accountId: string): Promise<SynchronizationSummary> {
-      if (activeRun !== null) return activeRun;
-      activeRun = execute(accountId).finally(() => {
-        activeRun = null;
+      const existing = activeRuns.get(accountId);
+      if (existing) return existing;
+      const run = execute(accountId).finally(() => {
+        if (activeRuns.get(accountId) === run) activeRuns.delete(accountId);
       });
-      return activeRun;
+      activeRuns.set(accountId, run);
+      return run;
     },
   };
 }

@@ -44,6 +44,41 @@ test("overlapping synchronization calls share one run", async () => {
   assert.equal(validations, 1);
 });
 
+test("different account partitions never share a synchronization run", async () => {
+  const validated = [];
+  const engine = createSynchronizationEngine({
+    validateSession: async (accountId) => { validated.push(accountId); },
+    leaseDue: async () => [],
+    submit: async () => ({}),
+    persistSuccess: async () => undefined,
+    afterPersistedSuccess: async () => undefined,
+    classifyFailure: () => ({ kind: "retryable", safeClass: "network", safeMessage: "Reconnect.", retryAfterMilliseconds: null }),
+    persistRetryableFailure: async () => undefined,
+    persistPermanentFailure: async () => undefined,
+    releaseLeases: async () => undefined,
+  });
+  await Promise.all([engine.run("account-1"), engine.run("account-2")]);
+  assert.deepEqual(validated.sort(), ["account-1", "account-2"]);
+});
+
+test("presentation callback failure cannot downgrade persisted success", async () => {
+  let retryableWrites = 0;
+  const engine = createSynchronizationEngine({
+    validateSession: async () => undefined,
+    leaseDue: async () => [{ queueId: "queue-1" }],
+    submit: async () => ({}),
+    persistSuccess: async () => undefined,
+    afterPersistedSuccess: async () => { throw new Error("listener failed"); },
+    classifyFailure: () => ({ kind: "retryable", safeClass: "server", safeMessage: "Retry.", retryAfterMilliseconds: null }),
+    persistRetryableFailure: async () => { retryableWrites += 1; },
+    persistPermanentFailure: async () => undefined,
+    releaseLeases: async () => undefined,
+  });
+  const summary = await engine.run("account-1");
+  assert.equal(summary.succeeded, 1);
+  assert.equal(retryableWrites, 0);
+});
+
 test("authentication failure pauses and releases unsubmitted leases", async () => {
   const released = [];
   const operations = [{ queueId: "queue-1" }, { queueId: "queue-2" }];

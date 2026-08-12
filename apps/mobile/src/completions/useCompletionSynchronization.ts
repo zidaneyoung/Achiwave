@@ -24,10 +24,10 @@ export function useCompletionSynchronization(
       }
       const dueAt = await completionQueue.nextDueAt(accountId);
       if (!active || generation !== scheduleGeneration || dueAt === null) return;
-      const delay = Math.max(0, Date.parse(dueAt) - Date.now());
+      const delay = Math.max(5_000, Date.parse(dueAt) - Date.now());
       retryTimer = setTimeout(() => {
         retryTimer = null;
-        void synchronizeCompletionQueue(accountId).then(scheduleNext);
+        void synchronizeCompletionQueue(accountId).then(scheduleNext).catch(() => undefined);
       }, delay);
     };
     const synchronizeIfOnline = async (
@@ -56,10 +56,10 @@ export function useCompletionSynchronization(
       void synchronizeIfOnline(
         state.isConnected === true,
         state.isInternetReachable,
-      );
+      ).catch(() => undefined);
     });
     const unsubscribeQueue = completionQueue.subscribePartition(accountId, () => {
-      void scheduleNext();
+      void scheduleNext().catch(() => undefined);
     });
     return () => {
       active = false;
