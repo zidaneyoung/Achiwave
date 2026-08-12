@@ -46,14 +46,14 @@ function result() {
       completedAt: "2026-08-12T12:00:01Z",
       reversedAt: null,
     },
-    completion: { id: "completion" },
+    completion: { id: "completion", eventSequence: 7 },
     campaign: {
       id: "campaign",
       status: "completed",
       recordVersion: 5,
       completedAt: "2026-08-12T12:00:01Z",
     },
-    progressEvents: [],
+    progressEvents: [{ eventSequence: 8 }],
   };
 }
 
@@ -78,7 +78,32 @@ test("canonical result is stored before pending presentation becomes synchronize
   assert.equal(confirmed.phase, "synchronized");
   assert.equal(confirmed.canonical.occurrenceStatus, "completed");
   assert.equal(confirmed.canonical.campaignStatus, "completed");
+  assert.equal(confirmed.canonical.eventSequence, 8);
   assert.equal("xp" in confirmed, false);
+});
+
+test("out-of-order completion responses cannot regress newer canonical state", async () => {
+  await clearCompletionPresentations();
+  beginCompletionPresentation("owner", quest(), input());
+  const current = confirmCompletionPresentation("owner", result());
+
+  const staleResult = result();
+  staleResult.occurrence.recordVersion = 2;
+  staleResult.campaign.recordVersion = 4;
+  const delayed = confirmCompletionPresentation("owner", staleResult);
+  refreshCompletionCanonical("owner", quest({
+    campaignRecordVersion: 4,
+    occurrence: {
+      id: "occurrence",
+      status: "available",
+      recordVersion: 2,
+      activeCompletionId: null,
+    },
+  }));
+
+  assert.equal(delayed, current);
+  assert.equal(getCompletionPresentation("owner", "occurrence")?.canonical.occurrenceVersion, 3);
+  assert.equal(getCompletionPresentation("owner", "occurrence")?.canonical.campaignVersion, 5);
 });
 
 test("account scope prevents another owner from seeing pending state", async () => {

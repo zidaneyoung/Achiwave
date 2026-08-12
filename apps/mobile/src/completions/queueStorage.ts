@@ -7,8 +7,9 @@ import {
 } from "./queueTypes";
 import { retainedTerminalCutoff } from "./queuePolicy";
 import { COMPLETION_RETRY_MAX_AUTOMATIC_ATTEMPTS } from "./retryPolicy";
+import { getRuntimeEnvironment } from "../config/runtime";
 
-const DATABASE_NAME = "achiwave-protected-sync.db";
+const DATABASE_NAME = `achiwave-${getRuntimeEnvironment().apiEnvironment}-protected-sync.db`;
 const queueListeners = new Map<string, Set<() => void>>();
 const partitionListeners = new Map<string, Set<() => void>>();
 
