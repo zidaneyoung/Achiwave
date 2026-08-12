@@ -5,6 +5,7 @@ import { AuthenticationRequestError } from "../auth/service";
 import { isObject, parseCompleteOccurrence, parseReverseCompletion } from "./contracts";
 import type { CompleteOccurrenceResult, ReverseCompletionResult } from "./types";
 import { CompletionRequestError } from "./errors";
+import { parseCompletionConflict } from "./conflicts";
 export { CompletionRequestError } from "./errors";
 
 export interface CompleteOccurrenceInput {
@@ -21,7 +22,7 @@ async function readJson(response: Response): Promise<unknown> {
 
 function responseError(response: Response, body: unknown): CompletionRequestError {
   const serverCode = isObject(body) && typeof body.code === "string" ? body.code : null;
-  const current = isObject(body) && isObject(body.current) ? body.current : null;
+  const current = isObject(body) ? parseCompletionConflict(body.current) : null;
   if (response.status === 404) {
     return new CompletionRequestError("not_found", "This occurrence is no longer available.", serverCode);
   }

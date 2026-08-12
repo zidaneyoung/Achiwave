@@ -2,8 +2,8 @@ import { AuthenticationRequestError, authenticationService } from "../auth/servi
 import { invalidateCachedCampaign } from "../campaigns/cache";
 import { completionApi } from "./api";
 import { CompletionRequestError } from "./errors";
-import { classifyCompletionFailure } from "./failure";
-import { confirmCompletionPresentation } from "./presentation";
+import { classifyCompletionFailure, type CompletionFailureReason } from "./failure";
+import { confirmCompletionPresentation, failCompletionPresentation } from "./presentation";
 import {
   COMPLETION_QUEUE_LEASE_MILLISECONDS,
 } from "./queuePolicy";
@@ -69,11 +69,16 @@ const engine = createSynchronizationEngine<
   classifyFailure(error) {
     if (isAuthenticationFailure(error)) return { kind: "authentication" };
     const failure = classifyCompletionFailure(error);
-    return {
-      kind: "retryable",
-      safeClass: failure.reason,
-      safeMessage: failure.message,
-    };
+    if (failure.kind === "permanent_failure") {
+      const current = error instanceof CompletionRequestError ? error.current : null;
+      return {
+        kind: "permanent",
+        safeClass: failure.reason,
+        safeMessage: failure.message,
+        canonicalResultJson: current ? JSON.stringify(current) : null,
+      };
+    }
+    return { kind: "retryable", safeClass: failure.reason, safeMessage: failure.message };
   },
   persistRetryableFailure(operation, failure) {
     return completionQueueStorage.markRetryableFailure(
@@ -83,6 +88,35 @@ const engine = createSynchronizationEngine<
       failure.safeMessage,
       new Date(),
     );
+  },
+  async persistPermanentFailure(operation, failure) {
+    await completionQueueStorage.markPermanentFailure(
+      operation.accountId,
+      operation.queueId,
+      failure.safeClass,
+      failure.safeMessage,
+      failure.canonicalResultJson,
+      new Date(),
+    );
+    failCompletionPresentation(
+      operation.accountId,
+      operation.occurrenceId,
+      operation.clientMutationId,
+      {
+        reason: failure.safeClass as CompletionFailureReason,
+        kind: "permanent_failure",
+        message: failure.safeMessage,
+        nextAction: "Review the latest state",
+        refreshCanonical: true,
+      },
+    );
+    const current = failure.canonicalResultJson
+      ? JSON.parse(failure.canonicalResultJson) as { campaign?: { id?: unknown } }
+      : null;
+    if (typeof current?.campaign?.id === "string") {
+      invalidateCachedCampaign(operation.accountId, current.campaign.id);
+    }
+    for (const listener of refreshListeners) listener(operation.occurrenceId);
   },
   releaseLeases(accountId, operations) {
     return completionQueueStorage.releaseLeases(

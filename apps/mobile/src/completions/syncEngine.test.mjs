@@ -13,6 +13,7 @@ test("canonical result is persisted before synchronized presentation", async () 
     afterPersistedSuccess: async () => order.push("presented"),
     classifyFailure: () => ({ kind: "retryable", safeClass: "network", safeMessage: "Reconnect." }),
     persistRetryableFailure: async () => undefined,
+    persistPermanentFailure: async () => undefined,
     releaseLeases: async () => undefined,
   });
   const summary = await engine.run("account-1");
@@ -32,6 +33,7 @@ test("overlapping synchronization calls share one run", async () => {
     afterPersistedSuccess: async () => undefined,
     classifyFailure: () => ({ kind: "retryable", safeClass: "network", safeMessage: "Reconnect." }),
     persistRetryableFailure: async () => undefined,
+    persistPermanentFailure: async () => undefined,
     releaseLeases: async () => undefined,
   });
   const first = engine.run("account-1");
@@ -55,9 +57,33 @@ test("authentication failure pauses and releases unsubmitted leases", async () =
       ? { kind: "authentication" }
       : { kind: "retryable", safeClass: "network", safeMessage: "Reconnect." },
     persistRetryableFailure: async () => undefined,
+    persistPermanentFailure: async () => undefined,
     releaseLeases: async (_accountId, pending) => released.push(...pending),
   });
   const summary = await engine.run("account-1");
   assert.equal(summary.authenticationPaused, true);
   assert.deepEqual(released, operations);
+});
+
+test("permanent conflict is persisted and never submitted again in the run", async () => {
+  let persisted = 0;
+  const engine = createSynchronizationEngine({
+    validateSession: async () => undefined,
+    leaseDue: async () => [{ queueId: "queue-1" }],
+    submit: async () => { throw new Error("conflict"); },
+    persistSuccess: async () => undefined,
+    afterPersistedSuccess: async () => undefined,
+    classifyFailure: () => ({
+      kind: "permanent",
+      safeClass: "stale_version",
+      safeMessage: "The occurrence changed.",
+      canonicalResultJson: "{}",
+    }),
+    persistRetryableFailure: async () => undefined,
+    persistPermanentFailure: async () => { persisted += 1; },
+    releaseLeases: async () => undefined,
+  });
+  const summary = await engine.run("account-1");
+  assert.equal(persisted, 1);
+  assert.equal(summary.permanentFailures, 1);
 });

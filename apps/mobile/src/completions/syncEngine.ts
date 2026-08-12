@@ -4,7 +4,13 @@ export interface SynchronizationOperation {
 
 export type SynchronizationFailure =
   | { kind: "authentication" }
-  | { kind: "retryable"; safeClass: string; safeMessage: string };
+  | { kind: "retryable"; safeClass: string; safeMessage: string }
+  | {
+      kind: "permanent";
+      safeClass: string;
+      safeMessage: string;
+      canonicalResultJson: string | null;
+    };
 
 export interface SynchronizationEngineDependencies<
   Operation extends SynchronizationOperation,
@@ -20,6 +26,10 @@ export interface SynchronizationEngineDependencies<
     operation: Operation,
     failure: Extract<SynchronizationFailure, { kind: "retryable" }>,
   ): Promise<void>;
+  persistPermanentFailure(
+    operation: Operation,
+    failure: Extract<SynchronizationFailure, { kind: "permanent" }>,
+  ): Promise<void>;
   releaseLeases(accountId: string, operations: Operation[]): Promise<void>;
 }
 
@@ -28,6 +38,7 @@ export interface SynchronizationSummary {
   attempted: number;
   succeeded: number;
   retryableFailures: number;
+  permanentFailures: number;
 }
 
 export function createSynchronizationEngine<
@@ -42,6 +53,7 @@ export function createSynchronizationEngine<
       attempted: 0,
       succeeded: 0,
       retryableFailures: 0,
+      permanentFailures: 0,
     };
     try {
       await dependencies.validateSession(accountId);
@@ -68,8 +80,13 @@ export function createSynchronizationEngine<
           await dependencies.releaseLeases(accountId, operations.slice(index));
           break;
         }
-        await dependencies.persistRetryableFailure(operation, failure);
-        summary.retryableFailures += 1;
+        if (failure.kind === "permanent") {
+          await dependencies.persistPermanentFailure(operation, failure);
+          summary.permanentFailures += 1;
+        } else {
+          await dependencies.persistRetryableFailure(operation, failure);
+          summary.retryableFailures += 1;
+        }
       }
     }
     return summary;

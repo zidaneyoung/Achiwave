@@ -19,11 +19,12 @@ export interface CompletionFailure {
 }
 
 function stringAt(
-  source: Record<string, unknown> | null,
+  source: unknown,
   section: string,
   field: string,
 ): string | null {
-  const value = source?.[section];
+  if (typeof source !== "object" || source === null) return null;
+  const value = (source as Record<string, unknown>)[section];
   return typeof value === "object" && value !== null &&
     typeof (value as Record<string, unknown>)[field] === "string"
     ? (value as Record<string, string>)[field]

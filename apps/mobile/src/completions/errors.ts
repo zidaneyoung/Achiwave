@@ -10,13 +10,13 @@ export type CompletionErrorCode =
 export class CompletionRequestError extends Error {
   readonly code: CompletionErrorCode;
   readonly serverCode: string | null;
-  readonly current: Record<string, unknown> | null;
+  readonly current: CompletionConflictSnapshot | null;
 
   constructor(
     code: CompletionErrorCode,
     message: string,
     serverCode: string | null = null,
-    current: Record<string, unknown> | null = null,
+    current: CompletionConflictSnapshot | null = null,
   ) {
     super(message);
     this.name = "CompletionRequestError";
@@ -25,3 +25,4 @@ export class CompletionRequestError extends Error {
     this.current = current;
   }
 }
+import type { CompletionConflictSnapshot } from "./conflicts";

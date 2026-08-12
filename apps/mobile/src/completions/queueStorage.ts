@@ -353,6 +353,36 @@ export const completionQueueStorage = {
     );
   },
 
+  async markPermanentFailure(
+    accountId: string,
+    queueId: string,
+    safeErrorClass: string,
+    safeErrorMessage: string,
+    canonicalResultJson: string | null,
+    now: Date,
+  ): Promise<void> {
+    const db = await database();
+    const nowIso = now.toISOString();
+    const updated = await db.runAsync(
+      `UPDATE completion_queue
+       SET state = 'permanent_failure', safe_error_class = ?,
+           safe_error_message = ?, canonical_result_json = ?,
+           lease_expires_at = NULL, next_attempt_at = NULL,
+           terminal_at = ?, updated_at = ?
+       WHERE queue_id = ? AND account_id = ? AND state = 'in_flight'`,
+      safeErrorClass,
+      safeErrorMessage,
+      canonicalResultJson,
+      nowIso,
+      nowIso,
+      queueId,
+      accountId,
+    );
+    if (updated.changes !== 1) {
+      throw new Error("The permanent synchronization failure was not persisted.");
+    }
+  },
+
   async releaseLeases(
     accountId: string,
     queueIds: string[],
