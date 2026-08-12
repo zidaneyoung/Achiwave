@@ -1,9 +1,9 @@
 from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 class CompleteOccurrenceRequest(BaseModel):
@@ -90,6 +90,27 @@ class CompletionReversalResponse(BaseModel):
     server_received_at: datetime
     server_processed_at: datetime
     event_sequence: int
+
+
+class CompletionHistoryCompletionResponse(CompletionRecordResponse):
+    client_mutation_id: UUID | None
+
+
+class CompletionHistoryReversalResponse(CompletionReversalResponse):
+    client_mutation_id: UUID | None
+
+
+class CompletionHistoryItemResponse(BaseModel):
+    completion: CompletionHistoryCompletionResponse
+    reversal: CompletionHistoryReversalResponse | None
+    progress_events: list[ProgressEventReferenceResponse]
+
+
+class CompletionHistoryResponse(BaseModel):
+    occurrence_id: UUID
+    quest_id: UUID
+    campaign_id: UUID
+    items: list[CompletionHistoryItemResponse]
 
 
 class CompleteOccurrenceResponse(BaseModel):

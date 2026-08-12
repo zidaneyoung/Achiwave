@@ -3,11 +3,15 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
-from achiwave_backend.api.dependencies import AuthenticationContext, AuthenticationDependencies
+from achiwave_backend.api.dependencies import (
+    AuthenticationContext,
+    AuthenticationDependencies,
+)
 from achiwave_backend.api.errors import ApiError, ErrorResponse
 from achiwave_backend.schemas.completions import (
     CompleteOccurrenceRequest,
     CompleteOccurrenceResponse,
+    CompletionHistoryResponse,
     ReverseCompletionRequest,
     ReverseCompletionResponse,
 )
@@ -24,6 +28,25 @@ def create_completions_router(
 ) -> APIRouter:
     router = APIRouter(tags=["completions"])
     service = CompletionService()
+
+    @router.get(
+        "/api/v1/quest-occurrences/{occurrence_id}/completion-history",
+        response_model=CompletionHistoryResponse,
+        responses={status.HTTP_404_NOT_FOUND: {"model": ErrorResponse}},
+    )
+    def completion_history(
+        occurrence_id: UUID,
+        context: AuthenticationContext = Depends(authentication.current_context),
+        database_session: Session = Depends(authentication.database_session),
+    ) -> CompletionHistoryResponse:
+        try:
+            return service.history(database_session, context.user, occurrence_id)
+        except CompletionNotFoundError as error:
+            raise ApiError(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="occurrence_not_found",
+                message="The quest occurrence was not found.",
+            ) from error
 
     @router.post(
         "/api/v1/quest-occurrences/{occurrence_id}/complete",
